@@ -56,9 +56,6 @@ const RentalRequests = () => {
     } catch (e) { toast.error('Reject failed'); }
   };
 
-  const pending = apps.filter(a => a.status.toLowerCase() === 'pending');
-  const approved = apps.filter(a => a.status.toLowerCase() === 'approved');
-  const rejected = apps.filter(a => a.status.toLowerCase() === 'rejected');
   // Make filters null-safe in case status is missing
   const safePending = Array.isArray(apps) ? apps.filter(a => (a.status || '').toLowerCase() === 'pending') : [];
   const safeApproved = Array.isArray(apps) ? apps.filter(a => (a.status || '').toLowerCase() === 'approved') : [];
