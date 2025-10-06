@@ -193,12 +193,8 @@ export const registerUser = async (req, res) => {
       `,
     };
 
-    transporter.sendMail(mailOptions, async (error, info) => {
-      if (error) {
-        console.error('Error sending email:', error);
-        return res.status(500).json({ msg: 'Error sending OTP email' });
-      }
-
+    try {
+      // Create the user record regardless of email sending outcome so the flow can continue
       user = new User({
         username,
         email: lowerEmail,
@@ -213,9 +209,31 @@ export const registerUser = async (req, res) => {
       });
 
       await user.save();
-      console.log('Email sent:', info.response);
-      res.status(201).json({ msg: 'OTP sent to email, please verify your email.' });
-    });
+      console.log('User created for registration:', user.email);
+
+      // If email credentials are present, try to send the OTP email. Otherwise, return a helpful response.
+      const emailConfigured = !!(process.env.EMAIL_USER && process.env.EMAIL_PASS);
+
+      if (!emailConfigured) {
+        console.warn('Email credentials not configured on server. Skipping sendMail and returning OTP in response for testing.');
+        // IMPORTANT: Exposing OTP in production is a security risk. This fallback is intended for short-term recovery/testing.
+        return res.status(201).json({ msg: 'Email not configured on server. Use OTP to verify.', otp });
+      }
+
+      try {
+        const info = await transporter.sendMail(mailOptions);
+        console.log('Email sent:', info && info.response);
+        return res.status(201).json({ msg: 'OTP sent to email, please verify your email.' });
+      } catch (mailErr) {
+        console.error('Error sending email:', mailErr);
+        // Respond with success status (user created) but indicate email failure so client can show instructions
+        return res.status(201).json({ msg: 'User created but failed to send OTP email. Contact admin to resolve email delivery.', warning: 'email_failed' });
+      }
+
+    } catch (err) {
+      console.error('Error during registration flow (saving user / sending email):', err);
+      return res.status(500).json({ msg: 'Server error' });
+    }
 
   } catch (err) {
     console.error('Error during registration:', err);
