@@ -12,23 +12,69 @@ const SJDM_ZOOM = 13;
 
 const fetchProperties = async () => {
   try {
-    const res = await fetch(buildApi('/properties'));
+    const apiUrl = buildApi('/properties');
+    console.log('🔍 Fetching from:', apiUrl);
+    
+    const res = await fetch(apiUrl, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      }
+    });
+    
+    console.log('📡 Response status:', res.status, res.statusText);
+    
+    // Check if response is HTML instead of JSON
+    const contentType = res.headers.get('content-type');
+    console.log('📄 Content-Type:', contentType);
+    
     if (!res.ok) {
-      console.error('Failed to fetch properties:', res.status);
+      console.error('❌ HTTP Error:', res.status);
+      const errorText = await res.text();
+      console.error('📝 Error response preview:', errorText.substring(0, 200));
+      throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    }
+    
+    // If response is not JSON, handle accordingly
+    if (!contentType || !contentType.includes('application/json')) {
+      const textResponse = await res.text();
+      console.warn('⚠️ Expected JSON but got:', textResponse.substring(0, 200));
+      
+      // Try to parse as JSON anyway (some APIs don't set proper content-type)
+      try {
+        const parsedData = JSON.parse(textResponse);
+        console.log('✅ Successfully parsed as JSON');
+        return Array.isArray(parsedData) ? parsedData : (parsedData.data || parsedData.properties || []);
+      } catch (parseError) {
+        console.error('❌ Failed to parse as JSON:', parseError);
+        return [];
+      }
+    }
+    
+    const data = await res.json();
+    console.log('✅ API Data structure:', data);
+    
+    // Handle different response structures
+    if (Array.isArray(data)) {
+      return data;
+    } else if (data && Array.isArray(data.data)) {
+      return data.data;
+    } else if (data && Array.isArray(data.properties)) {
+      return data.properties;
+    } else {
+      console.warn('⚠️ Unexpected data structure:', data);
       return [];
     }
-    const data = await res.json();
-    // Handle different possible response structures
-    return Array.isArray(data) ? data : (data.data || data.properties || []);
   } catch (error) {
-    console.error('Error fetching properties:', error);
+    console.error('💥 Fetch error:', error);
     return [];
   }
 };
 
 const PropertyMap = () => {
   useEffect(() => {
-    // Fix for default markers in react-leaflet
+    // Fix for default markers
     delete L.Icon.Default.prototype._getIconUrl;
     L.Icon.Default.mergeOptions({
       iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
@@ -48,18 +94,15 @@ const PropertyMap = () => {
       try {
         setLoading(true);
         setError(null);
-        const data = await fetchProperties();
+        console.log('🔄 Loading properties...');
         
-        // Ensure properties is always an array
-        if (Array.isArray(data)) {
-          setProperties(data);
-        } else {
-          console.warn('Expected array but got:', data);
-          setProperties([]);
-        }
+        const data = await fetchProperties();
+        console.log('📊 Properties loaded:', data);
+        
+        setProperties(Array.isArray(data) ? data : []);
       } catch (err) {
-        console.error('Error loading properties:', err);
-        setError('Failed to load properties');
+        console.error('❌ Load error:', err);
+        setError(err.message || 'Failed to load properties');
         setProperties([]);
       } finally {
         setLoading(false);
@@ -68,7 +111,6 @@ const PropertyMap = () => {
 
     loadProperties();
   }, []);
-
   // SJDM bounding box (approximate):
   const SJDM_BOUNDS = {
     north: 14.8700,
