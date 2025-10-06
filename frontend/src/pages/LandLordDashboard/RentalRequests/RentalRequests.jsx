@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import './RentalRequests.css';
 import { useParams } from 'react-router-dom';
 import { fetchApplicationsByProperty, approveApplication, rejectApplication } from '../../../services/application/ApplicationService';
+import { normalizePayload } from '../../../services/apiConfig';
 import { toast } from 'react-toastify';
 import { FaUserCircle, FaCheckCircle, FaTimesCircle, FaClock } from 'react-icons/fa';
 
@@ -14,7 +15,9 @@ const RentalRequests = () => {
   const load = async () => {
     try {
       const res = await fetchApplicationsByProperty(propertyId);
-      setApps(res.applications || []);
+  // Normalize response using helper (accepts common keys like data/result/applications/messages)
+  const appsPayload = normalizePayload(res, ['applications', 'data', 'result', 'messages']);
+  setApps(appsPayload || []);
       // Fetch property details to get availableUnits/totalUnits
       try {
         const pRes = await fetch(`/api/properties/${propertyId}`);
@@ -56,6 +59,10 @@ const RentalRequests = () => {
   const pending = apps.filter(a => a.status.toLowerCase() === 'pending');
   const approved = apps.filter(a => a.status.toLowerCase() === 'approved');
   const rejected = apps.filter(a => a.status.toLowerCase() === 'rejected');
+  // Make filters null-safe in case status is missing
+  const safePending = Array.isArray(apps) ? apps.filter(a => (a.status || '').toLowerCase() === 'pending') : [];
+  const safeApproved = Array.isArray(apps) ? apps.filter(a => (a.status || '').toLowerCase() === 'approved') : [];
+  const safeRejected = Array.isArray(apps) ? apps.filter(a => (a.status || '').toLowerCase() === 'rejected') : [];
 
   return (
     <div className="dashboard-container rental-requests">
@@ -79,8 +86,8 @@ const RentalRequests = () => {
           </div>
         )}
         <section>
-          <h3>Pending Applications ({pending.length})</h3>
-          {pending.map(a => (
+          <h3>Pending Applications ({safePending.length})</h3>
+          {safePending.map(a => (
             <div key={a._id} className="app-row">
               <div className="app-row-header">
                 <FaClock className="status-icon pending" />
@@ -95,13 +102,13 @@ const RentalRequests = () => {
               </div>
             </div>
           ))}
-          {pending.length === 0 && (
+          {safePending.length === 0 && (
             <p className="no-apps">No pending applications</p>
           )}
         </section>
         <section>
-          <h3>Approved Applications ({approved.length})</h3>
-          {approved.map(a => (
+          <h3>Approved Applications ({safeApproved.length})</h3>
+          {safeApproved.map(a => (
             <div key={a._id} className="app-row">
               <div className="app-row-header">
                 <FaCheckCircle className="status-icon approved" />
@@ -116,13 +123,13 @@ const RentalRequests = () => {
               </span>
             </div>
           ))}
-          {approved.length === 0 && (
+          {safeApproved.length === 0 && (
             <p className="no-apps">No approved applications</p>
           )}
         </section>
         <section>
-          <h3>Rejected Applications ({rejected.length})</h3>
-          {rejected.map(a => (
+          <h3>Rejected Applications ({safeRejected.length})</h3>
+          {safeRejected.map(a => (
             <div key={a._id} className="app-row">
               <div className="app-row-header">
                 <FaTimesCircle className="status-icon rejected" />
@@ -137,7 +144,7 @@ const RentalRequests = () => {
               </span>
             </div>
           ))}
-          {rejected.length === 0 && (
+          {safeRejected.length === 0 && (
             <p className="no-apps">No rejected applications</p>
           )}
         </section>

@@ -123,3 +123,21 @@ export default {
   buildUpload,
   apiRequest 
 };
+
+// Normalize API payloads to common shapes.
+// Accepts objects like: array, { data: [...] }, { result: [...] }, { messages: [...] }, { applications: [...] }
+export const normalizePayload = (payload, preferredKeys = ['data', 'result', 'messages', 'applications']) => {
+  if (!payload) return [];
+  if (Array.isArray(payload)) return payload;
+  // If payload is object with the properties we're looking for
+  for (const k of preferredKeys) {
+    if (payload && Object.prototype.hasOwnProperty.call(payload, k) && Array.isArray(payload[k])) {
+      return payload[k];
+    }
+  }
+  // If payload has a top-level property that itself is an array (e.g., payload.applications)
+  const values = Object.values(payload).filter(v => Array.isArray(v));
+  if (values.length) return values[0];
+  // Nothing matched — return empty array (caller can handle object forms separately if needed)
+  return [];
+};

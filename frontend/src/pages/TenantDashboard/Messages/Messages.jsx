@@ -3,7 +3,7 @@ import './Messages.css';
 import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import ChatBox from '../../../components/ChatBox/ChatBox';
-import { buildUpload } from '../../../services/apiConfig';
+import { buildUpload, normalizePayload } from '../../../services/apiConfig';
 import TenantSidebar from '../TenantSidebar/TenantSidebar';
 import { AuthContext } from '../../../context/AuthContext';
 
@@ -26,11 +26,9 @@ const Messages = ({ currentUserId: propCurrentUserId }) => {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(res => {
-        // Defensive: ensure res.data is an array before using it
-        const payload = Array.isArray(res.data) ? res.data : (res.data && Array.isArray(res.data.data) ? res.data.data : []);
-        if (!Array.isArray(res.data)) {
-          console.warn('Unexpected /api/messages/threads response shape, normalized to array:', res.data);
-        }
+        // Normalize the response to an array using normalizePayload
+        const payload = normalizePayload(res.data, ['data', 'result', 'messages', 'threads', 'applications']);
+        if (!Array.isArray(res.data)) console.warn('Unexpected /api/messages/threads response shape, normalized to array:', res.data);
         setUsers(payload);
         if (targetUserId) {
           const found = payload.find(u => String(u._id || u.id) === String(targetUserId));
