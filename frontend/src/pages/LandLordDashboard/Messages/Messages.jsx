@@ -23,14 +23,16 @@ const Messages = ({ currentUserId }) => {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(res => {
-        setUsers(res.data);
+        const payload = Array.isArray(res.data) ? res.data : (res.data && Array.isArray(res.data.data) ? res.data.data : []);
+        if (!Array.isArray(res.data)) console.warn('Unexpected /api/messages/threads shape (landlord), normalized to array:', res.data);
+        setUsers(payload);
         // If coming from Contact Owner, auto-select the target user
         if (targetUserId) {
-          const found = res.data.find(u => u._id === targetUserId);
+          const found = payload.find(u => String(u._id) === String(targetUserId));
           if (found) setSelectedUser(found);
         }
       })
-      .catch(() => setUsers([]));
+      .catch((err) => { console.error('Error fetching landlord threads:', err); setUsers([]); });
   }, [currentUserId, targetUserId]);
 
   // helper to resolve avatar src from various possible fields
@@ -60,8 +62,8 @@ const Messages = ({ currentUserId }) => {
         <div className="messages-layout" style={{display:'flex',height:'80vh'}}>
           <div className="messages-list" style={{width:320, borderRight:'1px solid #eee', overflowY:'auto', background:'#f7f7fa'}}>
   <h3 className="messages-title">Messages</h3>
-        {users.length === 0 && <div style={{color:'#888',padding:'1em'}}>No conversations yet.</div>}
-        {users.map(u => (
+        {(!Array.isArray(users) || users.length === 0) && <div style={{color:'#888',padding:'1em'}}>No conversations yet.</div>}
+        {Array.isArray(users) && users.map(u => (
           <div key={u._id} style={{padding:'0.75em 1em',cursor:'pointer',background:selectedUser&&selectedUser._id===u._id?'#e6eaff':'',display:'flex',alignItems:'center',borderRadius:8,margin:'0.25em 0'}} onClick={()=>setSelectedUser(u)}>
             <img src={avatarFor(u)} alt={u.fullName} style={{width:40,height:40,borderRadius:'50%',marginRight:12,objectFit:'cover',border:'2px solid #dbeafe'}} />
             <div style={{flex:1}}>
