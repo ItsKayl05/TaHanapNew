@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import { validationResult } from 'express-validator';
 import { Resend } from 'resend';
+import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -19,25 +20,66 @@ try {
   console.error('[mail] Failed to initialize Resend client:', e);
 }
 
+// Nodemailer transporter (SMTP) fallback/option
+let transporter = null;
+try {
+  const smtpHost = process.env.SMTP_HOST;
+  const smtpPort = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : undefined;
+  if (smtpHost && smtpPort) {
+    transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: typeof process.env.SMTP_SECURE !== 'undefined' ? process.env.SMTP_SECURE === 'true' : smtpPort === 465,
+      auth: {
+        user: process.env.SMTP_USER || process.env.EMAIL_USER,
+        pass: process.env.SMTP_PASS || process.env.EMAIL_PASS,
+      },
+    });
+    console.log('[mail] SMTP transporter created');
+  }
+} catch (e) {
+  console.warn('[mail] Failed to create SMTP transporter (will only use Resend if available):', e && e.message ? e.message : e);
+}
+
 // Initialize Resend client if API key is present
-// Unified email sender: uses Resend; SMTP support removed.
+// Unified email sender: prefers Resend; falls back to SMTP transporter if available.
+// If you want to force SMTP even when RESEND_API_KEY exists, set FORCE_SMTP=true in env.
 const sendEmail = async ({ from, to, subject, html, text }) => {
-  if (!resendClient) {
-    const err = new Error('No email provider configured. Set RESEND_API_KEY in environment');
-    console.error('[mail] sendEmail failed:', err.message);
-    throw err;
+  const useSmtp = !!process.env.FORCE_SMTP;
+
+  if (resendClient && !useSmtp) {
+    try {
+      // Resend SDK returns an object; some versions return { id } or a richer object.
+      const resp = await resendClient.emails.send({ from, to, subject, html, text });
+      lastMailStatus.provider = 'resend';
+      lastMailStatus.lastSend = { ts: Date.now(), response: resp && (resp.id || resp.messageId) ? (resp.id || resp.messageId) : JSON.stringify(resp) };
+      console.log('[mail] Sent via Resend:', lastMailStatus.lastSend.response);
+      return { data: resp, error: null };
+    } catch (err) {
+      lastMailStatus.lastError = String(err && err.message ? err.message : err);
+      console.error('[mail] Resend send error:', err);
+      // fallthrough to try SMTP if available
+    }
   }
 
-  try {
-    const resp = await resendClient.emails.send({ from, to, subject, html, text });
-    lastMailStatus.lastSend = { ts: Date.now(), response: resp && resp.id ? resp.id : JSON.stringify(resp) };
-    console.log('[mail] Sent via Resend:', resp && resp.id ? resp.id : resp);
-    return resp;
-  } catch (err) {
-    lastMailStatus.lastError = String(err && err.message ? err.message : err);
-    console.error('[mail] Resend send error:', err);
-    throw err;
+  if (transporter) {
+    try {
+      const info = await transporter.sendMail({ from, to, subject, html, text });
+      lastMailStatus.provider = 'smtp';
+      lastMailStatus.lastSend = { ts: Date.now(), response: info && (info.response || info.messageId) ? (info.response || info.messageId) : JSON.stringify(info) };
+      console.log('[mail] Sent via SMTP:', lastMailStatus.lastSend.response);
+      return { data: info, error: null };
+    } catch (err) {
+      lastMailStatus.lastError = String(err && err.message ? err.message : err);
+      console.error('[mail] SMTP send error:', err);
+      return { data: null, error: err };
+    }
   }
+
+  const err = new Error('No email provider configured (RESEND_API_KEY or SMTP settings required)');
+  lastMailStatus.lastError = err.message;
+  console.error('[mail] sendEmail failed:', err.message);
+  return { data: null, error: err };
 };
 
 // In-memory last mail status for debugging (not persisted)
