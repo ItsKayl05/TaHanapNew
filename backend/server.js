@@ -33,7 +33,8 @@ const getCorsOptions = () => {
         'http://localhost:5174', 
         'http://localhost:5176',
         'https://tahanap-frontend.onrender.com',
-        'https://tahanap-backend.onrender.com'
+        'https://tahanap-backend.onrender.com',
+        'https://tahanap-admin.onrender.com'
     ];
 
     // Add any additional origins from environment variable
@@ -78,7 +79,8 @@ const io = new SocketIOServer(server, {
                 'http://localhost:5174',
                 'http://localhost:5176',
                 'https://tahanap-frontend.onrender.com',
-                'https://tahanap-backend.onrender.com'
+                'https://tahanap-backend.onrender.com',
+                'https://tahanap-admin.onrender.com'
             ];
 
             if (allowedOrigins.includes(origin)) {
@@ -164,6 +166,7 @@ app.use((req, res, next) => {
     const allowedOrigins = [
         'https://tahanap-frontend.onrender.com',
         'https://tahanap-backend.onrender.com',
+        'https://tahanap-admin.onrender.com',
         'http://localhost:5173',
         'http://localhost:5174',
         'http://localhost:5176'
@@ -284,6 +287,7 @@ app.use((err, req, res, next) => {
             allowedOrigins: [
                 'https://tahanap-frontend.onrender.com',
                 'https://tahanap-backend.onrender.com',
+                'https://tahanap-admin.onrender.com',
                 'http://localhost:5173',
                 'http://localhost:5174',
                 'http://localhost:5176'
@@ -319,6 +323,7 @@ server.listen(port, '0.0.0.0', () => {
     console.log(`🌐 CORS enabled for: ${[
         'https://tahanap-frontend.onrender.com',
         'https://tahanap-backend.onrender.com',
+        'https://tahanap-admin.onrender.com',
         'http://localhost:5173',
         'http://localhost:5174',
         'http://localhost:5176'
