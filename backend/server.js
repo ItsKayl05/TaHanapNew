@@ -21,7 +21,7 @@ import User from './models/User.js';
 
 // Initialize Express
 const app = express();
-const port = 4000;
+const port = process.env.PORT || 4000;
 
 // Create HTTP server and Socket.IO instance
 import http from 'http';
