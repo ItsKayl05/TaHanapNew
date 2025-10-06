@@ -3,6 +3,7 @@ import express from 'express';
 import User from '../models/User.js'; // Assuming User model is defined
 import Property from '../models/Property.js'; // Assuming Property model is defined
 import { getUserBarangayStats } from '../controllers/adminController.js';
+import { lastMailStatusGetter } from '../controllers/authController.js';
 
 const router = express.Router();
 
@@ -50,3 +51,17 @@ router.get('/overview', async (req, res) => {
 });
 
 export default router;
+
+// Protected debug endpoint for mail status
+router.get('/mail-status', (req, res) => {
+    const token = req.headers['x-debug-token'];
+    if (!process.env.DEBUG_TOKEN) return res.status(403).json({ message: 'Debug token not configured on server' });
+    if (!token || token !== process.env.DEBUG_TOKEN) return res.status(401).json({ message: 'Unauthorized' });
+
+    try {
+        const status = lastMailStatusGetter();
+        res.json({ ok: true, status });
+    } catch (err) {
+        res.status(500).json({ ok: false, error: String(err) });
+    }
+});

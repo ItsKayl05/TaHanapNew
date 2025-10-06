@@ -37,11 +37,29 @@ let transporter;
   }
 }
 
+// In-memory last mail status for debugging (not persisted)
+let lastMailStatus = {
+  verified: false,
+  verifiedMessage: null,
+  lastSend: null,
+  lastError: null,
+};
+
 // Verify transporter connectivity/auth at startup to help diagnose deployment issues
 if (transporter && typeof transporter.verify === 'function') {
   transporter.verify()
     .then(() => console.log('[mail] Transporter verified and ready to send messages'))
-    .catch(err => console.error('[mail] Transporter verification failed:', err));
+    .then(() => {
+      lastMailStatus.verified = true;
+      lastMailStatus.verifiedMessage = 'Transporter verified and ready to send messages';
+      console.log('[mail] Transporter verified and ready to send messages');
+    })
+    .catch(err => {
+      lastMailStatus.verified = false;
+      lastMailStatus.verifiedMessage = String(err && err.message ? err.message : err);
+      lastMailStatus.lastError = err && err.message ? err.message : String(err);
+      console.error('[mail] Transporter verification failed:', err);
+    });
 }
 
 // Function to generate a random 6-digit OTP
@@ -252,8 +270,14 @@ export const registerUser = async (req, res) => {
 
       // Send email asynchronously so registration returns immediately to the client.
       transporter.sendMail(mailOptions)
-        .then(info => console.log('Email sent (async):', info && info.response))
-        .catch(mailErr => console.error('Async email send error:', mailErr));
+        .then(info => {
+          lastMailStatus.lastSend = { ts: Date.now(), response: info && info.response };
+          console.log('Email sent (async):', info && info.response);
+        })
+        .catch(mailErr => {
+          lastMailStatus.lastError = String(mailErr && mailErr.message ? mailErr.message : mailErr);
+          console.error('Async email send error:', mailErr);
+        });
 
       // Return immediately; email sending is queued in background
       return res.status(201).json({ msg: 'OTP processing started. Check your email shortly.', emailQueued: true });
@@ -441,3 +465,6 @@ export const resetPassword = async (req, res) => {
     res.status(500).json({ msg: 'Server error' });
   }
 };
+
+// Export a getter for lastMailStatus for admin debugging routes
+export const lastMailStatusGetter = () => ({ ...lastMailStatus });
