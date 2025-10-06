@@ -169,8 +169,10 @@ export const registerUser = async (req, res) => {
     }
 
     // Rest of the registration logic...
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+  // Use configurable bcrypt cost to speed up registration when needed
+  const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS || '8', 10);
+  const salt = await bcrypt.genSalt(saltRounds);
+  const hashedPassword = await bcrypt.hash(password, salt);
     const otp = generateOTP();
     const otpExpiration = Date.now() + 10 * 60 * 1000;
 
@@ -220,15 +222,13 @@ export const registerUser = async (req, res) => {
         return res.status(201).json({ msg: 'Email not configured on server. Use OTP to verify.', otp });
       }
 
-      try {
-        const info = await transporter.sendMail(mailOptions);
-        console.log('Email sent:', info && info.response);
-        return res.status(201).json({ msg: 'OTP sent to email, please verify your email.' });
-      } catch (mailErr) {
-        console.error('Error sending email:', mailErr);
-        // Respond with success status (user created) but indicate email failure so client can show instructions
-        return res.status(201).json({ msg: 'User created but failed to send OTP email. Contact admin to resolve email delivery.', warning: 'email_failed' });
-      }
+      // Send email asynchronously so registration returns immediately to the client.
+      transporter.sendMail(mailOptions)
+        .then(info => console.log('Email sent (async):', info && info.response))
+        .catch(mailErr => console.error('Async email send error:', mailErr));
+
+      // Return immediately; email sending is queued in background
+      return res.status(201).json({ msg: 'OTP processing started. Check your email shortly.', emailQueued: true });
 
     } catch (err) {
       console.error('Error during registration flow (saving user / sending email):', err);
@@ -246,18 +246,31 @@ export const verifyOtp = async (req, res) => {
   const { email, otp } = req.body;
   const lowerEmail = email.toLowerCase();
 
+  // Debug logging for verification attempts (mask OTP for safety)
+  try {
+    const masked = otp ? `***${otp.slice(-2)}` : 'no-otp';
+    console.log(`verifyOtp: attempt for email=${lowerEmail}, otp=${masked}`);
+  } catch (logErr) {
+    console.warn('verifyOtp: could not mask OTP for logging');
+  }
+
   try {
     const user = await User.findOne({ email: lowerEmail });
 
     if (!user) {
+      console.warn(`verifyOtp: user not found for ${lowerEmail}`);
       return res.status(400).json({ msg: 'User not found' });
     }
 
-    if (user.otpExpiration < Date.now()) {
+    if (!user.otp || user.otpExpiration < Date.now()) {
+      console.warn(`verifyOtp: OTP expired or missing for ${lowerEmail}. otpExpiration=${user.otpExpiration}`);
       return res.status(400).json({ msg: 'OTP expired' });
     }
 
-    if (user.otp !== otp) {
+    // Compare as strings to avoid type coercion issues
+    if (String(user.otp) !== String(otp)) {
+      const maskedStored = user.otp ? `***${String(user.otp).slice(-2)}` : 'no-otp';
+      console.warn(`verifyOtp: OTP mismatch for ${lowerEmail}. provided=${otp ? `***${String(otp).slice(-2)}` : 'no-otp'}, stored=${maskedStored}`);
       return res.status(400).json({ msg: 'Invalid OTP' });
     }
 
@@ -266,6 +279,7 @@ export const verifyOtp = async (req, res) => {
     user.otpExpiration = undefined;
     await user.save();
 
+    console.log(`verifyOtp: success for ${lowerEmail}`);
     res.status(200).json({ msg: 'Email successfully verified!' });
 
   } catch (err) {
