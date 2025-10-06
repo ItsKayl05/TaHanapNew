@@ -3,7 +3,7 @@ import './Messages.css';
 import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import ChatBox from '../../../components/ChatBox/ChatBox';
-import { buildUpload, normalizePayload } from '../../../services/apiConfig';
+import { buildUpload, normalizePayload, buildApi } from '../../../services/apiConfig';
 import TenantSidebar from '../TenantSidebar/TenantSidebar';
 import { AuthContext } from '../../../context/AuthContext';
 
@@ -22,7 +22,7 @@ const Messages = ({ currentUserId: propCurrentUserId }) => {
 
   useEffect(() => {
     const token = localStorage.getItem('user_token');
-    axios.get('/api/messages/threads', {
+    axios.get(buildApi('/messages/threads'), {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(res => {
@@ -47,7 +47,7 @@ const Messages = ({ currentUserId: propCurrentUserId }) => {
             }
             setSelectedUser(userWithProperty);
           } else {
-            axios.get(`/api/users/landlord/${targetUserId}/profile`)
+            axios.get(buildApi(`/users/landlord/${targetUserId}/profile`))
               .then(r => {
                 const u = r.data;
                 let userWithProperty = { _id: String(u.id || u._id), fullName: u.fullName, username: u.username, profilePic: u.profilePic };

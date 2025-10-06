@@ -4,6 +4,7 @@ import './Messages.css';
 import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import ChatBox from '../../../components/ChatBox/ChatBox';
+import { buildApi } from '../../../services/apiConfig';
 import DashboardSidebar from '../../../components/DashboardSidebar/DashboardSidebar';
 import { AuthContext } from '../../../context/AuthContext';
 import { buildUpload } from '../../../services/apiConfig';
@@ -19,7 +20,7 @@ const Messages = ({ currentUserId }) => {
   useEffect(() => {
     const token = localStorage.getItem('user_token');
     // Fetch all messages involving the current user
-    axios.get('/api/messages/threads', {
+    axios.get(buildApi('/messages/threads'), {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(res => {

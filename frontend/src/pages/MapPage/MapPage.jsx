@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import TenantSidebar from '../TenantDashboard/TenantSidebar/TenantSidebar';
+import { buildApi } from '../../services/apiConfig';
 
 // Fix for Leaflet marker icons - use absolute CDN URLs
 delete L.Icon.Default.prototype._getIconUrl;
@@ -27,7 +28,7 @@ const SJDM_CENTER = [14.8136, 121.0450];
 const SJDM_ZOOM = 13;
 
 const fetchProperties = async () => {
-  const res = await fetch('/api/properties');
+  const res = await fetch(buildApi('/properties'));
   if (!res.ok) return [];
   return await res.json();
 };

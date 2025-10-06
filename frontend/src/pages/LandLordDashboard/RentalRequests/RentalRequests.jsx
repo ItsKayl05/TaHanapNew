@@ -20,7 +20,7 @@ const RentalRequests = () => {
   setApps(appsPayload || []);
       // Fetch property details to get availableUnits/totalUnits
       try {
-        const pRes = await fetch(`/api/properties/${propertyId}`);
+        const pRes = await fetch(buildApi(`/properties/${propertyId}`));
         if (pRes.ok) {
           const pdata = await pRes.json();
           setProperty(pdata);

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useContext } from 'react';
 import { useSocket } from '../../context/SocketContext';
 import { AuthContext } from '../../context/AuthContext';
-import { buildUpload } from '../../services/apiConfig';
+import { buildUpload, buildApi } from '../../services/apiConfig';
 import axios from 'axios';
 import './ChatBox.css';
 
@@ -182,7 +182,7 @@ function ChatBox({
       const token = localStorage.getItem('user_token');
       console.log(`🔄 Fetching messages for targetUserId: ${targetUserId}`);
       
-      const res = await axios.get(`/api/messages/${targetUserId}`, 
+      const res = await axios.get(buildApi(`/messages/${targetUserId}`), 
         token ? { headers: { Authorization: `Bearer ${token}` } } : {}
       );
       
@@ -262,7 +262,7 @@ function ChatBox({
       }
       
       console.log('📤 Sending message:', payload);
-      await axios.post('/api/messages', payload, 
+      await axios.post(buildApi('/messages'), payload, 
         token ? { headers: { Authorization: `Bearer ${token}` } } : {}
       );
       

@@ -47,7 +47,7 @@ const AuthProvider = ({ children }) => {
     const token = localStorage.getItem('user_token');
     if (!token) return;
     let mounted = true;
-    axios.get('/api/users/me', { headers: { Authorization: `Bearer ${token}` } })
+  axios.get(buildApi('/users/me'), { headers: { Authorization: `Bearer ${token}` } })
       .then(res => {
         if (!mounted) return;
         const u = res.data || {};

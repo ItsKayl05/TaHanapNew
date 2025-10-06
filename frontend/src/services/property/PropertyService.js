@@ -1,10 +1,9 @@
 import axios from 'axios';
-
-const API_URL = process.env.REACT_APP_API_URL;
+import { buildApi } from '../apiConfig';
 
 export const getProperties = async () => {
   try {
-  const response = await axios.get(`${API_URL}/properties`);
+    const response = await axios.get(buildApi('/properties'));
     return response.data;
   } catch (error) {
     console.error("Error fetching properties:", error);
@@ -14,7 +13,7 @@ export const getProperties = async () => {
 
 export const addProperty = async (propertyData) => {
   try {
-    const response = await axios.post(`${API_URL}/properties`, propertyData);
+    const response = await axios.post(buildApi('/properties'), propertyData);
     return response.data;
   } catch (error) {
     console.error("Error adding property:", error);
