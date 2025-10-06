@@ -59,7 +59,19 @@ const RegisterPage = () => {
                     });
 
                     // apiRequest already throws on non-OK, so if we reach here it's success
-                    toast.success(data?.msg || 'OTP sent to your email. Please verify.');
+                                toast.success(data?.msg || 'OTP sent to your email. Please verify.');
+                                // If backend returned an OTP (testing fallback when email not configured), show it to the user
+                                if (data?.otp) {
+                                    try {
+                                        // Persist for convenience during testing
+                                        localStorage.setItem('test_otp', data.otp);
+                                        // Show a prominent info toast with the OTP (only when backend intentionally returns it)
+                                        toast.info(`Test OTP: ${data.otp} (use this to verify)`, { autoClose: 10000 });
+                                        console.warn('Warning: OTP exposed in response — remove this behavior in production');
+                                    } catch (e) {
+                                        console.debug('Could not persist test OTP', e);
+                                    }
+                                }
                     localStorage.setItem('user_email', formData.email);
                     setTimeout(() => navigate('/verify-otp'), 1200);
                 } catch (error) {
