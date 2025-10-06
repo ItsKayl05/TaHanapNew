@@ -8,13 +8,34 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // Nodemailer transporter setup
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
+// Support explicit SMTP settings via env vars (preferred for production). If not provided, fall back to Gmail service.
+let transporter;
+{
+  const smtpHost = process.env.SMTP_HOST;
+  const smtpPort = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : undefined;
+  const smtpSecure = typeof process.env.SMTP_SECURE !== 'undefined' ? process.env.SMTP_SECURE === 'true' : undefined;
+  if (smtpHost && smtpPort) {
+    console.log('[mail] Using SMTP host from env:', smtpHost, 'port:', smtpPort, 'secure:', smtpSecure);
+    transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpSecure || smtpPort === 465, // true for 465, false for other ports
+      auth: {
+        user: process.env.SMTP_USER || process.env.EMAIL_USER,
+        pass: process.env.SMTP_PASS || process.env.EMAIL_PASS,
+      },
+    });
+  } else {
+    console.log('[mail] No SMTP_HOST provided, falling back to Gmail service. Consider using SendGrid or explicit SMTP for production.');
+    transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+  }
+}
 
 // Function to generate a random 6-digit OTP
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
