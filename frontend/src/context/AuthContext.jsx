@@ -1,7 +1,7 @@
 import { createContext, useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import axios from 'axios';
-import { buildUpload } from '../services/apiConfig';
+import { buildUpload, buildApi } from '../services/apiConfig';
 
 export const AuthContext = createContext();
 
