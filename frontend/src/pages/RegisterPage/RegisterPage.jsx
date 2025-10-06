@@ -9,7 +9,7 @@ import {
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import zxcvbn from "zxcvbn";
-import { buildApi } from '../../services/apiConfig';
+import { buildApi, apiRequest } from '../../services/apiConfig';
 
 const RegisterPage = () => {
     const navigate = useNavigate();
@@ -51,27 +51,26 @@ const RegisterPage = () => {
           return;
         }
       
-        try {
-          const response = await fetch(buildApi('/auth/register'), {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(formData),
-          });
-      
-          const data = await response.json();
-          if (!response.ok) throw new Error(data.msg || "Registration failed.");
-      
-          toast.success("OTP sent to your email. Please verify.");
-          localStorage.setItem("user_email", formData.email);
-      
-          setTimeout(() => navigate("/verify-otp"), 2000);
-        } catch (error) {
-          console.error('Fetch error:', error); // Log fetch errors
-          setError(error.message);
-          toast.error(error.message);
-        } finally {
-          setLoading(false);
-        }
+                try {
+                    // Use shared apiRequest which handles HTML responses and attaches auth headers
+                    const data = await apiRequest('/auth/register', {
+                        method: 'POST',
+                        body: JSON.stringify(formData),
+                    });
+
+                    // apiRequest already throws on non-OK, so if we reach here it's success
+                    toast.success(data?.msg || 'OTP sent to your email. Please verify.');
+                    localStorage.setItem('user_email', formData.email);
+                    setTimeout(() => navigate('/verify-otp'), 1200);
+                } catch (error) {
+                    // apiRequest throws friendly errors (including when server returns HTML)
+                    console.error('Registration error:', error);
+                    const msg = error?.message || 'Registration failed. Please try again.';
+                    setError(msg);
+                    toast.error(msg);
+                } finally {
+                    setLoading(false);
+                }
       };
 
     return (
