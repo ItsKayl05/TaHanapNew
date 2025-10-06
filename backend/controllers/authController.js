@@ -37,6 +37,13 @@ let transporter;
   }
 }
 
+// Verify transporter connectivity/auth at startup to help diagnose deployment issues
+if (transporter && typeof transporter.verify === 'function') {
+  transporter.verify()
+    .then(() => console.log('[mail] Transporter verified and ready to send messages'))
+    .catch(err => console.error('[mail] Transporter verification failed:', err));
+}
+
 // Function to generate a random 6-digit OTP
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
