@@ -2,65 +2,50 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import { validationResult } from 'express-validator';
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Nodemailer transporter setup
-// Support explicit SMTP settings via env vars (preferred for production). If not provided, fall back to Gmail service.
-let transporter;
-{
-  const smtpHost = process.env.SMTP_HOST;
-  const smtpPort = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : undefined;
-  const smtpSecure = typeof process.env.SMTP_SECURE !== 'undefined' ? process.env.SMTP_SECURE === 'true' : undefined;
-  if (smtpHost && smtpPort) {
-    console.log('[mail] Using SMTP host from env:', smtpHost, 'port:', smtpPort, 'secure:', smtpSecure);
-    transporter = nodemailer.createTransport({
-      host: smtpHost,
-      port: smtpPort,
-      secure: smtpSecure || smtpPort === 465, // true for 465, false for other ports
-      auth: {
-        user: process.env.SMTP_USER || process.env.EMAIL_USER,
-        pass: process.env.SMTP_PASS || process.env.EMAIL_PASS,
-      },
-    });
-  } else {
-    console.log('[mail] No SMTP_HOST provided, falling back to Gmail service. Consider using SendGrid or explicit SMTP for production.');
-    transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
+// We removed Nodemailer/SMTP support. Resend is now the required email provider.
+// Initialize Resend client if API key is present
+let resendClient = null;
+try {
+  if (process.env.RESEND_API_KEY) {
+    resendClient = new Resend(process.env.RESEND_API_KEY);
+    console.log('[mail] Resend client initialized');
   }
+} catch (e) {
+  console.error('[mail] Failed to initialize Resend client:', e);
 }
+
+// Initialize Resend client if API key is present
+// Unified email sender: uses Resend; SMTP support removed.
+const sendEmail = async ({ from, to, subject, html, text }) => {
+  if (!resendClient) {
+    const err = new Error('No email provider configured. Set RESEND_API_KEY in environment');
+    console.error('[mail] sendEmail failed:', err.message);
+    throw err;
+  }
+
+  try {
+    const resp = await resendClient.emails.send({ from, to, subject, html, text });
+    lastMailStatus.lastSend = { ts: Date.now(), response: resp && resp.id ? resp.id : JSON.stringify(resp) };
+    console.log('[mail] Sent via Resend:', resp && resp.id ? resp.id : resp);
+    return resp;
+  } catch (err) {
+    lastMailStatus.lastError = String(err && err.message ? err.message : err);
+    console.error('[mail] Resend send error:', err);
+    throw err;
+  }
+};
 
 // In-memory last mail status for debugging (not persisted)
 let lastMailStatus = {
-  verified: false,
-  verifiedMessage: null,
+  provider: resendClient ? 'resend' : null,
   lastSend: null,
   lastError: null,
 };
-
-// Verify transporter connectivity/auth at startup to help diagnose deployment issues
-if (transporter && typeof transporter.verify === 'function') {
-  transporter.verify()
-    .then(() => console.log('[mail] Transporter verified and ready to send messages'))
-    .then(() => {
-      lastMailStatus.verified = true;
-      lastMailStatus.verifiedMessage = 'Transporter verified and ready to send messages';
-      console.log('[mail] Transporter verified and ready to send messages');
-    })
-    .catch(err => {
-      lastMailStatus.verified = false;
-      lastMailStatus.verifiedMessage = String(err && err.message ? err.message : err);
-      lastMailStatus.lastError = err && err.message ? err.message : String(err);
-      console.error('[mail] Transporter verification failed:', err);
-    });
-}
 
 // Function to generate a random 6-digit OTP
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
@@ -223,7 +208,7 @@ export const registerUser = async (req, res) => {
     const otpExpiration = Date.now() + 10 * 60 * 1000;
 
     const mailOptions = {
-      from: `"TaHanap" <${process.env.EMAIL_USER}>`,
+      from: `"TaHanap" <${process.env.RESEND_FROM || 'no-reply@yourdomain.com'}>`,
       to: lowerEmail,
       subject: 'Email Verification - TaHanap',
       html: `
@@ -259,21 +244,21 @@ export const registerUser = async (req, res) => {
       await user.save();
       console.log('User created for registration:', user.email);
 
-      // If email credentials are present, try to send the OTP email. Otherwise, return a helpful response.
-      const emailConfigured = !!(process.env.EMAIL_USER && process.env.EMAIL_PASS);
+      // If Resend is not configured, return helpful response
+      const emailConfigured = !!process.env.RESEND_API_KEY;
 
       if (!emailConfigured) {
-        console.warn('Email credentials not configured on server. Registration created but OTP not delivered.');
-        lastMailStatus.lastError = 'Email not configured on server';
-        // Do NOT return the OTP in the response. Requestor should configure SMTP.
-        return res.status(201).json({ msg: 'Registration created but OTP could not be sent because email is not configured. Contact admin to enable email delivery.', emailQueued: false, emailConfigured: false });
+        console.warn('RESEND_API_KEY not configured on server. Registration created but OTP not delivered.');
+        lastMailStatus.lastError = 'RESEND_API_KEY not configured on server';
+        return res.status(201).json({ msg: 'Registration created but OTP could not be sent because email provider is not configured. Contact admin to enable email delivery.', emailQueued: false, emailConfigured: false });
       }
 
       // Send email asynchronously so registration returns immediately to the client.
-      transporter.sendMail(mailOptions)
+      // Use unified sender (Resend or Nodemailer)
+      sendEmail({ from: mailOptions.from, to: mailOptions.to, subject: mailOptions.subject, html: mailOptions.html })
         .then(info => {
-          lastMailStatus.lastSend = { ts: Date.now(), response: info && info.response };
-          console.log('Email sent (async):', info && info.response);
+          lastMailStatus.lastSend = { ts: Date.now(), response: info && (info.response || info.id || JSON.stringify(info)) };
+          console.log('Email sent (async):', lastMailStatus.lastSend.response);
         })
         .catch(mailErr => {
           lastMailStatus.lastError = String(mailErr && mailErr.message ? mailErr.message : mailErr);
@@ -362,22 +347,13 @@ export const resendOtp = async (req, res) => {
     user.otpExpiration = Date.now() + 10 * 60 * 1000;
     await user.save();
 
-    transporter.sendMail({
-      from: `"TaHanap" <${process.env.EMAIL_USER}>`,
-      to: lowerEmail,
-      subject: 'Resend OTP - TaHanap',
-      html: `
-        <div style="max-width:500px;margin:auto;padding:22px 24px 26px;font-family:Arial,sans-serif;border:1px solid #e2e8f0;border-radius:16px;background:#0f172a;color:#f1f5f9;">
-          <h2 style="margin:0 0 4px;font-size:20px;background:linear-gradient(90deg,#38bdf8,#6366f1);-webkit-background-clip:text;color:transparent;">TaHanap</h2>
-          <p style="margin:0 0 14px;font-size:12px;letter-spacing:1.4px;text-transform:uppercase;color:#94a3b8;">Hanap-Bahay Made Simple</p>
-          <p style="font-size:14px;line-height:1.5;margin:0 0 12px;color:#cbd5e1;">Here is your new verification OTP. It expires in <strong>2 minutes</strong>.</p>
-          <div style="font-size:28px;font-weight:700;letter-spacing:6px;text-align:center;padding:12px;background:linear-gradient(135deg,#6366f1,#3b82f6);color:#fff;border-radius:12px;font-family:'Courier New',monospace;margin:0 0 14px;">${newOtp}</div>
-          <p style="font-size:11px;text-align:center;color:#64748b;margin:0;">If this wasn’t you, you can ignore this email.</p>
-        </div>
-      `,
-    });
-
-    res.status(200).json({ msg: 'New OTP sent successfully.' });
+    // send via Resend
+    try {
+      await sendEmail({ from: `"TaHanap" <${process.env.RESEND_FROM || 'no-reply@yourdomain.com'}>`, to: lowerEmail, subject: 'Resend OTP - TaHanap', html: `...` });
+      res.status(200).json({ msg: 'New OTP sent successfully.' });
+    } catch (err) {
+      res.status(500).json({ msg: 'Failed to send OTP email', error: String(err) });
+    }
 
   } catch (err) {
     console.error('Error resending OTP:', err);
@@ -404,7 +380,7 @@ export const sendOtpForReset = async (req, res) => {
 
     // Send email with OTP
     const mailOptions = {
-      from: `"TaHanap" <${process.env.EMAIL_USER}>`,
+      from: `"TaHanap" <${process.env.RESEND_FROM || 'no-reply@yourdomain.com'}>`,
       to: lowerEmail,
       subject: 'Password Reset OTP - TaHanap',
       html: `
@@ -419,8 +395,13 @@ export const sendOtpForReset = async (req, res) => {
       `,
     };
 
-    await transporter.sendMail(mailOptions);
-    res.status(200).json({ msg: 'OTP sent to email' });
+    try {
+      await sendEmail({ from: mailOptions.from, to: mailOptions.to, subject: mailOptions.subject, html: mailOptions.html });
+      res.status(200).json({ msg: 'OTP sent to email' });
+    } catch (err) {
+      console.error('Error sending OTP (reset):', err);
+      res.status(500).json({ msg: 'Error sending OTP' });
+    }
 
   } catch (error) {
     console.error('Error sending OTP:', error);

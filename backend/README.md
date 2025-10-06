@@ -22,8 +22,7 @@ Express + MongoDB API powering TaHanap.
 
 Required:
 - `MONGO_URI` Mongo connection string
-- `EMAIL_USER` SMTP user (Gmail address or provider login)
-- `EMAIL_PASS` SMTP password / app password
+- `RESEND_API_KEY` Resend API key for transactional emails
 
 Optional:
 - `ADMIN_INITIAL_USERNAME` (default: `admin`)
@@ -46,7 +45,7 @@ Security tips:
 
 ## Mail & OTP
 
-Authentication emails use branded dark-themed templates with 2‑minute OTP expiry.
+Authentication emails use branded dark-themed templates with 2‑minute OTP expiry. The project now requires Resend (https://resend.com) for transactional email delivery. Set `RESEND_API_KEY` in your environment before starting the server.
 
 ## Verification Logic
 
@@ -78,7 +77,7 @@ npm run reset-admin-password
 Then log in with the new password. Previous tokens are invalidated.
 
 ## Tech Stack
-- Express / Mongoose / Nodemailer / JWT / Multer
+- Express / Mongoose / Resend / JWT / Multer
 
 ## Future Enhancements
 - Rate limiting

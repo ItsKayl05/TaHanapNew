@@ -1,28 +1,27 @@
 // test-send.js
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 import dotenv from 'dotenv';
 dotenv.config();
 
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
-
 async function run() {
+  if (!process.env.RESEND_API_KEY) {
+    console.error('RESEND_API_KEY not set in environment. Set it to test sending via Resend.');
+    process.exit(1);
+  }
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+
   try {
-    const info = await transporter.sendMail({
-      from: `"TaHanap Test" <${process.env.EMAIL_USER}>`,
-      to: process.env.EMAIL_TEST_TO || process.env.EMAIL_USER,
-      subject: 'TaHanap test email',
-      text: 'This is a test from TaHanap backend.',
-      html: '<b>This is a test from TaHanap backend.</b>',
+    const resp = await resend.emails.send({
+      from: `TaHanap <${process.env.RESEND_FROM || 'no-reply@example.com'}>`,
+      to: process.env.EMAIL_TEST_TO || process.env.RESEND_TO || process.env.RESEND_FROM || process.env.EMAIL_USER,
+      subject: 'TaHanap test email (Resend)',
+      html: '<b>This is a test from TaHanap backend using Resend.</b>',
     });
-    console.log('Test email sent:', info.response || info);
+    console.log('Test email sent via Resend:', resp);
   } catch (err) {
-    console.error('Test email failed:', err);
+    console.error('Test email failed (Resend):', err);
+    process.exit(1);
   }
 }
 
