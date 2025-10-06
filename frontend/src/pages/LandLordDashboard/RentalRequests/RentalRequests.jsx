@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import './RentalRequests.css';
 import { useParams } from 'react-router-dom';
 import { fetchApplicationsByProperty, approveApplication, rejectApplication } from '../../../services/application/ApplicationService';
-import { normalizePayload } from '../../../services/apiConfig';
+import { normalizePayload, buildApi } from '../../../services/apiConfig';
 import { toast } from 'react-toastify';
 import { FaUserCircle, FaCheckCircle, FaTimesCircle, FaClock } from 'react-icons/fa';
 

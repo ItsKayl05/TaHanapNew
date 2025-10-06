@@ -144,6 +144,7 @@ const PropertyDetailPage = () => {
                                         alt={`Property ${index + 1}`}
                                         className="property-gallery-image"
                                         loading="lazy"
+                                        onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/default-property.jpg'; }}
                                     />
                                 </div>
                             ))
