@@ -23,9 +23,9 @@ const PropertyMap = () => {
   useEffect(() => {
     delete L.Icon.Default.prototype._getIconUrl;
     L.Icon.Default.mergeOptions({
-      iconRetinaUrl: markerIcon2x,
-      iconUrl: markerIcon,
-      shadowUrl: markerShadow,
+      iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
+      iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+      shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
     });
   }, []);
   const [properties, setProperties] = useState([]);
@@ -51,21 +51,21 @@ const PropertyMap = () => {
     window.location.href = '/login';
   };
   return (
-    <div className={isTenant ? "dashboard-container tenant-dashboard" : "dashboard-container landlord-dashboard"} style={{minHeight:'100vh', display:'flex'}}>
+    <div className={isTenant ? "dashboard-container tenant-dashboard" : "dashboard-container landlord-dashboard"} style={{ minHeight: '100vh', display: 'flex' }}>
       {isTenant ? (
-        <div style={{width:'260px', minWidth:'220px', height:'100vh', background:'#fff', boxShadow:'0 2px 16px rgba(0,0,0,0.07)', zIndex:2, position:'sticky', top:0}}>
+        <div style={{ width: '260px', minWidth: '220px', height: '100vh', background: '#fff', boxShadow: '0 2px 16px rgba(0,0,0,0.07)', zIndex: 2, position: 'sticky', top: 0 }}>
           <TenantSidebar activeItem="map" handleLogout={handleLogout} />
         </div>
       ) : (
-        <div style={{width:'260px', minWidth:'220px', height:'100vh', background:'#fff', boxShadow:'0 2px 16px rgba(0,0,0,0.07)', zIndex:2, position:'sticky', top:0}}>
+        <div style={{ width: '260px', minWidth: '220px', height: '100vh', background: '#fff', boxShadow: '0 2px 16px rgba(0,0,0,0.07)', zIndex: 2, position: 'sticky', top: 0 }}>
           <Sidebar activeItem="property-map" handleLogout={handleLogout} />
         </div>
       )}
-      <div className={isTenant ? "tenant-main property-map-main" : "landlord-main property-map-main"} style={{flexGrow:1, padding:'32px 0', minHeight:'100vh', display:'flex', flexDirection:'column', alignItems:'center', overflow:'auto'}}>
-        <h2 style={{textAlign:'center', marginBottom:'24px'}}>All Properties in SJDM</h2>
-        <div style={{width:'100%', maxWidth:'900px', background:'#fff', borderRadius:'16px', boxShadow:'0 2px 16px rgba(0,0,0,0.07)', padding:'32px', margin:'0 auto'}}>
-          <div style={{minHeight:'400px', maxHeight:'600px', width:'100%', border:'1px solid #ccc', borderRadius:'12px', overflow:'hidden', background:'#fafafa'}}>
-            <MapContainer center={SJDM_CENTER} zoom={SJDM_ZOOM} style={{maxHeight:'100%', minHeight:'400px', width:'100%'}}>
+      <div className={isTenant ? "tenant-main property-map-main" : "landlord-main property-map-main"} style={{ flexGrow: 1, padding: '32px 0', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', overflow: 'auto' }}>
+        <h2 style={{ textAlign: 'center', marginBottom: '24px' }}>All Properties in SJDM</h2>
+        <div style={{ width: '100%', maxWidth: '900px', background: '#fff', borderRadius: '16px', boxShadow: '0 2px 16px rgba(0,0,0,0.07)', padding: '32px', margin: '0 auto' }}>
+          <div style={{ minHeight: '400px', maxHeight: '600px', width: '100%', border: '1px solid #ccc', borderRadius: '12px', overflow: 'hidden', background: '#fafafa' }}>
+            <MapContainer center={SJDM_CENTER} zoom={SJDM_ZOOM} style={{ maxHeight: '100%', minHeight: '400px', width: '100%' }}>
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap contributors" />
               {properties.filter(p => p.latitude && p.longitude && isInSJDM(p.latitude, p.longitude)).map((p, i) => (
                 <Marker key={p._id || i} position={[parseFloat(p.latitude), parseFloat(p.longitude)]}>
@@ -73,14 +73,14 @@ const PropertyMap = () => {
                     <strong>{p.title}</strong><br />
                     {p.address}<br />
                     {p.price ? `₱${p.price}` : ''}<br />
-                    <a href={`/property/${p._id}`} style={{color:'#1976d2'}}>View Details</a>
+                    <a href={`/property/${p._id}`} style={{ color: '#1976d2' }}>View Details</a>
                   </Popup>
                 </Marker>
               ))}
             </MapContainer>
           </div>
-          {loading && <div style={{textAlign:'center', marginTop:'18px'}}>Loading properties...</div>}
-          {!loading && properties.length === 0 && <div style={{textAlign:'center', marginTop:'18px'}}>No properties found.</div>}
+          {loading && <div style={{ textAlign: 'center', marginTop: '18px' }}>Loading properties...</div>}
+          {!loading && properties.length === 0 && <div style={{ textAlign: 'center', marginTop: '18px' }}>No properties found.</div>}
         </div>
       </div>
     </div>

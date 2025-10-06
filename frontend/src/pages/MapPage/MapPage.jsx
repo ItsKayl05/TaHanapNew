@@ -4,19 +4,30 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import TenantSidebar from '../TenantDashboard/TenantSidebar/TenantSidebar';
 
-// Fix for default markers in react-leaflet
+// Fix for Leaflet marker icons - use absolute CDN URLs
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
 });
 
-const SJDM_CENTER = [14.8136, 121.0450]; // Approximate center of San Jose del Monte, Bulacan
+// Create custom icon instance
+const customIcon = new L.Icon({
+  iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+});
+
+const SJDM_CENTER = [14.8136, 121.0450];
 const SJDM_ZOOM = 13;
 
 const fetchProperties = async () => {
-  const res = await fetch('/api/properties'); // Adjust endpoint as needed
+  const res = await fetch('/api/properties');
   if (!res.ok) return [];
   return await res.json();
 };
@@ -26,11 +37,12 @@ const MapPage = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchProperties().then(data => { setProperties(data); setLoading(false); });
+    fetchProperties().then(data => { 
+      setProperties(data); 
+      setLoading(false); 
+    });
   }, []);
 
-  // SJDM bounding box (approximate):
-  // North: 14.8700, South: 14.7600, West: 121.0100, East: 121.0900
   const SJDM_BOUNDS = {
     north: 14.8700,
     south: 14.7600,
@@ -39,12 +51,13 @@ const MapPage = () => {
   };
 
   const isInSJDM = (lat, lng) => {
-    lat = parseFloat(lat); lng = parseFloat(lng);
-    return lat >= SJDM_BOUNDS.south && lat <= SJDM_BOUNDS.north && lng >= SJDM_BOUNDS.west && lng <= SJDM_BOUNDS.east;
+    lat = parseFloat(lat); 
+    lng = parseFloat(lng);
+    return lat >= SJDM_BOUNDS.south && lat <= SJDM_BOUNDS.north && 
+           lng >= SJDM_BOUNDS.west && lng <= SJDM_BOUNDS.east;
   };
 
   const handleLogout = () => {
-    // Example logout logic: clear localStorage and redirect
     localStorage.clear();
     window.location.href = '/login';
   };
@@ -58,23 +71,39 @@ const MapPage = () => {
         <h2 style={{textAlign:'center', marginBottom:'24px'}}>All Properties in SJDM</h2>
         <div style={{width:'100%', maxWidth:'900px', background:'#fff', borderRadius:'16px', boxShadow:'0 2px 16px rgba(0,0,0,0.07)', padding:'32px', margin:'0 auto'}}>
           <div style={{minHeight:'400px', maxHeight:'600px', width:'100%', border:'1px solid #ccc', borderRadius:'12px', overflow:'hidden', background:'#fafafa'}}>
-            <MapContainer center={SJDM_CENTER} zoom={SJDM_ZOOM} style={{maxHeight:'100%', minHeight:'400px', width:'100%'}}>
+            <MapContainer 
+              center={SJDM_CENTER} 
+              zoom={SJDM_ZOOM} 
+              style={{maxHeight:'100%', minHeight:'400px', width:'100%'}}
+            >
               <TileLayer
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 attribution="&copy; OpenStreetMap contributors"
               />
-              {properties.filter(prop => isInSJDM(prop.latitude, prop.longitude)).map((prop) => (
-                prop.latitude && prop.longitude && (
-                  <Marker key={prop._id} position={[parseFloat(prop.latitude), parseFloat(prop.longitude)]}>
+              {properties
+                .filter(prop => prop.latitude && prop.longitude && isInSJDM(prop.latitude, prop.longitude))
+                .map((prop) => (
+                  <Marker 
+                    key={prop._id} 
+                    position={[parseFloat(prop.latitude), parseFloat(prop.longitude)]}
+                    icon={customIcon} // Explicitly set the icon
+                  >
                     <Popup>
                       <strong>{prop.title}</strong><br />
                       {prop.address}<br />
-                      {prop.price ? `₱${prop.price}` : ''}<br />
-                      <a href={`/property/${prop._id}`} style={{color:'#1976d2'}}>View Details</a>
+                      {prop.price ? `₱${prop.price.toLocaleString()}` : ''}<br />
+                      <a 
+                        href={`/property/${prop._id}`} 
+                        style={{color:'#1976d2', textDecoration: 'none', fontWeight: 'bold'}}
+                        onMouseOver={(e) => e.target.style.textDecoration = 'underline'}
+                        onMouseOut={(e) => e.target.style.textDecoration = 'none'}
+                      >
+                        View Details
+                      </a>
                     </Popup>
                   </Marker>
                 )
-              ))}
+              )}
             </MapContainer>
           </div>
           {loading && <div style={{textAlign:'center', marginTop:'18px'}}>Loading properties...</div>}
