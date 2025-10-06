@@ -8,7 +8,6 @@ import userRoutes from './routes/userRoutes.js';
 import propertyRoutes from './routes/propertyRoutes.js';
 import messageRoutes from './routes/messageRoutes.js';
 import applicationRoutes from './routes/applicationRoutes.js';
- 
 import adminRoutes from "./routes/adminRoutes.js";
 import favoriteRoutes from './routes/favoriteRoutes.js';
 import fs from 'fs';
@@ -26,28 +25,77 @@ const port = process.env.PORT || 4000;
 // Create HTTP server and Socket.IO instance
 import http from 'http';
 const server = http.createServer(app);
-// In development accept any localhost origin (any port) to avoid dev-port mismatches.
+
+// Environment-based CORS configuration
+const getCorsOptions = () => {
+    const allowedOrigins = [
+        'http://localhost:5173',
+        'http://localhost:5174', 
+        'http://localhost:5176',
+        'https://tahanap-frontend.onrender.com',
+        'https://tahanap-backend.onrender.com'
+    ];
+
+    // Add any additional origins from environment variable
+    if (process.env.ALLOWED_ORIGINS) {
+        allowedOrigins.push(...process.env.ALLOWED_ORIGINS.split(','));
+    }
+
+    return {
+        origin: (origin, callback) => {
+            // Allow requests with no origin (mobile apps, curl, etc.)
+            if (!origin) return callback(null, true);
+            
+            if (allowedOrigins.includes(origin)) {
+                return callback(null, true);
+            } else {
+                // In development, be more permissive
+                if (process.env.NODE_ENV !== 'production') {
+                    console.log('Allowing origin in development:', origin);
+                    return callback(null, true);
+                }
+                console.log('CORS blocked origin:', origin);
+                return callback(new Error('Not allowed by CORS'), false);
+            }
+        },
+        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+        credentials: true,
+        maxAge: 86400
+    };
+};
+
+const corsOptions = getCorsOptions();
+
+// Configure Socket.IO with proper CORS
 const io = new SocketIOServer(server, {
     cors: {
         origin: (origin, callback) => {
-            // allow requests with no origin (mobile apps, curl)
             if (!origin) return callback(null, true);
-            try {
-                const url = new URL(origin);
-                // Accept localhost and 127.0.0.1 on any port during development
-                if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') return callback(null, true);
-            } catch (e) {
-                // If URL parsing fails, fall back to strict match below
+            
+            const allowedOrigins = [
+                'http://localhost:5173',
+                'http://localhost:5174',
+                'http://localhost:5176',
+                'https://tahanap-frontend.onrender.com',
+                'https://tahanap-backend.onrender.com'
+            ];
+
+            if (allowedOrigins.includes(origin)) {
+                return callback(null, true);
+            } else {
+                if (process.env.NODE_ENV !== 'production') {
+                    console.log('Socket.IO allowing origin in development:', origin);
+                    return callback(null, true);
+                }
+                return callback(new Error('Not allowed by CORS'), false);
             }
-            // Fallback to specific allowed list if needed
-            const allowed = ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5176'];
-            if (allowed.includes(origin)) return callback(null, true);
-            const msg = 'Origin not allowed by CORS';
-            return callback(new Error(msg), false);
         },
         methods: ['GET', 'POST', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization'],
         credentials: true
-    }
+    },
+    transports: ['polling', 'websocket'] // Enable both transports
 });
 
 // Socket.IO event handlers
@@ -56,41 +104,27 @@ io.on('connection', (socket) => {
 
     socket.on('joinRoom', ({ roomId }) => {
         socket.join(roomId);
+        console.log(`User ${socket.id} joined room: ${roomId}`);
     });
 
     socket.on('sendMessage', (data) => {
         // data: { roomId, message, senderId, receiverId, timestamp }
+        console.log('Message received for room:', data.roomId);
         io.to(data.roomId).emit('receiveMessage', data);
     });
 
-    socket.on('disconnect', () => {
-        console.log('User disconnected:', socket.id);
+    socket.on('disconnect', (reason) => {
+        console.log('User disconnected:', socket.id, 'Reason:', reason);
+    });
+
+    socket.on('error', (error) => {
+        console.error('Socket error:', error);
     });
 });
 
 // Get the current directory
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-
-// Configure CORS properly - allow any localhost origin during development to avoid dev-port mismatches
-const corsOptions = {
-    origin: (origin, callback) => {
-        if (!origin) return callback(null, true);
-        try {
-            const url = new URL(origin);
-            if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') return callback(null, true);
-        } catch (e) {
-            // ignore parse errors
-        }
-        const allowed = ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5176'];
-        if (allowed.includes(origin)) return callback(null, true);
-        return callback(new Error('Not allowed by CORS'), false);
-    },
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true,
-    maxAge: 86400
-};
 
 // Configure Multer for Profile Picture Uploads
 const storage = multer.diskStorage({
@@ -124,6 +158,33 @@ connectDB();
 // Middleware
 app.use(cors(corsOptions)); // Use the configured CORS options
 app.options('*', cors(corsOptions)); // Enable pre-flight for all routes
+
+// Add CORS headers manually as additional fallback
+app.use((req, res, next) => {
+    const allowedOrigins = [
+        'https://tahanap-frontend.onrender.com',
+        'https://tahanap-backend.onrender.com',
+        'http://localhost:5173',
+        'http://localhost:5174',
+        'http://localhost:5176'
+    ];
+    
+    const origin = req.headers.origin;
+    if (allowedOrigins.includes(origin)) {
+        res.header('Access-Control-Allow-Origin', origin);
+    }
+    
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    
+    if (req.method === 'OPTIONS') {
+        return res.sendStatus(200);
+    }
+    
+    next();
+});
+
 app.use(express.json());
 app.use(bodyParser.json());
 
@@ -141,11 +202,21 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/favorites", favoriteRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/applications", applicationRoutes);
- 
 
 // Health check route
 app.get('/', (req, res) => {
-    res.send('Server is running. MongoDB connected!');
+    res.json({ 
+        message: 'Server is running. MongoDB connected!',
+        timestamp: new Date().toISOString()
+    });
+});
+
+// Socket.IO health check
+app.get('/socket-health', (req, res) => {
+    res.json({
+        connectedClients: io.engine.clientsCount,
+        serverTime: new Date().toISOString()
+    });
 });
 
 // Enhanced profile update route with authentication and error handling
@@ -177,7 +248,7 @@ app.put('/api/users/update-profile', protect, upload.single('profilePic'), async
             message: 'Profile updated successfully',
             user: {
                 ...updatedUser.toObject(),
-                profilePicUrl: `http://localhost:${port}/uploads/profiles/${updatedUser.profilePic}`,
+                profilePicUrl: `${req.protocol}://${req.get('host')}/uploads/profiles/${updatedUser.profilePic}`,
             }
         });
     } catch (error) {
@@ -205,10 +276,51 @@ app.get('/api/users/check-status', protect, async (req, res) => {
 // Error handling middleware
 app.use((err, req, res, next) => {
     console.error(err.stack);
-    res.status(500).json({ message: 'Something broke!', error: err.message });
+    
+    // Handle CORS errors
+    if (err.message === 'Not allowed by CORS') {
+        return res.status(403).json({ 
+            message: 'CORS Error: Origin not allowed',
+            allowedOrigins: [
+                'https://tahanap-frontend.onrender.com',
+                'https://tahanap-backend.onrender.com',
+                'http://localhost:5173',
+                'http://localhost:5174',
+                'http://localhost:5176'
+            ]
+        });
+    }
+    
+    // Handle multer errors (file upload)
+    if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({ 
+            message: 'File too large. Maximum size is 5MB.' 
+        });
+    }
+    
+    res.status(500).json({ 
+        message: 'Something went wrong!',
+        error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+});
+
+// 404 handler
+app.use('*', (req, res) => {
+    res.status(404).json({ 
+        message: 'Route not found',
+        path: req.originalUrl
+    });
 });
 
 // Start server (with Socket.IO)
-server.listen(port, () => {
-    console.log(`🚀 Server running on http://localhost:${port}`);
+server.listen(port, '0.0.0.0', () => {
+    console.log(`🚀 Server running on port ${port}`);
+    console.log(`📡 Socket.IO server initialized`);
+    console.log(`🌐 CORS enabled for: ${[
+        'https://tahanap-frontend.onrender.com',
+        'https://tahanap-backend.onrender.com',
+        'http://localhost:5173',
+        'http://localhost:5174',
+        'http://localhost:5176'
+    ].join(', ')}`);
 });
