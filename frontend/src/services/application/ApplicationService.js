@@ -16,6 +16,12 @@ export const fetchMyApplications = async () => {
 export const fetchApplicationsByProperty = async (propertyId) => {
   const token = localStorage.getItem('user_token');
   const res = await axios.get(buildApi(`/applications/property/${propertyId}`), { headers: { Authorization: `Bearer ${token}` } });
+  // Debug: log raw response body to help diagnose production shapes
+  try {
+    console.debug('[debug] fetchApplicationsByProperty raw response:', res && res.data ? res.data : res);
+  } catch (e) {
+    console.debug('[debug] fetchApplicationsByProperty raw response (stringified):', JSON.stringify(res).slice(0, 2000));
+  }
   return res.data;
 };
 

@@ -26,6 +26,8 @@ const Messages = ({ currentUserId: propCurrentUserId }) => {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(res => {
+        // Debug: log raw response body (helps inspect production backend shapes)
+        try { console.debug('[debug] /api/messages/threads raw response:', res && res.data ? res.data : res); } catch(e) { console.debug('[debug] threads response (stringified):', JSON.stringify(res).slice(0,2000)); }
         // Normalize the response to an array using normalizePayload
         const payload = normalizePayload(res.data, ['data', 'result', 'messages', 'threads', 'applications']);
         if (!Array.isArray(res.data)) console.warn('Unexpected /api/messages/threads response shape, normalized to array:', res.data);
