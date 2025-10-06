@@ -16,6 +16,10 @@ const Messages = ({ currentUserId }) => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [searchParams] = useSearchParams();
   const targetUserId = searchParams.get('user');
+  const propertyTitle = searchParams.get('propertyTitle') || '';
+  const propertyImage = searchParams.get('propertyImage') || '';
+  const propertyPrice = searchParams.get('propertyPrice') || '';
+  const propertyId = searchParams.get('propertyId') || '';
 
   useEffect(() => {
     const token = localStorage.getItem('user_token');
@@ -30,7 +34,26 @@ const Messages = ({ currentUserId }) => {
         // If coming from Contact Owner, auto-select the target user
         if (targetUserId) {
           const found = payload.find(u => String(u._id) === String(targetUserId));
-          if (found) setSelectedUser(found);
+          if (found) {
+            setSelectedUser(found);
+          } else {
+            // Try to fetch the public landlord profile if not in threads
+            axios.get(buildApi(`/users/landlord/${targetUserId}/profile`))
+              .then(r => {
+                const u = r.data;
+                let userWithProperty = { _id: String(u.id || u._id), fullName: u.fullName, username: u.username, profilePic: u.profilePic };
+                if (propertyTitle || propertyImage || propertyPrice || propertyId) {
+                  userWithProperty.propertyInfo = {
+                    title: propertyTitle,
+                    images: propertyImage ? [decodeURIComponent(propertyImage)] : [],
+                    price: propertyPrice,
+                    _id: propertyId
+                  };
+                }
+                setSelectedUser(userWithProperty);
+              })
+              .catch(() => {});
+          }
         }
       })
       .catch((err) => { console.error('Error fetching landlord threads:', err); setUsers([]); });
