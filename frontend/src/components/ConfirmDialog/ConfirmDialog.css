@@ -1,0 +1,17 @@
+.confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:1000;padding:1rem;}
+.confirm-box{background:#fff;color:#222;min-width:300px;max-width:420px;border-radius:12px;padding:1.25rem 1.25rem 1rem;box-shadow:0 10px 28px -6px rgba(0,0,0,.3);display:flex;flex-direction:column;gap:.75rem;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;}
+.confirm-box.danger{border:2px solid #dc2626;}
+.cd-header{display:flex;align-items:center;gap:.6rem;}
+.cd-icon{font-size:1.75rem;display:flex;align-items:center;justify-content:center;}
+.confirm-box h4{margin:0;font-size:1.05rem;font-weight:600;}
+.confirm-box p{margin:0;font-size:.9rem;line-height:1.3;color:#333;}
+.confirm-actions{display:flex;justify-content:flex-end;gap:.65rem;margin-top:.5rem;}
+.confirm-actions button{border:none;cursor:pointer;font-size:.85rem;font-weight:600;border-radius:8px;padding:.55rem .95rem;display:inline-flex;align-items:center;justify-content:center;transition:background .18s,box-shadow .18s,transform .18s;}
+.primary-btn{background:#2563eb;color:#fff;}
+.primary-btn:hover:not(:disabled){background:#1d4ed8;}
+.secondary-btn{background:#e5e7eb;color:#111;}
+.secondary-btn:hover:not(:disabled){background:#d1d5db;}
+.danger-btn{background:#dc2626;color:#fff;}
+.danger-btn:hover:not(:disabled){background:#b91c1c;}
+button:disabled{opacity:.6;cursor:default;}
+@media (max-width:480px){.confirm-box{width:100%;min-width:0;}}

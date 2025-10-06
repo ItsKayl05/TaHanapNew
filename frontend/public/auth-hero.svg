@@ -1,0 +1,29 @@
+<svg width="1200" height="900" viewBox="0 0 1200 900" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Abstract housing illustration">
+<rect width="1200" height="900" fill="url(#gradBg)"/>
+<g opacity="0.25" stroke-width="4" stroke-linejoin="round" stroke-linecap="round">
+<path d="M150 640 L420 420 L690 640 L690 880 L150 880 Z" stroke="#2563eb" fill="url(#roof1)"/>
+<path d="M510 560 L780 340 L1050 560 L1050 880 L510 880 Z" stroke="#6366f1" fill="url(#roof2)"/>
+<path d="M300 520 L420 430 L540 520 V880 H300 Z" stroke="#0ea5e9" fill="#ffffff22"/>
+<path d="M660 470 L780 380 L900 470 V880 H660 Z" stroke="#6366f1" fill="#ffffff11"/>
+</g>
+<circle cx="950" cy="210" r="140" fill="url(#sunGrad)" opacity="0.65"/>
+<defs>
+<linearGradient id="gradBg" x1="0" y1="0" x2="1200" y2="900" gradientUnits="userSpaceOnUse">
+<stop offset="0%" stop-color="#e0f2fe"/>
+<stop offset="55%" stop-color="#f5f3ff"/>
+<stop offset="100%" stop-color="#eef2ff"/>
+</linearGradient>
+<linearGradient id="roof1" x1="150" y1="420" x2="690" y2="880" gradientUnits="userSpaceOnUse">
+<stop stop-color="#38bdf8" stop-opacity="0.55"/>
+<stop offset="1" stop-color="#6366f1" stop-opacity="0.35"/>
+</linearGradient>
+<linearGradient id="roof2" x1="510" y1="340" x2="1050" y2="880" gradientUnits="userSpaceOnUse">
+<stop stop-color="#6366f1" stop-opacity="0.45"/>
+<stop offset="1" stop-color="#3b82f6" stop-opacity="0.35"/>
+</linearGradient>
+<radialGradient id="sunGrad" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(950 210) rotate(90) scale(140)">
+<stop stop-color="#fde68a"/>
+<stop offset="1" stop-color="#f59e0b" stop-opacity="0"/>
+</radialGradient>
+</defs>
+</svg>

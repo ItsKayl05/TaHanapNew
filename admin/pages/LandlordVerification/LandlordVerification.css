@@ -1,0 +1,111 @@
+/* Layout */
+.admin-layout { display: flex; min-height: 100vh; background:#0f172a; background-image:radial-gradient(circle at 18% 22%,rgba(255,255,255,.08),transparent 60%), radial-gradient(circle at 82% 70%,rgba(255,255,255,.05),transparent 65%); font-family: system-ui, Arial, sans-serif; }
+.content { flex: 1; padding: 32px 40px; overflow: auto; }
+
+/* Header */
+.page-header { margin-bottom:10px; }
+.page-header h2 { margin: 0 0 2px; font-size: 24px; font-weight: 600; color: #1e293b; }
+.page-header.simple .subtitle { margin: 0 0 14px; color: #64748b; font-size: 13px; }
+
+/* Card */
+.card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px 22px 18px; box-shadow: 0 4px 10px -2px rgba(0,0,0,.04), 0 2px 4px -2px rgba(0,0,0,.04); }
+
+/* Table Wrapper */
+.table-wrapper { width: 100%; overflow-x: auto; }
+.verification-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.verification-table thead th { text-align: left; font-size: 11px; letter-spacing: .6px; font-weight: 600; text-transform: uppercase; padding: 10px 10px; background: #f1f5f9; color: #475569; border-bottom: 1px solid #e2e8f0; }
+.verification-table tbody td { padding: 12px 10px; border-bottom: 1px solid #edf2f7; vertical-align: top; }
+.verification-table tbody tr:hover { background: #f8fafc; }
+
+/* User cell */
+.user-cell { display: flex; align-items: center; gap: 10px; }
+.avatar-placeholder { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg,#3b82f6,#6366f1); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:600; font-size:16px; letter-spacing:.5px; }
+.small-meta { font-size: 12px; color: #64748b; }
+
+/* Docs list */
+.docs-simple-list { display:flex; flex-direction:column; gap:6px; }
+.doc-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:6px 10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; font-size:12px; }
+.doc-row .doc-main { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.doc-row a { color:#2563eb; font-weight:500; text-decoration:none; }
+.doc-row a:hover { text-decoration:underline; }
+.doc-type { font-weight:600; color:#334155; text-transform:uppercase; font-size:11px; letter-spacing:.5px; }
+.doc-row-actions { display:flex; align-items:center; gap:6px; }
+
+/* Status badge inside chip */
+.badge.mini { text-transform: capitalize; font-weight:600; padding: 3px 8px; border-radius: 20px; background:#e2e8f0; color:#334155; font-size:10px; letter-spacing:.4px; }
+.badge.mini.accepted, .badge.mini.approved { background:#16a34a; color:#fff; }
+.badge.mini.pending { background:#f59e0b; color:#fff; }
+.badge.mini.rejected { background:#dc2626; color:#fff; }
+
+/* Overall badge */
+.overall-badge { display:inline-block; padding:6px 12px; border-radius: 30px; font-size:11px; font-weight:600; letter-spacing:.5px; text-transform:uppercase; }
+.overall-badge.approved { background:#16a34a; color:#fff; }
+.overall-badge.pending { background:#f59e0b; color:#fff; }
+
+/* Buttons */
+/* Removed large action button styles */
+
+/* Toolbar buttons */
+.tbtn { background:#f1f5f9; border:1px solid #d8e2ec; color:#334155; padding:8px 16px; font-size:12px; font-weight:600; border-radius:8px; cursor:pointer; letter-spacing:.5px; transition:.18s background,.18s border; }
+.tbtn:hover { background:#e2e8f0; }
+.tbtn:disabled { opacity:.55; cursor:not-allowed; }
+
+/* Metrics row */
+/* Removed metrics styles */
+
+/* Doc note input */
+/* Removed per-doc note inputs */
+
+/* Compact adjustments for doc-chip to accommodate note */
+/* Removed doc-chip extra spacing */
+
+@media (max-width:1100px){
+  .doc-note { width:100%; }
+}
+
+/* Mini buttons for per-doc status */
+/* Mini buttons simplified */
+.mini-btn { border:none; background:#e2e8f0; color:#334155; font-size:10px; font-weight:600; padding:5px 8px; border-radius:6px; cursor:pointer; transition:all .15s ease; }
+.mini-btn:hover { background:#cbd5e1; }
+.mini-btn.positive { background:#16a34a; color:#fff; }
+.mini-btn.positive:hover { filter:brightness(1.05); }
+.mini-btn.danger { background:#dc2626; color:#fff; }
+.mini-btn.danger:hover { filter:brightness(1.05); }
+.mini-btn.neutral { background:#64748b; color:#fff; }
+.mini-btn.neutral:hover { filter:brightness(1.1); }
+
+/* Toolbar */
+.toolbar { display:flex; justify-content:space-between; align-items:center; gap:14px; margin:0 0 12px; flex-wrap:wrap; }
+.toolbar.minimal { justify-content:flex-start; }
+.search-input { flex:1; min-width:240px; border:1px solid #cbd5e1; border-radius:10px; padding:10px 14px; font-size:13px; outline:none; background:#f8fafc; transition:border .15s ease, background .15s ease; }
+.search-input:focus { border-color:#3b82f6; background:#fff; box-shadow:0 0 0 3px rgba(59,130,246,.15); }
+
+/* Scrollbar improvements */
+.table-wrapper::-webkit-scrollbar { height:8px; }
+.table-wrapper::-webkit-scrollbar-track { background:transparent; }
+.table-wrapper::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:20px; }
+.table-wrapper::-webkit-scrollbar-thumb:hover { background:#94a3b8; }
+
+/* Responsive */
+@media (max-width: 1100px) {
+  .docs-list { max-width: 300px; }
+  .content { padding: 28px 28px 40px; }
+}
+@media (max-width: 900px) {
+  .admin-layout { flex-direction: column; }
+  .content { padding: 24px 20px 40px; }
+  .verification-table thead { display:none; }
+  .verification-table tbody tr { display:block; background:#fff; border:1px solid #e2e8f0; border-radius:12px; margin:0 0 16px; padding:12px 14px; }
+  .verification-table tbody td { display:block; border:none; padding:8px 0; }
+  .verification-table tbody td + td { margin-top:6px; }
+  .docs-simple-list { gap:10px; }
+  .doc-row { flex-direction:column; align-items:flex-start; }
+  .doc-row-actions { width:100%; }
+}
+
+/* Compact avatar */
+.avatar-placeholder.sm { width:34px; height:34px; font-size:15px; }
+.avatar-pic.sm { width:34px; height:34px; border-radius:50%; object-fit:cover; box-shadow:0 0 0 2px #fff,0 0 0 3px #94a3b833; }
+.landlord-meta { display:flex; flex-direction:column; gap:2px; }
+.tiny-meta { font-size:10px; color:#94a3b8; line-height:1.1; }
+.reject-reason { font-size:11px; color:#b91c1c; font-weight:500; background:#fee2e2; border:1px solid #fecaca; padding:4px 8px; border-radius:8px; margin:4px 0 0; }

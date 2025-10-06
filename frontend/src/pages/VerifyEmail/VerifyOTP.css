@@ -1,0 +1,140 @@
+/* Full-page styling */
+.verify-otp-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background: linear-gradient(135deg, #f3f4f6, #e0f7fa);
+  padding: 20px;
+}
+
+/* OTP container */
+.verify-otp-container {
+  background: #ffffff;
+  padding: 35px;
+  border-radius: 12px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+  text-align: center;
+  width: 380px;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Heading */
+.verify-otp-container h1 {
+  margin-bottom: 12px;
+  font-size: 26px;
+  color: #111;
+  font-weight: 600;
+}
+
+/* Instruction text */
+.verify-otp-container p {
+  font-size: 15px;
+  color: #111;
+  margin-bottom: 18px;
+  line-height: 1.4;
+}
+
+/* OTP input container */
+.otp-inputs {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+/* OTP input fields */
+.otp-inputs input {
+  width: 48px;
+  height: 54px;
+  font-size: 22px;
+  font-weight: bold;
+  text-align: center;
+  border: 2px solid #d1d9e6;
+  border-radius: 8px;
+  outline: none;
+  background: #f8fafc;
+  transition: all 0.3s ease-in-out;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+}
+
+.otp-inputs input:focus {
+  border-color: #007bff; /* Changed to blue */
+  background: #ffffff;
+  transform: scale(1.05);
+}
+
+/* OTP timer text */
+.otp-timer {
+  font-size: 14px;
+  color: #d32f2f;
+  font-weight: bold;
+  margin-bottom: 15px;
+}
+
+/* Verify button */
+.verify-otp-form button {
+  width: 100%;
+  padding: 14px;
+  font-size: 16px;
+  font-weight: bold;
+  background: #007bff; /* Updated color */
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.3s ease, transform 0.2s ease-in-out;
+}
+
+.verify-otp-form button:disabled {
+  background: #a4a4a4;
+  cursor: not-allowed;
+}
+
+.verify-otp-form button:hover:not(:disabled) {
+  background: #0056b3; /* Updated hover color */
+  transform: scale(1.02);
+}
+
+/* Resend OTP button */
+.resend-otp {
+  margin-top: 15px;
+  font-size: 14px;
+  font-weight: bold;
+  color: #007bff; /* Changed to blue */
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 0.3s ease-in-out;
+}
+
+.resend-otp:hover {
+  color: #0056b3; /* Updated hover color */
+  text-decoration: underline;
+}
+
+/* Fade-in animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive tweaks */
+@media (max-width: 400px) {
+  .verify-otp-container {
+    width: 100%;
+    padding: 25px;
+  }
+
+  .otp-inputs input {
+    width: 42px;
+    height: 50px;
+    font-size: 20px;
+  }
+}

@@ -1,0 +1,169 @@
+.app-row-header {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-bottom: 0.5rem;
+}
+.status-icon {
+  font-size: 1.2rem;
+  margin-right: 0.2rem;
+}
+.status-icon.pending {
+  color: #fbbf24;
+}
+.status-icon.approved {
+  color: #34d399;
+}
+.status-icon.rejected {
+  color: #f87171;
+}
+.no-apps {
+  color: #64748b;
+  font-style: italic;
+  margin: 0.7rem 0 1.5rem 0;
+}
+
+.tenant-my-rentals.page {
+.dashboard-container {
+  display: flex;
+  align-items: flex-start;
+  min-height: 100vh;
+  width: 100vw;
+  background: linear-gradient(120deg,rgba(59,130,246,0.04),rgba(99,102,241,0.03));
+}
+.main-content {
+  flex: 1;
+  min-width: 0;
+  padding: 3.5rem 5vw 3.5rem 3.5rem;
+  max-width: 900px;
+  margin: 0 auto;
+  box-sizing: border-box;
+  background: linear-gradient(120deg,rgba(59,130,246,0.04),rgba(99,102,241,0.03));
+  border-radius: 1.5rem;
+  box-shadow: 0 8px 32px 0 rgba(59,130,246,0.10);
+  margin-left: 2.5rem;
+}
+.tenant-my-rentals.page {
+  width: 100%;
+}
+@media (max-width: 1200px) {
+  .main-content {
+    max-width: 98vw;
+    padding: 2.5rem 2vw;
+    margin-left: 1.2rem;
+  }
+}
+@media (max-width: 900px) {
+  .dashboard-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .main-content {
+    padding: 1.5rem 1vw;
+    border-radius: 0.7rem;
+    margin-left: 0;
+  }
+}
+.tenant-my-rentals h2 {
+  font-size: 2.2rem;
+  margin-bottom: 2.7rem;
+  font-weight: 800;
+  letter-spacing: -1px;
+  background: linear-gradient(90deg,#38bdf8,#6366f1,#3b82f6);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.tabs {
+  display: flex;
+  gap: 1.2rem;
+  margin-bottom: 2.7rem;
+  margin-top: 0.7rem;
+  justify-content: flex-start;
+}
+.tabs button {
+  background: rgba(59,130,246,0.08);
+  border: none;
+  padding: 0.6rem 2.2rem;
+  border-radius: 2rem;
+  font-weight: 700;
+  color: #6366f1;
+  font-size: 1.05rem;
+  cursor: pointer;
+  box-shadow: 0 2px 8px 0 rgba(59,130,246,0.04);
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+}
+.tabs button.active, .tabs button:hover {
+  background: linear-gradient(90deg,#38bdf8,#6366f1,#3b82f6);
+  color: #fff;
+  box-shadow: 0 4px 16px 0 rgba(59,130,246,0.10);
+}
+.tab-content {
+  margin-top: 1.7rem;
+}
+.app-row {
+  background: rgba(255,255,255,0.10);
+  border: 1px solid rgba(59,130,246,0.13);
+  border-radius: 1.2rem;
+  padding: 2rem 1.5rem 1.5rem 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 24px 0 rgba(59,130,246,0.10);
+  transition: box-shadow 0.2s, transform 0.2s;
+  position: relative;
+}
+.app-row:hover {
+  box-shadow: 0 8px 32px 0 rgba(59,130,246,0.18);
+  transform: translateY(-2px) scale(1.01);
+}
+.app-row h4 {
+  font-size: 1.25rem;
+  color: #6366f1;
+  margin-bottom: 0.7rem;
+  font-weight: 700;
+}
+.app-row p {
+  color: #64748b;
+  margin: 0.2rem 0;
+  font-size: 1.05rem;
+}
+.app-row .status-badge {
+  display: inline-block;
+  padding: 0.3rem 1.1rem;
+  border-radius: 1rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin-bottom: 0.7rem;
+  margin-right: 0.7rem;
+  letter-spacing: 0.03em;
+}
+.app-row .status-badge.pending {
+  background: rgba(234,179,8,.18);
+  color: #fbbf24;
+}
+.app-row .status-badge.approved {
+  background: rgba(16,185,129,.18);
+  color: #34d399;
+}
+.app-row .status-badge.rejected {
+  background: rgba(239,68,68,.18);
+  color: #f87171;
+}
+.app-row .actions {
+  margin-top: 1.2rem;
+}
+.app-row .actions button {
+  background: linear-gradient(90deg,#38bdf8,#6366f1,#3b82f6);
+  color: #fff;
+  border: none;
+  border-radius: 0.7rem;
+  padding: 0.6rem 1.5rem;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+.app-row .actions button:hover {
+  background: linear-gradient(90deg,#6366f1,#38bdf8,#3b82f6);
+  transform: translateY(-2px);
+}
+}

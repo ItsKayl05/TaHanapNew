@@ -1,0 +1,138 @@
+/* Importing Poppins font */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap');
+
+* {
+    font-family: 'Poppins', sans-serif; /* Using Poppins font */
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    text-rendering: optimizeLegibility; /* Enhances font clarity */
+    -webkit-font-smoothing: antialiased; /* Smooths font on WebKit browsers */
+    -moz-osx-font-smoothing: grayscale; /* Improves readability on macOS */
+}
+
+html {
+    font-size: 16px;
+    color: #f1f5f9;
+    background:#0f172a;
+    background-image: radial-gradient(circle at 18% 22%, rgba(255,255,255,0.08), transparent 60%),
+                      radial-gradient(circle at 82% 70%, rgba(255,255,255,0.05), transparent 65%);
+}
+
+:root {
+    --app-bg:#0f172a;
+    --panel-bg:#ffffff;
+    --panel-border:#e2e8f0;
+    --grad-accent:linear-gradient(135deg,#38bdf8,#6366f1);
+    --accent:#6366f1;
+    --accent-rgb:99,102,241;
+    --danger:#dc2626;
+    --success:#16a34a;
+    --warning:#d97706;
+    --text-primary:#0f172a;
+    --text-secondary:#64748b;
+    --radius:14px;
+    --shadow:0 4px 14px -2px rgba(0,0,0,0.12),0 0 0 1px rgba(0,0,0,0.04);
+}
+
+body { background:transparent; }
+
+/* Legal / Contact pages */
+.legal-page { max-width:900px; margin:60px auto 80px; padding:0 1.25rem; }
+.legal-page h1 { font-size:2.1rem; margin:0 0 1rem; letter-spacing:.5px; }
+.legal-page h2 { margin:2rem 0 .75rem; font-size:1.15rem; font-weight:600; letter-spacing:.4px; }
+.legal-page p, .legal-page li { font-size:.95rem; line-height:1.55; }
+.legal-page ul { padding-left:1.2rem; margin:.4rem 0 1.2rem; }
+.contact-form { display:flex; flex-direction:column; gap:.9rem; margin:1.2rem 0 2rem; background:#fff; padding:1.25rem 1.4rem 1.5rem; border:1px solid #e2e8f0; border-radius:16px; box-shadow:0 4px 12px -2px rgba(0,0,0,.06); }
+.contact-form label { display:flex; flex-direction:column; gap:.35rem; font-size:.8rem; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:#475569; }
+.contact-form input, .contact-form textarea { font:inherit; padding:.7rem .8rem; border:1px solid #cbd5e1; border-radius:10px; background:#fff; resize:vertical; }
+.contact-form input:focus, .contact-form textarea:focus { outline:none; border-color:#6366f1; box-shadow:0 0 0 3px rgba(99,102,241,.25); }
+.contact-form button { align-self:flex-start; background:#2563eb; color:#fff; border:1px solid #1d4ed8; padding:.7rem 1.2rem; font-size:.8rem; font-weight:600; letter-spacing:.06em; border-radius:10px; cursor:pointer; text-transform:uppercase; box-shadow:0 2px 8px rgba(37,99,235,.35); }
+.contact-form button:disabled { opacity:.6; cursor:not-allowed; }
+.contact-form .error { color:#b91c1c; font-size:.8rem; }
+.alt-contact { background:#fff; border:1px solid #e2e8f0; padding:1rem 1.25rem 1.25rem; border-radius:14px; box-shadow:0 2px 8px -2px rgba(0,0,0,.05); }
+.alt-contact h2 { margin:0 0 .75rem; font-size:1rem; }
+
+@media (max-width:640px){ .legal-page { margin:40px auto 60px; } .legal-page h1 { font-size:1.75rem; } }
+
+/* Generic panel utility */
+.panel { background:var(--panel-bg); border:1px solid var(--panel-border); border-radius:var(--radius); box-shadow:var(--shadow); }
+
+/* --------------------------------------------- */
+/* Accessibility / Contrast Fixes               */
+/* --------------------------------------------- */
+/* Many components used pure #fff for text even on light backgrounds after theme changes.
+     Provide safer defaults + utilities without rewriting every file. */
+
+/* Light surface contexts (white / very light backgrounds) force dark primary text */
+.favorites-container, 
+.landlord-dashboard .ll-card, 
+.landlord-dashboard .landlord-main, 
+.dashboard-container.landlord-dashboard, 
+.tenant-dashboard .favorites-main, 
+.tenant-dashboard .panel, 
+.tenant-dashboard .ll-card { color: var(--color-text-primary); }
+
+/* Generic correction: any paragraph/span with pure white inside a light container gets downgraded */
+.favorites-container p, 
+.favorites-container span, 
+.landlord-dashboard .ll-card p, 
+.landlord-dashboard .ll-card span { color: var(--color-text-secondary); }
+
+/* Preserve intentional inverse text on dark / colored chips & buttons via explicit classes */
+.btn, .ll-btn.primary, .ll-btn.danger, .ll-btn.warn,
+.favorite-badge, .property-badge, .video-badge, .favorite-price,
+.feature-tag, .view-btn, .toggle-filters-btn, .reset-filters,
+.browse-btn, .aboutus-btn, .register-btn, .contact-btn, .landlord-profile-btn,
+.dashboard-sidebar li.active, .dashboard-sidebar .logout, .sidebar li.active, .sidebar .logout {
+    color:#fff !important; /* keep white for contrast on strong / dark backgrounds */
+}
+
+/* Fine-tune small meta text previously inheriting white making it low contrast on light panels */
+.property-date, .favorite-meta span, .favorites-toolbar label, .results-count, .results-metrics { color: var(--color-text-secondary) !important; }
+
+/* Ensure links inside light surfaces are dark unless styled as button */
+.favorites-container a:not(.btn):not(.ll-btn),
+.landlord-dashboard .ll-card a:not(.btn):not(.ll-btn) { color: #1d4b8f; text-decoration:none; }
+.favorites-container a:not(.btn):not(.ll-btn):hover { text-decoration:underline; }
+
+/* Utility classes */
+.text-primary { color: var(--color-text-primary) !important; }
+.text-secondary { color: var(--color-text-secondary) !important; }
+.text-muted { color: var(--color-text-muted, #6b7280) !important; }
+.text-inverse { color:#fff !important; }
+
+/* Reduce opacity of disabled elements while keeping readable foreground */
+[disabled], .is-disabled { opacity:.65; }
+
+/* Badge refinement: ensure small white text stays legible on gradients via slight text-shadow */
+.favorite-badge, .property-badge, .video-badge, .verified-badge, .lp-verified { text-shadow:0 1px 2px rgba(0,0,0,.35); }
+
+/* Heart / favorite icon remains inverse on mixed backgrounds */
+.favorite-icon { color:#e11d48 !important; }
+
+/* Override any accidental global white text that might have cascaded into light theme containers */
+.landlord-dashboard h1, .landlord-dashboard h2, .landlord-dashboard h3, .landlord-dashboard h4, .landlord-dashboard h5, .landlord-dashboard h6 { color: var(--color-text-primary); }
+
+/* Dark surface contexts: reinforce light foreground for readability */
+.dark-surface, .glass-panel, .property-listing-container, .property-card, .property-detail-wrapper, .home-hero, .aboutus-hero, .footer, .navbar, .property-images-overlay {
+    color:#f1f5f9;
+}
+.dark-surface p, .dark-surface span, .glass-panel p, .glass-panel span, .property-card p, .property-card span { color:#cbd5e1; }
+
+/* Utilities for explicit intent */
+.on-dark { color:#f8fafc !important; }
+.on-dark .muted, .on-dark-muted, .text-on-dark-muted { color:#cbd5e1 !important; }
+.on-light { color: var(--color-text-primary) !important; }
+
+/* High contrast focus ring adjustments for dark areas */
+.on-dark a:focus-visible, .dark-surface a:focus-visible, .glass-panel a:focus-visible, .property-card a:focus-visible, .on-dark button:focus-visible, .dark-surface button:focus-visible {
+    outline:2px solid #ffffff; outline-offset:3px; border-radius:6px;
+}
+
+/* Subtle text-shadow on light text over noisy backgrounds */
+.dark-surface h1, .dark-surface h2, .dark-surface h3, .glass-panel h1, .glass-panel h2, .glass-panel h3, .property-card h3 { text-shadow:0 1px 2px rgba(0,0,0,.5); }
+
+/* Ensure buttons placed inside dark panels but styled as neutral remain readable */
+.dark-surface .ll-btn:not(.primary):not(.danger):not(.warn):not(.outline) { color:#1f2937; }
+

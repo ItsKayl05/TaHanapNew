@@ -1,0 +1,18 @@
+/* Importing Poppins font */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap');
+
+* {
+    font-family: 'Poppins', sans-serif; /* Using Poppins font */
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    text-rendering: optimizeLegibility; /* Enhances font clarity */
+    -webkit-font-smoothing: antialiased; /* Smooths font on WebKit browsers */
+    -moz-osx-font-smoothing: grayscale; /* Improves readability on macOS */
+}
+
+html {
+    font-size: 16px; /* Standardized base size for better scaling */
+    color: #333; /* Dark gray for readability */
+    background-color: #f8f9fa; /* Light gray for a soft, clean background */
+}

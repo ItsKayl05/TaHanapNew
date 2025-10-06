@@ -1,0 +1,11 @@
+.messages-title {
+  padding: 1em 0.5em 0.5em;
+  font-weight: 600;
+  font-size: 1.2em;
+  color: #111;
+}
+
+.messages-username {
+  font-weight: 500;
+  color: #111;
+}

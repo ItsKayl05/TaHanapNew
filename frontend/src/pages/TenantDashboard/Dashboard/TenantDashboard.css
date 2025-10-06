@@ -1,0 +1,23 @@
+/* Tenant light theme adaptation (reusing landlord theme tokens) */
+:root { --nav-offset:80px; }
+.tenant-dashboard.dashboard-container { display:flex; min-height:100vh; }
+.tenant-dashboard .ll-grid { grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); }
+
+/* Avatar styling aligned to landlord aesthetic */
+.tenant-avatar { width:140px; height:140px; border-radius:50%; overflow:hidden; position:relative; cursor:pointer; box-shadow:0 4px 12px -4px rgba(0,0,0,.25); border:1px solid var(--color-border); background:#fff; }
+.tenant-avatar img { width:100%; height:100%; object-fit:cover; display:block; }
+.tenant-avatar-badge { position:absolute; inset:0; background:rgba(0,0,0,.45); opacity:0; display:flex; align-items:center; justify-content:center; font-size:.65rem; font-weight:600; letter-spacing:.5px; text-transform:uppercase; color:#fff; transition:.25s opacity; }
+.tenant-avatar:hover .tenant-avatar-badge, .tenant-avatar:focus .tenant-avatar-badge { opacity:1; }
+.tenant-username { margin:0; font-size:.8rem; font-weight:600; letter-spacing:.5px; color:var(--color-text-secondary); }
+
+/* Utility adjustments */
+.ll-stack.ll-gap-sm { gap:.55rem; }
+.ll-stack.ll-gap-md { gap:1rem; }
+.ll-label { font-size:.65rem; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--color-text-muted); }
+.ll-grid.narrow-two { display:grid; gap:1rem; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); }
+
+/* Responsive tweaks */
+@media (max-width:760px){
+	.tenant-dashboard .ll-grid { grid-template-columns:1fr; }
+	.tenant-avatar { width:120px; height:120px; border-radius:50%; }
+}
