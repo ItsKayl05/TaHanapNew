@@ -263,9 +263,10 @@ export const registerUser = async (req, res) => {
       const emailConfigured = !!(process.env.EMAIL_USER && process.env.EMAIL_PASS);
 
       if (!emailConfigured) {
-        console.warn('Email credentials not configured on server. Skipping sendMail and returning OTP in response for testing.');
-        // IMPORTANT: Exposing OTP in production is a security risk. This fallback is intended for short-term recovery/testing.
-        return res.status(201).json({ msg: 'Email not configured on server. Use OTP to verify.', otp });
+        console.warn('Email credentials not configured on server. Registration created but OTP not delivered.');
+        lastMailStatus.lastError = 'Email not configured on server';
+        // Do NOT return the OTP in the response. Requestor should configure SMTP.
+        return res.status(201).json({ msg: 'Registration created but OTP could not be sent because email is not configured. Contact admin to enable email delivery.', emailQueued: false, emailConfigured: false });
       }
 
       // Send email asynchronously so registration returns immediately to the client.
