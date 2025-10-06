@@ -68,36 +68,35 @@ const getCorsOptions = () => {
 
 const corsOptions = getCorsOptions();
 
-// Configure Socket.IO with proper CORS
+// Ensure CORS preflight and headers are present for Socket.IO polling requests
+// Some reverse proxies or CDNs may return errors for /socket.io polling if preflight is not handled.
+app.use('/socket.io', (req, res, next) => {
+    const origin = req.headers.origin || '*';
+    // Allow the requesting origin (or all if undefined). Keep credentials enabled.
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    if (req.method === 'OPTIONS') return res.sendStatus(200);
+    next();
+});
+
+// Configure Socket.IO with relaxed CORS handling. We accept the origin provided by the client
+// and rely on the above middleware to set the appropriate headers for polling requests.
 const io = new SocketIOServer(server, {
     cors: {
         origin: (origin, callback) => {
-            if (!origin) return callback(null, true);
-            
-            const allowedOrigins = [
-                'http://localhost:5173',
-                'http://localhost:5174',
-                'http://localhost:5176',
-                'https://tahanap-frontend.onrender.com',
-                'https://tahanap-backend.onrender.com',
-                'https://tahanap-admin.onrender.com'
-            ];
-
-            if (allowedOrigins.includes(origin)) {
-                return callback(null, true);
-            } else {
-                if (process.env.NODE_ENV !== 'production') {
-                    console.log('Socket.IO allowing origin in development:', origin);
-                    return callback(null, true);
-                }
-                return callback(new Error('Not allowed by CORS'), false);
-            }
+            // Accept requests from any origin (callback null,true). In production you may restrict this.
+            // We still log unexpected origins in development for visibility.
+            if (process.env.NODE_ENV !== 'production') console.log('Socket.IO incoming origin:', origin);
+            return callback(null, true);
         },
         methods: ['GET', 'POST', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
         credentials: true
     },
-    transports: ['polling', 'websocket'] // Enable both transports
+    // Prefer websocket transport where possible; polling remains available as fallback
+    transports: ['websocket', 'polling']
 });
 
 // Socket.IO event handlers
