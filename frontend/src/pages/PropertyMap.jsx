@@ -5,55 +5,18 @@ import Sidebar from './LandLordDashboard/Sidebar/Sidebar';
 import TenantSidebar from './TenantDashboard/TenantSidebar/TenantSidebar';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { buildApi } from '../services/apiConfig';
+import { buildApi, apiRequest } from '../services/apiConfig';
 
 const SJDM_CENTER = [14.8136, 121.0450];
 const SJDM_ZOOM = 13;
 
 const fetchProperties = async () => {
   try {
-    const apiUrl = buildApi('/properties');
-    console.log('🔍 Fetching from:', apiUrl);
+    console.log('🔄 Starting properties fetch...');
     
-    const res = await fetch(apiUrl, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      }
-    });
-    
-    console.log('📡 Response status:', res.status, res.statusText);
-    
-    // Check if response is HTML instead of JSON
-    const contentType = res.headers.get('content-type');
-    console.log('📄 Content-Type:', contentType);
-    
-    if (!res.ok) {
-      console.error('❌ HTTP Error:', res.status);
-      const errorText = await res.text();
-      console.error('📝 Error response preview:', errorText.substring(0, 200));
-      throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-    }
-    
-    // If response is not JSON, handle accordingly
-    if (!contentType || !contentType.includes('application/json')) {
-      const textResponse = await res.text();
-      console.warn('⚠️ Expected JSON but got:', textResponse.substring(0, 200));
-      
-      // Try to parse as JSON anyway (some APIs don't set proper content-type)
-      try {
-        const parsedData = JSON.parse(textResponse);
-        console.log('✅ Successfully parsed as JSON');
-        return Array.isArray(parsedData) ? parsedData : (parsedData.data || parsedData.properties || []);
-      } catch (parseError) {
-        console.error('❌ Failed to parse as JSON:', parseError);
-        return [];
-      }
-    }
-    
-    const data = await res.json();
-    console.log('✅ API Data structure:', data);
+    // Use the enhanced apiRequest instead of direct fetch
+    const data = await apiRequest('/properties');
+    console.log('✅ Properties data received:', data);
     
     // Handle different response structures
     if (Array.isArray(data)) {
@@ -62,19 +25,44 @@ const fetchProperties = async () => {
       return data.data;
     } else if (data && Array.isArray(data.properties)) {
       return data.properties;
+    } else if (data && data.success !== false) {
+      // If it's an object but not an error, try to extract array
+      const possibleArrays = Object.values(data).filter(Array.isArray);
+      return possibleArrays[0] || [];
     } else {
-      console.warn('⚠️ Unexpected data structure:', data);
+      console.warn('⚠️ Unexpected data structure, returning empty array');
       return [];
     }
   } catch (error) {
-    console.error('💥 Fetch error:', error);
+    console.error('❌ fetchProperties failed:', error);
+    
+    // Fallback: try direct fetch as last resort
+    try {
+      console.log('🔄 Trying direct fetch fallback...');
+      const apiUrl = buildApi('/properties');
+      const res = await fetch(apiUrl, {
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      if (res.ok) {
+        const fallbackData = await res.json();
+        console.log('✅ Fallback fetch successful');
+        return Array.isArray(fallbackData) ? fallbackData : [];
+      }
+    } catch (fallbackError) {
+      console.error('❌ Fallback also failed:', fallbackError);
+    }
+    
     return [];
   }
 };
 
 const PropertyMap = () => {
   useEffect(() => {
-    // Fix for default markers
+    // Fix for default markers in react-leaflet
     delete L.Icon.Default.prototype._getIconUrl;
     L.Icon.Default.mergeOptions({
       iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
@@ -94,15 +82,19 @@ const PropertyMap = () => {
       try {
         setLoading(true);
         setError(null);
-        console.log('🔄 Loading properties...');
+        console.log('🔧 Loading property map...');
         
         const data = await fetchProperties();
-        console.log('📊 Properties loaded:', data);
+        console.log(`📊 Loaded ${data.length} properties`);
         
         setProperties(Array.isArray(data) ? data : []);
+        
+        if (data.length === 0) {
+          setError('No properties found. The database might be empty or there might be a server issue.');
+        }
       } catch (err) {
-        console.error('❌ Load error:', err);
-        setError(err.message || 'Failed to load properties');
+        console.error('💥 Error loading properties:', err);
+        setError(err.message || 'Failed to load properties. Please try again later.');
         setProperties([]);
       } finally {
         setLoading(false);
@@ -111,6 +103,7 @@ const PropertyMap = () => {
 
     loadProperties();
   }, []);
+
   // SJDM bounding box (approximate):
   const SJDM_BOUNDS = {
     north: 14.8700,
@@ -142,6 +135,15 @@ const PropertyMap = () => {
     ? properties.filter(p => p && p.latitude && p.longitude && isInSJDM(p.latitude, p.longitude))
     : [];
 
+  // Debug current API config
+  useEffect(() => {
+    console.log('🔧 Current API Configuration:', {
+      API_BASE: window.__APP_API_CONFIG__?.API_BASE,
+      currentPage: window.location.href,
+      isTenant: location.pathname === '/map'
+    });
+  }, []);
+
   return (
     <div className={isTenant ? "dashboard-container tenant-dashboard" : "dashboard-container landlord-dashboard"} style={{ minHeight: '100vh', display: 'flex' }}>
       {isTenant ? (
@@ -159,8 +161,31 @@ const PropertyMap = () => {
         
         <div style={{ width: '100%', maxWidth: '900px', background: '#fff', borderRadius: '16px', boxShadow: '0 2px 16px rgba(0,0,0,0.07)', padding: '32px', margin: '0 auto' }}>
           {error && (
-            <div style={{ textAlign: 'center', color: 'red', marginBottom: '16px' }}>
-              {error}
+            <div style={{ 
+              textAlign: 'center', 
+              color: '#d32f2f', 
+              marginBottom: '16px', 
+              padding: '12px',
+              background: '#ffebee',
+              borderRadius: '8px',
+              border: '1px solid #ffcdd2'
+            }}>
+              <strong>Error:</strong> {error}
+              <br />
+              <button 
+                onClick={() => window.location.reload()}
+                style={{ 
+                  marginTop: '8px',
+                  padding: '8px 16px', 
+                  background: '#1976d2', 
+                  color: 'white', 
+                  border: 'none', 
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                Try Again
+              </button>
             </div>
           )}
           
@@ -183,7 +208,7 @@ const PropertyMap = () => {
                   <Popup>
                     <strong>{p.title || 'Untitled Property'}</strong><br />
                     {p.address || 'No address provided'}<br />
-                    {p.price ? `₱${p.price}` : 'Price not available'}<br />
+                    {p.price ? `₱${p.price.toLocaleString()}` : 'Price not available'}<br />
                     <a href={`/property/${p._id}`} style={{ color: '#1976d2' }}>
                       View Details
                     </a>
@@ -194,14 +219,26 @@ const PropertyMap = () => {
           </div>
           
           {loading && (
-            <div style={{ textAlign: 'center', marginTop: '18px' }}>
-              Loading properties...
+            <div style={{ textAlign: 'center', marginTop: '18px', color: '#666' }}>
+              <div>Loading properties...</div>
+              <small>Checking: {window.__APP_API_CONFIG__?.API_BASE}/api/properties</small>
             </div>
           )}
           
           {!loading && !error && validProperties.length === 0 && (
-            <div style={{ textAlign: 'center', marginTop: '18px' }}>
+            <div style={{ textAlign: 'center', marginTop: '18px', color: '#666' }}>
               No properties found in San Jose del Monte area.
+              {properties.length > 0 && (
+                <div style={{ fontSize: '0.9em', marginTop: '8px' }}>
+                  ({properties.length} properties found but none have valid coordinates in SJDM)
+                </div>
+              )}
+            </div>
+          )}
+          
+          {!loading && validProperties.length > 0 && (
+            <div style={{ textAlign: 'center', marginTop: '18px', color: '#666', fontSize: '0.9em' }}>
+              Showing {validProperties.length} properties in San Jose del Monte
             </div>
           )}
         </div>
