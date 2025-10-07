@@ -8,6 +8,10 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Default sender address for Resend if RESEND_FROM is not set.
+// Use otp@onresend.com to avoid unverified-domain errors when a custom domain isn't configured.
+const DEFAULT_RESEND_FROM = process.env.RESEND_FROM || 'otp@onresend.com';
+
 // We removed Nodemailer/SMTP support. Resend is now the required email provider.
 // Initialize Resend client if API key is present
 let resendClient = null;
@@ -250,7 +254,7 @@ export const registerUser = async (req, res) => {
     const otpExpiration = Date.now() + 10 * 60 * 1000;
 
     const mailOptions = {
-      from: `"TaHanap" <${process.env.RESEND_FROM || 'no-reply@yourdomain.com'}>`,
+      from: `"TaHanap" <${DEFAULT_RESEND_FROM}>`,
       to: lowerEmail,
       subject: 'Email Verification - TaHanap',
       html: `
@@ -391,7 +395,7 @@ export const resendOtp = async (req, res) => {
 
     // send via Resend
     try {
-      await sendEmail({ from: `"TaHanap" <${process.env.RESEND_FROM || 'no-reply@yourdomain.com'}>`, to: lowerEmail, subject: 'Resend OTP - TaHanap', html: `...` });
+      await sendEmail({ from: `"TaHanap" <${DEFAULT_RESEND_FROM}>`, to: lowerEmail, subject: 'Resend OTP - TaHanap', html: `...` });
       res.status(200).json({ msg: 'New OTP sent successfully.' });
     } catch (err) {
       res.status(500).json({ msg: 'Failed to send OTP email', error: String(err) });
@@ -422,7 +426,7 @@ export const sendOtpForReset = async (req, res) => {
 
     // Send email with OTP
     const mailOptions = {
-      from: `"TaHanap" <${process.env.RESEND_FROM || 'no-reply@yourdomain.com'}>`,
+      from: `"TaHanap" <${DEFAULT_RESEND_FROM}>`,
       to: lowerEmail,
       subject: 'Password Reset OTP - TaHanap',
       html: `

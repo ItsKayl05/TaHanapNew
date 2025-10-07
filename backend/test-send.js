@@ -10,7 +10,7 @@ async function tryResend(to) {
   if (!resend) return { data: null, error: new Error('RESEND_API_KEY not set') };
   try {
     const data = await resend.emails.send({
-      from: process.env.RESEND_FROM || `TaHanap <no-reply@yourdomain.com>`,
+      from: process.env.RESEND_FROM || `TaHanap <otp@onresend.com>`,
       to,
       subject: 'TaHanap test email (Resend)',
       html: '<b>This is a test from TaHanap backend using Resend.</b>',
@@ -38,7 +38,7 @@ async function trySmtp(to) {
 
   try {
     const info = await transporter.sendMail({
-      from: process.env.SMTP_USER || process.env.RESEND_FROM || 'no-reply@yourdomain.com',
+    from: process.env.SMTP_USER || process.env.RESEND_FROM || 'otp@onresend.com',
       to,
       subject: 'TaHanap test email (SMTP)',
       html: '<b>This is a test from TaHanap backend using SMTP.</b>',
