@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import multer from "multer";
+import os from 'os';
 
 // Protect routes by verifying JWT
 export const protect = async (req, res, next) => {
@@ -67,7 +68,8 @@ export const roleCheck = (role) => (req, res, next) => {
 };
 
 // Profile Picture Upload Middleware (using multer)
-const storage = multer.diskStorage({
+// Disk storage (legacy) - kept for backward compatibility
+const diskStorage = multer.diskStorage({
     destination: (req, file, cb) => {
         cb(null, "uploads/profiles/"); // Save uploaded files to the 'uploads/profiles' directory
     },
@@ -76,8 +78,8 @@ const storage = multer.diskStorage({
     }
 });
 
-const upload = multer({
-    storage,
+const diskUpload = multer({
+    storage: diskStorage,
     limits: { fileSize: 1024 * 1024 * 5 }, // Max file size 5MB
     fileFilter: (req, file, cb) => {
         if (file.mimetype.startsWith("image/")) {
@@ -88,5 +90,20 @@ const upload = multer({
     }
 });
 
-// Export the upload middleware for use in routes
-export const uploadProfilePic = upload.single("profilePic");
+// Memory storage for Cloudinary uploads (preferred)
+const memoryStorage = multer.memoryStorage();
+const memoryUpload = multer({
+    storage: memoryStorage,
+    limits: { fileSize: 1024 * 1024 * 10 }, // Allow up to 10MB for direct upload
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype.startsWith("image/")) cb(null, true);
+        else cb(new Error("Only image files are allowed!"), false);
+    }
+});
+
+// Export both so routes can opt-in to Cloudinary memory-based upload
+export const uploadProfilePic = diskUpload.single("profilePic"); // legacy
+export const uploadProfilePicMemory = memoryUpload.single("profilePic"); // preferred for Cloudinary
+
+// Generic memory upload instance (use .array/.single on routes as needed)
+export const memoryUploadInstance = memoryUpload;

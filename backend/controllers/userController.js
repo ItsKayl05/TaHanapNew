@@ -1,4 +1,5 @@
 import fs from 'fs'; // Import fs module
+import { uploadProfilePicMemory } from '../middleware/authMiddleware.js';
 import User from "../models/User.js"; // Ensure correct path
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
@@ -381,7 +382,7 @@ export const getTenantDashboard = async (req, res) => {
 
         res.status(200).json({
             role: user.role,
-            profilePic: user.profilePic || "",
+            profilePic: user.profilePic ? (user.profilePic.startsWith('http') ? user.profilePic : `${req.protocol}://${req.get('host')}/uploads/profiles/${user.profilePic}`) : "",
             fullName: user.fullName || "N/A",
             username: user.username || "N/A",
             address: user.address || "N/A",
@@ -405,7 +406,7 @@ export const getLandlordDashboard = async (req, res) => {
 
         res.status(200).json({
             role: user.role,
-            profilePic: user.profilePic || "",
+            profilePic: user.profilePic ? (user.profilePic.startsWith('http') ? user.profilePic : `${req.protocol}://${req.get('host')}/uploads/profiles/${user.profilePic}`) : "",
             fullName: user.fullName || "N/A",
             username: user.username || "N/A",
             address: user.address || "N/A",
@@ -470,7 +471,10 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // ✅ Upload Profile Picture
-export const uploadProfilePic = upload.single('profilePic'); // Use the multer middleware to handle profile picture uploads
+export const uploadProfilePic = upload.single('profilePic'); // legacy disk middleware (kept for compatibility)
+export { uploadProfilePicMemory };
+
+// Note: For Cloudinary uploads use `uploadProfilePicMemory` from authMiddleware and check req.file.buffer in `updateProfile`.
 
 // ✅ Update Profile (Including Profile Picture)
 export const updateProfile = async (req, res) => {
@@ -494,19 +498,38 @@ export const updateProfile = async (req, res) => {
             user.showEmailPublicly = showEmailPublicly === 'true' || showEmailPublicly === true;
         }
 
-        // If profile picture is uploaded, delete the old file and update the user's profilePic field
+        // If profile picture is uploaded, prefer Cloudinary upload when file buffer exists (memoryUpload)
         if (req.file) {
-            if (user.profilePic && user.profilePic !== req.file.filename) {
-                const oldPath = path.join(process.cwd(), 'uploads', 'profiles', user.profilePic);
-                console.log('[ProfilePic Delete] Attempting to delete:', oldPath);
+            // If multer memory storage used, req.file.buffer will exist
+            if (req.file.buffer) {
                 try {
-                    await fs.promises.unlink(oldPath);
-                    console.log('[ProfilePic Delete] Deleted:', oldPath);
-                } catch (err) {
-                    console.error('[ProfilePic Delete] Failed to delete', oldPath, err.message);
+                    const { uploadBuffer } = await import('../utils/cloudinary.js');
+                    const result = await uploadBuffer(req.file.buffer, { folder: `tahanap/profiles`, format: 'auto', resource_type: 'image' });
+                    // Delete old remote image if it's a cloudinary public id
+                    if (user.profilePic && user.profilePic.startsWith('http')) {
+                        try {
+                            const { extractPublicId, default: cloudinary } = await import('../utils/cloudinary.js');
+                            const pubId = extractPublicId(user.profilePic);
+                            if (pubId) await cloudinary.uploader.destroy(pubId);
+                        } catch (e) { console.warn('Failed to delete old Cloudinary image', e.message); }
+                    } else if (user.profilePic) {
+                        // legacy disk file - delete
+                        const oldPath = path.join(process.cwd(), 'uploads', 'profiles', user.profilePic);
+                        try { await fs.promises.unlink(oldPath); } catch(e){}
+                    }
+                    user.profilePic = result.secure_url; // store full secure URL
+                } catch (e) {
+                    console.error('Cloudinary upload failed for profile pic:', e);
+                    return res.status(500).json({ message: 'Failed to upload profile picture' });
                 }
+            } else {
+                // Disk upload path (legacy)
+                if (user.profilePic && user.profilePic !== req.file.filename) {
+                    const oldPath = path.join(process.cwd(), 'uploads', 'profiles', user.profilePic);
+                    try { await fs.promises.unlink(oldPath); } catch(e){}
+                }
+                user.profilePic = req.file.filename; // Store only the filename for legacy path
             }
-            user.profilePic = req.file.filename; // Store only the filename
         }
 
         await user.save();
@@ -521,7 +544,7 @@ export const updateProfile = async (req, res) => {
                 contactNumber: user.contactNumber,
                 email: user.email,
                 occupation: user.occupation,
-                profilePic: user.profilePic ? `http://localhost:4000/uploads/profiles/${user.profilePic}` : "", // Construct full URL
+                profilePic: user.profilePic ? (user.profilePic.startsWith('http') ? user.profilePic : `${req.protocol}://${req.get('host')}/uploads/profiles/${user.profilePic}`) : "",
                 showEmailPublicly: user.showEmailPublicly
             }
         });
@@ -537,9 +560,16 @@ export const resetProfilePic = async (req, res) => {
         if (!user) return res.status(404).json({ message: 'User not found' });
 
         if (user.profilePic) {
-            const filePath = `uploads/profiles/${user.profilePic}`;
             try {
-                if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+                if (user.profilePic.startsWith('http')) {
+                    // cloudinary hosted - attempt to remove
+                    const { extractPublicId, default: cloudinary } = await import('../utils/cloudinary.js');
+                    const pubId = extractPublicId(user.profilePic);
+                    if (pubId) await cloudinary.uploader.destroy(pubId);
+                } else {
+                    const filePath = `uploads/profiles/${user.profilePic}`;
+                    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+                }
             } catch (e) {
                 console.warn('Failed to delete old profile pic:', e.message);
             }

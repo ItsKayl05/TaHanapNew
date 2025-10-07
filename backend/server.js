@@ -17,10 +17,13 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { protect } from './middleware/authMiddleware.js';
 import User from './models/User.js';
+import Message from './models/Message.js';
 
 // Initialize Express
 const app = express();
 const port = process.env.PORT || 4000;
+// Base URL used when converting relative upload paths to absolute URLs in non-HTTP contexts (e.g. Socket.IO)
+const backendBase = process.env.BACKEND_URL || process.env.APP_URL || `http://localhost:${port}`;
 
 // Create HTTP server and Socket.IO instance
 import http from 'http';
@@ -108,10 +111,45 @@ io.on('connection', (socket) => {
         console.log(`User ${socket.id} joined room: ${roomId}`);
     });
 
-    socket.on('sendMessage', (data) => {
-        // data: { roomId, message, senderId, receiverId, timestamp }
-        console.log('Message received for room:', data.roomId);
-        io.to(data.roomId).emit('receiveMessage', data);
+    socket.on('sendMessage', async (data) => {
+        // data may contain: { roomId, message OR content, senderId, receiverId, propertyId?, timestamp }
+        try {
+            const roomId = data.roomId;
+            const senderId = data.senderId || data.sender;
+            const receiverId = data.receiverId || data.receiver;
+            const content = data.message || data.content || '';
+            const propertyId = data.propertyId || data.property;
+
+            // Save to MongoDB so chat history is persisted
+            const msgDoc = new Message({
+                sender: senderId,
+                receiver: receiverId,
+                content: content,
+                property: propertyId || undefined
+            });
+            await msgDoc.save();
+
+            // populate property for frontend convenience
+            const populated = await Message.findById(msgDoc._id).populate({ path: 'property', select: '_id title price images' });
+            let payload = populated && populated.toObject ? populated.toObject() : populated;
+            if (payload && payload.property && payload.property.images) {
+                payload.property.images = (payload.property.images || []).map(img => {
+                    if (!img) return img;
+                    if (String(img).startsWith('http')) return img;
+                    // ensure leading slash
+                    const rel = String(img).startsWith('/') ? String(img) : `/${String(img)}`;
+                    return `${backendBase}${rel}`;
+                });
+            }
+
+            // Emit the persisted, populated message to the room
+            io.to(roomId).emit('receiveMessage', payload);
+        } catch (err) {
+            console.error('Socket save message error:', err);
+            // still emit original data so clients don't stall (but include error flag)
+            const roomId = data.roomId;
+            io.to(roomId).emit('receiveMessage', { ...data, _error: 'failed_to_save' });
+        }
     });
 
     socket.on('disconnect', (reason) => {

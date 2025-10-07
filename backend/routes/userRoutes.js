@@ -12,6 +12,7 @@ import {
     changePassword,
     updateProfile,
     uploadProfilePic,
+    uploadProfilePicMemory,
     uploadIdDocument,
     getLandlordsForVerification,
     verifyLandlordID,
@@ -66,7 +67,8 @@ router.get("/landlord-dashboard", protect, roleCheck("landlord"), getLandlordDas
 
 // Common routes
 router.post("/change-password", protect, changePassword);
-router.put("/update-profile", protect, uploadProfilePic, updateProfile);
+// Use memory upload middleware for profile pics to enable Cloudinary uploads (falls back to disk upload if frontend still sends standard multipart)
+router.put("/update-profile", protect, uploadProfilePicMemory, updateProfile);
 router.put('/reset-profile-pic', protect, resetProfilePic);
 // Multi-ID upload (handled internally with its own multer config)
 router.post("/upload-id", protect, uploadIdDocument);

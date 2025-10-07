@@ -40,6 +40,30 @@ const upload = multer({
     { name: 'panorama360', maxCount: 1 }
 ]);
 
+// Memory-based multer for Cloudinary uploads (exported for routes)
+const memoryUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 50 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        if (file.fieldname === 'images' || file.fieldname === 'panorama360') {
+            if (!file.mimetype.startsWith('image/')) return cb(new Error('Only image files allowed in ' + file.fieldname + ' field'));
+            return cb(null, true);
+        }
+        if (file.fieldname === 'video') {
+            const allowedVideo = ['video/mp4', 'video/webm', 'video/ogg'];
+            if (!allowedVideo.includes(file.mimetype)) return cb(new Error('Invalid video format. Allowed: mp4, webm, ogg'));
+            return cb(null, true);
+        }
+        cb(new Error('Unexpected field: ' + file.fieldname));
+    }
+}).fields([
+    { name: 'images', maxCount: MAX_IMAGES },
+    { name: 'video', maxCount: 1 },
+    { name: 'panorama360', maxCount: 1 }
+]);
+
+export const uploadMemory = memoryUpload;
+
 // Helper: Build absolute media URL
 const toAbsolute = (req, relPath) => relPath ? (relPath.startsWith('http') ? relPath : `${req.protocol}://${req.get('host')}${relPath}`) : '';
 // Helper: Format image paths for frontend
@@ -109,15 +133,43 @@ export const addProperty = async (req, res) => {
                 }
             } // else bypass verification
 
-            const images = (req.files?.images || []).map(file => `/uploads/properties/${file.filename}`);
+            const images = [];
             let video = '';
-            if (req.files?.video && req.files.video.length) {
-                video = `/uploads/properties/${req.files.video[0].filename}`;
-            }
-            // Handle panorama360 upload
             let panorama360 = '';
-            if (req.files?.panorama360 && req.files.panorama360.length) {
-                panorama360 = `/uploads/properties/${req.files.panorama360[0].filename}`;
+
+            // If multer memory storage was used, files will include buffer property
+            const hasBuffer = (req.files && Object.values(req.files).flat().some(f => f && f.buffer));
+            if (hasBuffer) {
+                const { uploadBuffer, default: cloudinary } = await import('../utils/cloudinary.js');
+                // images
+                const imgs = req.files?.images || [];
+                for (const file of imgs) {
+                    try {
+                        const res = await uploadBuffer(file.buffer, { folder: `tahanap/properties/images`, resource_type: 'image', format: 'auto' });
+                        images.push(res.secure_url);
+                    } catch (e) {
+                        console.error('Cloudinary image upload failed:', e);
+                    }
+                }
+                // video
+                if (req.files?.video && req.files.video.length) {
+                    try {
+                        const res = await uploadBuffer(req.files.video[0].buffer, { folder: `tahanap/properties/videos`, resource_type: 'video' });
+                        video = res.secure_url;
+                    } catch (e) { console.error('Cloudinary video upload failed:', e); }
+                }
+                // panorama
+                if (req.files?.panorama360 && req.files.panorama360.length) {
+                    try {
+                        const res = await uploadBuffer(req.files.panorama360[0].buffer, { folder: `tahanap/properties/panorama`, resource_type: 'image', format: 'auto' });
+                        panorama360 = res.secure_url;
+                    } catch (e) { console.error('Cloudinary panorama upload failed:', e); }
+                }
+            } else {
+                // Disk fallback
+                if (req.files?.images) images.push(...(req.files.images.map(file => `/uploads/properties/${file.filename}`)));
+                if (req.files?.video && req.files.video.length) video = `/uploads/properties/${req.files.video[0].filename}`;
+                if (req.files?.panorama360 && req.files.panorama360.length) panorama360 = `/uploads/properties/${req.files.panorama360[0].filename}`;
             }
             if (images.length > MAX_IMAGES) {
                 return res.status(400).json({ error: `Maximum of ${MAX_IMAGES} images exceeded` });
@@ -195,7 +247,7 @@ export const getAllProperties = async (req, res) => {
                 contactNumber: property.landlord.contactNumber || '',
                 address: property.landlord.address || '',
                 verified: !!property.landlord.landlordVerified,
-                profilePic: property.landlord.profilePic ? toAbsolute(req, `/uploads/profiles/${property.landlord.profilePic}`) : ''
+                profilePic: property.landlord.profilePic ? (property.landlord.profilePic.startsWith('http') ? property.landlord.profilePic : toAbsolute(req, `/uploads/profiles/${property.landlord.profilePic}`)) : ''
             } : null
         })));
     } catch (error) {
@@ -227,7 +279,7 @@ export const getPropertiesByLandlord = async (req, res) => {
                 username: p.landlord.username || '',
                 contactNumber: p.landlord.contactNumber || '',
                 verified: !!p.landlord.landlordVerified,
-                profilePic: p.landlord.profilePic ? toAbsolute(req, `/uploads/profiles/${p.landlord.profilePic}`) : ''
+                profilePic: p.landlord.profilePic ? (p.landlord.profilePic.startsWith('http') ? p.landlord.profilePic : toAbsolute(req, `/uploads/profiles/${p.landlord.profilePic}`)) : ''
             } : null
         })));
     } catch (error) {
@@ -253,7 +305,7 @@ export const getProperty = async (req, res) => {
                 contactNumber: property.landlord.contactNumber || '',
                 address: property.landlord.address || '',
                 verified: !!property.landlord.landlordVerified,
-                profilePic: property.landlord.profilePic ? toAbsolute(req, `/uploads/profiles/${property.landlord.profilePic}`) : ''
+                profilePic: property.landlord.profilePic ? (property.landlord.profilePic.startsWith('http') ? property.landlord.profilePic : toAbsolute(req, `/uploads/profiles/${property.landlord.profilePic}`)) : ''
             } : null
         });
     } catch (error) {
@@ -315,10 +367,24 @@ export const updateProperty = async (req, res) => {
             }
 
             // Handle new image uploads
-            if (req.files?.images && req.files.images.length > 0) {
-                const newUploadedImages = req.files.images.map(file => `/uploads/properties/${file.filename}`);
-                updatedImages = [...updatedImages, ...newUploadedImages];
-            }
+                if (req.files?.images && req.files.images.length > 0) {
+                    const imgs = req.files.images;
+                    const hasBuffer = imgs.some(f => f && f.buffer);
+                    if (hasBuffer) {
+                        const { uploadBuffer, extractPublicId, default: cloudinary } = await import('../utils/cloudinary.js');
+                        for (const file of imgs) {
+                            try {
+                                const res = await uploadBuffer(file.buffer, { folder: `tahanap/properties/images`, resource_type: 'image', format: 'auto' });
+                                updatedImages.push(res.secure_url);
+                            } catch (e) {
+                                console.error('Cloudinary upload for new property image failed:', e);
+                            }
+                        }
+                    } else {
+                        const newUploadedImages = imgs.map(file => `/uploads/properties/${file.filename}`);
+                        updatedImages = [...updatedImages, ...newUploadedImages];
+                    }
+                }
             if (updatedImages.length > MAX_IMAGES) {
                 // Delete just-uploaded new images to avoid orphan files
                 const overflow = updatedImages.length - MAX_IMAGES;
