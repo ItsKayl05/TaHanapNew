@@ -382,7 +382,7 @@ export const getTenantDashboard = async (req, res) => {
 
         res.status(200).json({
             role: user.role,
-            profilePic: user.profilePic ? (user.profilePic.startsWith('http') ? user.profilePic : `${req.protocol}://${req.get('host')}/uploads/profiles/${user.profilePic}`) : "",
+            profilePic: user.profilePic || "", // ✅ Direct Cloudinary URL or empty string
             fullName: user.fullName || "N/A",
             username: user.username || "N/A",
             address: user.address || "N/A",
@@ -406,7 +406,7 @@ export const getLandlordDashboard = async (req, res) => {
 
         res.status(200).json({
             role: user.role,
-            profilePic: user.profilePic ? (user.profilePic.startsWith('http') ? user.profilePic : `${req.protocol}://${req.get('host')}/uploads/profiles/${user.profilePic}`) : "",
+            profilePic: user.profilePic || "", // ✅ Direct Cloudinary URL or empty string
             fullName: user.fullName || "N/A",
             username: user.username || "N/A",
             address: user.address || "N/A",
@@ -473,8 +473,6 @@ const upload = multer({ storage });
 // ✅ Upload Profile Picture
 export const uploadProfilePic = upload.single('profilePic'); // legacy disk middleware (kept for compatibility)
 export { uploadProfilePicMemory };
-
-// Note: For Cloudinary uploads use `uploadProfilePicMemory` from authMiddleware and check req.file.buffer in `updateProfile`.
 
 // ✅ Update Profile (Including Profile Picture)
 export const updateProfile = async (req, res) => {
@@ -563,7 +561,7 @@ export const updateProfile = async (req, res) => {
                 contactNumber: user.contactNumber,
                 email: user.email,
                 occupation: user.occupation,
-                profilePic: user.profilePic ? (user.profilePic.startsWith('http') ? user.profilePic : `${req.protocol}://${req.get('host')}/uploads/profiles/${user.profilePic}`) : "",
+                profilePic: user.profilePic || "", // ✅ Simple and direct - Cloudinary URL or empty string
                 showEmailPublicly: user.showEmailPublicly
             }
         });
@@ -647,9 +645,8 @@ export const deleteLandlordIdDocument = async (req, res) => {
         }
 
         // Recalculate landlordVerified
-    // Recalculate using same rule (>=1 accepted)
-    const acceptedDocs = user.idDocuments.filter(d => ['accepted','approved'].includes(d.status));
-    user.landlordVerified = acceptedDocs.length >= 1;
+        const acceptedDocs = user.idDocuments.filter(d => ['accepted','approved'].includes(d.status));
+        user.landlordVerified = acceptedDocs.length >= 1;
         await user.save();
         res.json({ message: 'Document deleted', removed: docId, landlordVerified: user.landlordVerified, remaining: user.idDocuments.length });
     } catch (e) {
@@ -664,12 +661,7 @@ export const getPublicLandlordProfile = async (req, res) => {
         const { id } = req.params;
         const user = await User.findById(id).select('fullName username profilePic address contactNumber role landlordVerified email occupation showEmailPublicly');
         if (!user || user.role !== 'landlord') return res.status(404).json({ message: 'Landlord not found' });
-        // Build absolute profile pic URL if stored as filename
-        let profilePic = user.profilePic || '';
-        if (profilePic && !profilePic.startsWith('http')) {
-            // Attempt to infer base from request
-            profilePic = `${req.protocol}://${req.get('host')}/uploads/profiles/${profilePic}`;
-        }
+        
         res.json({
             id: user._id,
             fullName: user.fullName || user.username || 'Landlord',
@@ -679,7 +671,7 @@ export const getPublicLandlordProfile = async (req, res) => {
             email: user.showEmailPublicly ? (user.email || '') : '',
             occupation: user.occupation || '',
             verified: !!user.landlordVerified,
-            profilePic
+            profilePic: user.profilePic || '' // ✅ Direct Cloudinary URL or empty string
         });
     } catch (e) {
         res.status(500).json({ message: 'Error fetching landlord profile' });

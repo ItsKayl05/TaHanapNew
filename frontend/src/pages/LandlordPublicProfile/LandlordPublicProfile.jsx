@@ -11,7 +11,6 @@ const LandlordPublicProfile = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Only fetch if id looks like a valid MongoDB ObjectId (24 hex chars)
   useEffect(()=>{
     let active = true;
     const isValidObjectId = /^[a-f\d]{24}$/i.test(id);
@@ -39,6 +38,7 @@ const LandlordPublicProfile = () => {
       <button onClick={()=>navigate(-1)} className="lp-back"><FaArrowLeft/> Back</button>
       <div className="lp-card">
         <div className="lp-header">
+          {/* ✅ Use Cloudinary URL directly, fallback to default avatar */}
           <img src={profile.profilePic || '/default-avatar.png'} alt={profile.fullName} className="lp-avatar" />
           <div className="lp-meta">
             <h1>{profile.fullName} {profile.verified && <span className="lp-verified" title="Verified"><FaShieldAlt/></span>}</h1>

@@ -9,14 +9,13 @@ import './TenantDashboard.css';
 import '../../LandLordDashboard/landlord-theme.css';
 import { AuthContext } from "../../../context/AuthContext";
 import TenantSidebar from "../TenantSidebar/TenantSidebar";
-import { buildApi, buildUpload } from '../../../services/apiConfig';
+import { buildApi } from '../../../services/apiConfig';
 import { barangayList } from '../../../utils/barangayList';
 
 const TenantDashboard = () => {
     const { logout } = useContext(AuthContext);
     const navigate = useNavigate();
     const [role, setRole] = useState("");
-    // barangayList is now imported from shared utils/barangayList.js
     const [userData, setUserData] = useState({
         username: "",
         fullName: "",
@@ -28,9 +27,7 @@ const TenantDashboard = () => {
     });
     const [passwords, setPasswords] = useState({ oldPassword: "", newPassword: "" });
     const [isUpdated, setIsUpdated] = useState(false);
-    const [idVerificationStatus, setIdVerificationStatus] = useState("n/a"); // for parity with landlord structure (could be used later)
-
-    // Simplified: removed password strength meter per landlord theme parity & to reduce extra UI noise
+    const [idVerificationStatus, setIdVerificationStatus] = useState("n/a");
 
     useEffect(() => {
         const checkBannedStatus = async () => {
@@ -57,10 +54,7 @@ const TenantDashboard = () => {
             }
         };
 
-        // Check status immediately
         checkBannedStatus();
-
-        // Then check every 30 seconds
         const interval = setInterval(checkBannedStatus, 30000);
         return () => clearInterval(interval);
     }, []);
@@ -118,7 +112,8 @@ const TenantDashboard = () => {
                         barangay: data.barangay || "",
                         contactNumber: data.contactNumber || "",
                         email: data.email || "",
-                        profilePic: data.profilePic ? buildUpload(`/profiles/${data.profilePic}`) : images.avatar,
+                        // ✅ Use Cloudinary URL directly, fallback to default avatar
+                        profilePic: data.profilePic || images.avatar,
                     });
                     setIdVerificationStatus(data.idVerificationStatus || "pending");
                 } else {
@@ -195,11 +190,11 @@ const TenantDashboard = () => {
         }
 
         const formData = new FormData();
-    formData.append("fullName", userData.fullName);
-    formData.append("address", userData.address);
-    formData.append("barangay", userData.barangay);
-    formData.append("contactNumber", userData.contactNumber);
-    formData.append("email", userData.email);
+        formData.append("fullName", userData.fullName);
+        formData.append("address", userData.address);
+        formData.append("barangay", userData.barangay);
+        formData.append("contactNumber", userData.contactNumber);
+        formData.append("email", userData.email);
 
         if (userData.profilePic instanceof File) {
             formData.append("profilePic", userData.profilePic);
@@ -234,7 +229,8 @@ const TenantDashboard = () => {
                         address: updatedData.address || "",
                         contactNumber: updatedData.contactNumber || "",
                         email: updatedData.email || "",
-                        profilePic: updatedData.profilePic ? buildUpload(`/profiles/${updatedData.profilePic}`) : images.avatar,
+                        // ✅ Use Cloudinary URL directly, fallback to default avatar
+                        profilePic: updatedData.profilePic || images.avatar,
                     });
                     setIsUpdated(prev => !prev);
                 } else {
@@ -267,8 +263,8 @@ const TenantDashboard = () => {
             <div className="landlord-main">
                 {role === "tenant" ? (
                     <>
-                                                <div className="ll-grid">
-                                                    <section className="ll-card" aria-labelledby="tenant-profile-heading">
+                        <div className="ll-grid">
+                            <section className="ll-card" aria-labelledby="tenant-profile-heading">
                                 <h2 id="tenant-profile-heading" style={{marginTop:0, fontSize:'1rem'}}>Profile</h2>
                                 <form onSubmit={handleProfileUpdate} className="ll-stack ll-gap-md" noValidate>
                                     <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:'0.65rem'}}>
@@ -313,8 +309,8 @@ const TenantDashboard = () => {
                                         <button className="ll-btn primary" type="submit">Save Changes</button>
                                     </div>
                                 </form>
-                                                          </section>
-                                                          <section className="ll-card" aria-labelledby="tenant-pw-heading">
+                            </section>
+                            <section className="ll-card" aria-labelledby="tenant-pw-heading">
                                 <h2 id="tenant-pw-heading" style={{marginTop:0, fontSize:'1rem'}}>Change Password</h2>
                                 <form onSubmit={handlePasswordChange} className="ll-stack ll-gap-md" noValidate>
                                     <div className="ll-stack ll-gap-sm">
@@ -329,8 +325,8 @@ const TenantDashboard = () => {
                                         <button type="submit" className="ll-btn danger" disabled={!passwords.newPassword}>Update Password</button>
                                     </div>
                                 </form>
-                                                                                    </section>
-                                                                                </div>
+                            </section>
+                        </div>
                     </>
                 ) : (
                     <p>Loading...</p>

@@ -9,14 +9,13 @@ import "./LandLordDashboard.css";
 import { AuthContext } from "../../../context/AuthContext";
 import Sidebar from "../Sidebar/Sidebar";
 import { authFetch } from "../../../utils/authFetch";
-import { buildApi, buildUpload } from '../../../services/apiConfig';
+import { buildApi } from '../../../services/apiConfig';
 import { barangayList } from '../../../utils/barangayList';
 
 const LandlordDashboard = () => {
     const { logout } = useContext(AuthContext);
     const navigate = useNavigate();
     const [role, setRole] = useState("");
-    // barangayList is now imported from shared utils/barangayList.js
     const [userData, setUserData] = useState({ username:"", fullName:"", address:"", barangay:"", contactNumber:"", email:"", profilePic:"", showEmailPublicly:false });
     const [passwords, setPasswords] = useState({ oldPassword:"", newPassword:"" });
     const [showPasswords, setShowPasswords] = useState(false);
@@ -35,7 +34,6 @@ const LandlordDashboard = () => {
         "National ID (PhilSys)"
     ];
 
-    // Periodically check banned status
     useEffect(()=>{
         const check = async () => {
             const token = localStorage.getItem('user_token');
@@ -56,11 +54,9 @@ const LandlordDashboard = () => {
         return ()=>clearInterval(id);
     },[]);
 
-    // Fetch dashboard data
     useEffect(()=>{
         const token = localStorage.getItem('user_token');
         if(!token){ toast.error('No token found. Redirecting...'); navigate('/'); return; }
-        // expiry check
         try {
             const decoded = JSON.parse(atob(token.split('.')[1]));
             if(Date.now() >= decoded.exp * 1000){
@@ -89,7 +85,8 @@ const LandlordDashboard = () => {
                     barangay: data.barangay || '',
                     contactNumber: data.contactNumber || '',
                     email: data.email || '',
-                    profilePic: data.profilePic ? buildUpload(`/profiles/${data.profilePic}`) : images.avatar,
+                    // ✅ Use Cloudinary URL directly, fallback to default avatar
+                    profilePic: data.profilePic || images.avatar,
                     showEmailPublicly: !!data.showEmailPublicly
                 });
                 setIdDocs(data.idDocuments || []);
@@ -137,11 +134,11 @@ const LandlordDashboard = () => {
     const handleProfileUpdate = async (e) => {
         e.preventDefault();
         const formData = new FormData();
-    formData.append('fullName', userData.fullName);
-    formData.append('address', userData.address);
-    formData.append('barangay', userData.barangay);
-    formData.append('contactNumber', userData.contactNumber);
-    formData.append('showEmailPublicly', userData.showEmailPublicly);
+        formData.append('fullName', userData.fullName);
+        formData.append('address', userData.address);
+        formData.append('barangay', userData.barangay);
+        formData.append('contactNumber', userData.contactNumber);
+        formData.append('showEmailPublicly', userData.showEmailPublicly);
         if(userData.profilePic instanceof File) formData.append('profilePic', userData.profilePic);
         try {
             const res = await authFetch(buildApi('/users/update-profile'),{ method:'PUT', body: formData });
@@ -157,13 +154,11 @@ const LandlordDashboard = () => {
         e.preventDefault();
         if(!idFile || !idType){ toast.error('Provide ID file and type'); return; }
 
-        // Client-side validation: allowed types and max size 10MB
         const allowed = ['image/jpeg','image/png','image/jpg','application/pdf'];
         if (!allowed.includes(idFile.type)) { toast.error('Only JPG, PNG or PDF allowed'); return; }
         if (idFile.size > 1024 * 1024 * 10) { toast.error('File too large. Max 10MB'); return; }
 
         const formData = new FormData();
-        // backend expects 'idFiles' (array) and 'idTypes' (JSON/array)
         formData.append('idFiles', idFile, idFile.name);
         formData.append('idTypes', JSON.stringify([idType]));
         try {
@@ -182,7 +177,7 @@ const LandlordDashboard = () => {
             <Sidebar idVerificationStatus={idVerificationStatus} handleLogout={handleLogout} />
             <div className="main-content landlord-main">
                 {role === 'landlord' ? (
-                                        <div className="profile-grid">
+                    <div className="profile-grid">
                         {/* Profile Card */}
                         <section className="card glass profile-section" aria-labelledby="profile-heading">
                             <div className="card-header"><h2 id="profile-heading">Profile</h2></div>
@@ -268,7 +263,7 @@ const LandlordDashboard = () => {
                                 <div className="actions end"><button type="submit" className="btn danger" disabled={!passwords.newPassword}>Update Password</button></div>
                             </form>
                         </section>
-                                                                </div>
+                    </div>
                 ) : (
                     <div className="loading-container"><div className="spinner" aria-label="Loading" /><p>Loading dashboard...</p></div>
                 )}
