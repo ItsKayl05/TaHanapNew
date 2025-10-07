@@ -285,48 +285,46 @@ function ChatBox({
   }, [chatMessages, targetUserId, targetUserName]);
 
   return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'flex-start' }}>
-      <div className={`chatbox-container ${large ? 'large' : ''}`} style={{ width: '100%', maxWidth: 600, margin: '0 auto', background: '#fff', borderRadius: 12, boxShadow: '0 2px 12px #0001', minHeight: 400, display: 'flex', flexDirection: 'column', height: '80vh' }}>
+    <div className="chatbox-wrapper">
+      <div className={`chatbox-container ${large ? 'large' : ''}`}>
         
-        <div className="chatbox-header" style={{ borderBottom: '1px solid #eee', padding: '16px 20px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-          <div style={{display:'flex',alignItems:'center',width:'100%'}}>
+        <div className="chatbox-header">
+          <div className="chatbox-header-main">
             <img 
               className="chatbox-header-avatar" 
               src={(targetUserAvatar && targetUserAvatar.startsWith('http')) ? targetUserAvatar : (targetUserAvatar ? buildUpload(`/profiles/${targetUserAvatar}`) : '/default-avatar.png')} 
               alt={targetUserName} 
-              style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', marginRight: 12 }} 
               onError={(e) => {
                 e.target.onerror = null;
                 e.target.src = '/default-avatar.png';
               }}
             />
-            <div className="chatbox-header-title" style={{ fontWeight: 600, fontSize: '1.1em' }}>
+            <div className="chatbox-header-title">
               {targetUserName || 'Unknown User'}
             </div>
           </div>
           
           {/* Property context directly below landlord name */}
           {(propertyTitle || propertyImage || propertyPrice) && (
-            <div className="chatbox-property-context" style={{display:'flex',alignItems:'center',gap:12,background:'#23272f',padding:'12px 16px',borderRadius:10,margin:'12px 0 0 0',color:'#fff',maxWidth:'100%',width:'100%',boxSizing:'border-box',alignSelf:'stretch'}}>
+            <div className="chatbox-property-context">
               {propertyImage && (
                 <img 
                   src={propertyImage.startsWith('http') ? propertyImage : (propertyImage.startsWith('/uploads/') ? buildUpload(propertyImage.replace(/^\/uploads/, '')) : buildUpload(`/properties/${propertyImage}`))} 
                   alt="Property" 
-                  style={{width:56,height:56,borderRadius:8,objectFit:'cover',border:'2px solid #fff',boxShadow:'0 2px 8px #0003'}} 
                   onError={e => { 
                     e.target.onerror = null; 
                     e.target.src = '/default-property.png'; 
                   }} 
                 />
               )}
-              <div style={{flex:1}}>
-                <div style={{fontWeight:600,fontSize:'1.05em',marginBottom:2}}>{propertyTitle || 'Property'}</div>
-                {propertyPrice && <div style={{fontSize:'0.98em',color:'#a3e635'}}>₱{Number(propertyPrice).toLocaleString()}</div>}
+              <div className="chatbox-property-info">
+                <div className="chatbox-property-title">{propertyTitle || 'Property'}</div>
+                {propertyPrice && <div className="chatbox-property-price">₱{Number(propertyPrice).toLocaleString()}</div>}
               </div>
               {propertyId && (
                 <a 
                   href={`/property/${propertyId}`} 
-                  style={{marginLeft:'auto',background:'linear-gradient(90deg,#2563eb 0%,#1e40af 100%)',color:'#fff',padding:'7px 16px',borderRadius:7,fontWeight:600,textDecoration:'none',fontSize:'0.98em',boxShadow:'0 2px 8px #2563eb55'}}
+                  className="chatbox-property-link"
                 >
                   View Details
                 </a>
@@ -336,12 +334,12 @@ function ChatBox({
         </div>
         
         {/* Main flex area: messages (scrollable), bottom bar (property + input) */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        <div className="chatbox-content">
           {/* Scrollable messages */}
-          <div className="chatbox-messages" style={{ flex: 1, overflowY: 'auto', padding: 20, width: '100%', position: 'relative', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <div className="chatbox-messages">
             {/* FIXED: Always ensure chatMessages is treated as array */}
             {!Array.isArray(chatMessages) || chatMessages.length === 0 ? (
-              <div style={{ color: '#888', textAlign: 'center', marginTop: 40 }}>
+              <div className="chatbox-empty">
                 No messages yet. Start a conversation!
               </div>
             ) : (
@@ -351,17 +349,17 @@ function ChatBox({
           </div>
           
           {/* Bottom bar: input only */}
-          <div style={{width:'100%',background:'#fff',boxSizing:'border-box',paddingBottom:0}}>
-            <form className="chatbox-input-row" onSubmit={sendMessage} style={{ display: 'flex', alignItems: 'center', borderTop: '1px solid #eee', padding: '12px 16px', width: '100%', background: '#fff' }}>
+          <div className="chatbox-input-container">
+            <form className="chatbox-input-row" onSubmit={sendMessage}>
               <input 
                 value={input} 
                 onChange={e => setInput(e.target.value)} 
                 placeholder="Type a message..." 
-                style={{ flex: 1, padding: 10, borderRadius: 8, border: '1px solid #ccc', marginRight: 8 }} 
+                className="chatbox-input"
               />
               <button 
                 type="submit" 
-                style={{ padding: '10px 20px', borderRadius: 8, background: '#2563eb', color: '#fff', fontWeight: 600, border: 'none' }}
+                className="chatbox-send-button"
                 disabled={!input.trim()}
               >
                 Send
