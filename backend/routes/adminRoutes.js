@@ -50,9 +50,7 @@ router.get('/overview', async (req, res) => {
     }
 });
 
-export default router;
-
-// Protected debug endpoint for mail status
+// Protected debug endpoints
 router.get('/mail-status', (req, res) => {
     const token = req.headers['x-debug-token'];
     if (!process.env.DEBUG_TOKEN) return res.status(403).json({ message: 'Debug token not configured on server' });
@@ -65,3 +63,33 @@ router.get('/mail-status', (req, res) => {
         res.status(500).json({ ok: false, error: String(err) });
     }
 });
+
+// Cloudinary connectivity and upload test (protected by DEBUG_TOKEN header)
+router.post('/cloudinary-test', async (req, res) => {
+    const token = req.headers['x-debug-token'];
+    if (!process.env.DEBUG_TOKEN) return res.status(403).json({ message: 'Debug token not configured on server' });
+    if (!token || token !== process.env.DEBUG_TOKEN) return res.status(401).json({ message: 'Unauthorized' });
+
+    try {
+        const { v2: cloudinary } = await import('cloudinary');
+        // create a 1x1 transparent PNG buffer (base64)
+        const pngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=';
+        const buf = Buffer.from(pngBase64, 'base64');
+        const streamifier = await import('streamifier');
+        const uploadStream = cloudinary.uploader.upload_stream({ folder: 'tahanap/debug' }, (err, result) => {
+            if (err) return res.status(500).json({ ok: false, error: String(err) });
+            // delete it immediately
+            cloudinary.uploader.destroy(result.public_id, { resource_type: 'image' }).then(() => {
+                res.json({ ok: true, uploaded: result.secure_url });
+            }).catch(destErr => {
+                res.status(500).json({ ok: false, error: 'uploaded_but_delete_failed', detail: String(destErr) });
+            });
+        });
+        streamifier.createReadStream(buf).pipe(uploadStream);
+    } catch (err) {
+        console.error('cloudinary-test error:', err);
+        res.status(500).json({ ok: false, error: String(err) });
+    }
+});
+
+export default router;
