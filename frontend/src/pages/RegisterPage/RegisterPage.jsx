@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "./RegisterPage.css";
 import TermPopup from "../../components/TermPopup/TermPopup";
@@ -8,7 +8,6 @@ import {
 } from "react-icons/ai";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import zxcvbn from "zxcvbn";
 import { buildApi, apiRequest } from '../../services/apiConfig';
 
 const RegisterPage = () => {
@@ -29,6 +28,8 @@ const RegisterPage = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [passwordStrength, setPasswordStrength] = useState(0);
+    const [pwdScore, setPwdScore] = useState(0); // 0-100
+    const [pwdLabel, setPwdLabel] = useState('');
     const [isPopupOpen, setIsPopupOpen] = useState(false); // State for terms popup
 
     const handleChange = (e) => {
@@ -36,9 +37,31 @@ const RegisterPage = () => {
         setFormData((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
 
         if (name === "password") {
-            setPasswordStrength(zxcvbn(value).score);
+            // keep legacy simple score for progress bar (0-4) for compatibility
+            setPasswordStrength(value ? Math.min(4, Math.floor((value.length / 6))) : 0);
         }
     };
+
+    // Password strength scoring (copied from LoginPage logic)
+    useEffect(()=>{
+        const pwd = formData.password || '';
+        if(!pwd){ setPwdScore(0); setPwdLabel(''); return; }
+        let score = 0;
+        const length = pwd.length;
+        if(length >= 6) score += 20;
+        if(length >= 10) score += 15;
+        if(length >= 14) score += 10;
+        if(/[a-z]/.test(pwd)) score += 10;
+        if(/[A-Z]/.test(pwd)) score += 15;
+        if(/[0-9]/.test(pwd)) score += 15;
+        if(/[^A-Za-z0-9]/.test(pwd)) score += 15;
+        if(length >= 18) score += 10;
+        if(score > 100) score = 100;
+        setPwdScore(score);
+        let label = 'Weak';
+        if(score >= 80) label = 'Strong'; else if(score >= 55) label = 'Medium';
+        setPwdLabel(label);
+    },[formData.password]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -206,6 +229,9 @@ const RegisterPage = () => {
                     {formData.password && (
                         <div className="password-strength">
                             <progress value={passwordStrength} max={4}></progress>
+                            {pwdLabel && (
+                                <div className={`pwd-meta ${pwdLabel.toLowerCase()}`}>{pwdLabel}</div>
+                            )}
                         </div>
                     )}
                 </div>

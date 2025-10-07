@@ -23,14 +23,14 @@
 .verify-otp-container h1 {
   margin-bottom: 12px;
   font-size: 26px;
-  color: #111;
+  color: #000000;
   font-weight: 600;
 }
 
 /* Instruction text */
 .verify-otp-container p {
   font-size: 15px;
-  color: #111;
+  color: #000000;
   margin-bottom: 18px;
   line-height: 1.4;
 }
@@ -50,16 +50,17 @@
   font-size: 22px;
   font-weight: bold;
   text-align: center;
-  border: 2px solid #d1d9e6;
+  border: 2px solid #000000;
   border-radius: 8px;
   outline: none;
-  background: #f8fafc;
+  background: #ffffff;
   transition: all 0.3s ease-in-out;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+  color: #000000;
 }
 
 .otp-inputs input:focus {
-  border-color: #007bff; /* Changed to blue */
+  border-color: #007bff;
   background: #ffffff;
   transform: scale(1.05);
 }
@@ -67,7 +68,7 @@
 /* OTP timer text */
 .otp-timer {
   font-size: 14px;
-  color: #d32f2f;
+  color: #000000;
   font-weight: bold;
   margin-bottom: 15px;
 }
@@ -78,7 +79,7 @@
   padding: 14px;
   font-size: 16px;
   font-weight: bold;
-  background: #007bff; /* Updated color */
+  background: #007bff;
   color: white;
   border: none;
   border-radius: 8px;
@@ -87,12 +88,12 @@
 }
 
 .verify-otp-form button:disabled {
-  background: #a4a4a4;
+  background: #000000;
   cursor: not-allowed;
 }
 
 .verify-otp-form button:hover:not(:disabled) {
-  background: #0056b3; /* Updated hover color */
+  background: #0056b3;
   transform: scale(1.02);
 }
 
@@ -101,7 +102,7 @@
   margin-top: 15px;
   font-size: 14px;
   font-weight: bold;
-  color: #007bff; /* Changed to blue */
+  color: #000000;
   background: none;
   border: none;
   cursor: pointer;
@@ -109,7 +110,7 @@
 }
 
 .resend-otp:hover {
-  color: #0056b3; /* Updated hover color */
+  color: #0056b3;
   text-decoration: underline;
 }
 
