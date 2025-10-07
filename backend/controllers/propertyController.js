@@ -5,40 +5,8 @@ import mongoose from 'mongoose';
 import Property from "../models/Property.js";
 import User from "../models/User.js";
 
-// Ensure the uploads/properties directory exists
-const uploadDir = path.join(process.cwd(), "uploads/properties/");
-fs.mkdir(uploadDir, { recursive: true }).catch(console.error);
-
 // Constants
 const MAX_IMAGES = 8; // Align with frontend limit
-// Configure Multer for image + video uploads
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => cb(null, uploadDir),
-    filename: (req, file, cb) => cb(null, `${Date.now()}${path.extname(file.originalname)}`)
-});
-
-const upload = multer({
-    storage,
-    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB max per file (video)
-    fileFilter: (req, file, cb) => {
-        if (file.fieldname === 'images' || file.fieldname === 'panorama360') {
-            if (!file.mimetype.startsWith('image/')) return cb(new Error('Only image files allowed in ' + file.fieldname + ' field'));
-            if (file.size > 10 * 1024 * 1024) return cb(new Error('Image or panorama file too large (max 10MB)'));
-            return cb(null, true);
-        }
-        if (file.fieldname === 'video') {
-            const allowedVideo = ['video/mp4', 'video/webm', 'video/ogg'];
-            if (!allowedVideo.includes(file.mimetype)) return cb(new Error('Invalid video format. Allowed: mp4, webm, ogg'));
-            if (file.size > 50 * 1024 * 1024) return cb(new Error('Video file too large (max 50MB)'));
-            return cb(null, true);
-        }
-        cb(new Error('Unexpected field: ' + file.fieldname));
-    }
-}).fields([
-    { name: 'images', maxCount: MAX_IMAGES },
-    { name: 'video', maxCount: 1 },
-    { name: 'panorama360', maxCount: 1 }
-]);
 
 // Memory-based multer for Cloudinary uploads (exported for routes)
 const memoryUpload = multer({
@@ -64,50 +32,77 @@ const memoryUpload = multer({
 
 export const uploadMemory = memoryUpload;
 
-// Helper: Build absolute media URL
-const toAbsolute = (req, relPath) => relPath ? (relPath.startsWith('http') ? relPath : `${req.protocol}://${req.get('host')}${relPath}`) : '';
+// Helper: Build absolute media URL (for Cloudinary URLs, return as-is)
+const toAbsolute = (req, url) => url ? (url.startsWith('http') ? url : `${req.protocol}://${req.get('host')}${url}`) : '';
+
 // Helper: Format image paths for frontend
 const formatImagePaths = (req, images) => images.map(img => toAbsolute(req, img));
+
 // Helper: safe number coercion
 const num = (v, def = 0) => {
     const n = Number(v);
     return Number.isFinite(n) && n >= 0 ? n : def;
 };
 
-// Helper function to delete images
-// Accepts filenames, relative paths (e.g. '/uploads/properties/filename') or full URLs
-const deleteImages = async (imagesToDelete) => {
+// Helper function to delete Cloudinary assets
+const deleteCloudinaryAssets = async (urls) => {
     try {
-        for (const image of imagesToDelete) {
+        const { extractPublicId, default: cloudinary } = await import('../utils/cloudinary.js');
+        
+        for (const url of urls) {
             try {
-                if (!image) continue;
-                // Strip any querystring that may be appended
-                const clean = image.split('?')[0];
-                // Extract the basename (filename) whether input is URL, relative path, or just filename
-                const filename = path.basename(clean);
-                if (!filename) continue;
-                const imagePath = path.join(process.cwd(), 'uploads', 'properties', filename);
-                console.log('[Property Delete] Attempting to delete:', imagePath);
-                try {
-                    await fs.unlink(imagePath); // Delete the image file
-                    console.log('[Property Delete] Deleted:', imagePath);
-                } catch (err) {
-                    // Log but don't throw; file may not exist or already removed
-                    console.error('[Property Delete] Failed to delete', imagePath, err.message);
-                }
+                if (!url || !url.startsWith('http')) continue;
+                
+                const publicId = extractPublicId(url);
+                if (!publicId) continue;
+
+                console.log('[Cloudinary Delete] Attempting to delete:', publicId);
+                
+                // Determine resource type based on URL path
+                const resourceType = url.includes('/video/') ? 'video' : 'image';
+                
+                await cloudinary.uploader.destroy(publicId, { resource_type: resourceType })
+                    .then(result => {
+                        console.log('[Cloudinary Delete] Deleted:', publicId, result);
+                    })
+                    .catch(err => {
+                        console.error('[Cloudinary Delete] Failed to delete', publicId, err.message);
+                    });
             } catch (innerErr) {
-                console.error('[Property Delete] Error processing image for deletion:', innerErr);
+                console.error('[Cloudinary Delete] Error processing URL for deletion:', innerErr);
             }
         }
     } catch (err) {
-        console.error('[Property Delete] Error deleting images:', err);
+        console.error('[Cloudinary Delete] Error deleting Cloudinary assets:', err);
     }
+};
+
+// Helper function to upload files to Cloudinary
+const uploadToCloudinary = async (files, folder, resourceType = 'image') => {
+    const { uploadBuffer } = await import('../utils/cloudinary.js');
+    const urls = [];
+    
+    for (const file of files) {
+        try {
+            const result = await uploadBuffer(file.buffer, { 
+                folder: `tahanap/properties/${folder}`,
+                resource_type: resourceType
+            });
+            if (result.secure_url) {
+                urls.push(result.secure_url);
+            }
+        } catch (e) {
+            console.error(`Cloudinary ${resourceType} upload failed:`, e);
+        }
+    }
+    
+    return resourceType === 'image' ? urls : urls[0] || '';
 };
 
 // 🏡 Add Property
 export const addProperty = async (req, res) => {
-    upload(req, res, async (err) => {
-    if (err) return res.status(400).json({ error: err.message || "Error uploading media" });
+    uploadMemory(req, res, async (err) => {
+        if (err) return res.status(400).json({ error: err.message || "Error uploading media" });
 
         try {
             const { title, description, address, price, barangay, category, petFriendly, allowedPets, occupancy, parking, rules, landmarks, numberOfRooms, areaSqm, latitude, longitude } = req.body;
@@ -133,45 +128,27 @@ export const addProperty = async (req, res) => {
                 }
             } // else bypass verification
 
-            const images = [];
+            let images = [];
             let video = '';
             let panorama360 = '';
 
-            // If multer memory storage was used, files will include buffer property
-            const hasBuffer = (req.files && Object.values(req.files).flat().some(f => f && f.buffer));
-            if (hasBuffer) {
-                const { uploadBuffer, default: cloudinary } = await import('../utils/cloudinary.js');
-                // images
-                const imgs = req.files?.images || [];
-                for (const file of imgs) {
-                    try {
-                        const res = await uploadBuffer(file.buffer, { folder: `tahanap/properties/images`, resource_type: 'image', format: 'auto' });
-                        images.push(res.secure_url);
-                    } catch (e) {
-                        console.error('Cloudinary image upload failed:', e);
-                    }
-                }
-                // video
-                if (req.files?.video && req.files.video.length) {
-                    try {
-                        const res = await uploadBuffer(req.files.video[0].buffer, { folder: `tahanap/properties/videos`, resource_type: 'video' });
-                        video = res.secure_url;
-                    } catch (e) { console.error('Cloudinary video upload failed:', e); }
-                }
-                // panorama
-                if (req.files?.panorama360 && req.files.panorama360.length) {
-                    try {
-                        const res = await uploadBuffer(req.files.panorama360[0].buffer, { folder: `tahanap/properties/panorama`, resource_type: 'image', format: 'auto' });
-                        panorama360 = res.secure_url;
-                    } catch (e) { console.error('Cloudinary panorama upload failed:', e); }
-                }
-            } else {
-                // Disk fallback
-                if (req.files?.images) images.push(...(req.files.images.map(file => `/uploads/properties/${file.filename}`)));
-                if (req.files?.video && req.files.video.length) video = `/uploads/properties/${req.files.video[0].filename}`;
-                if (req.files?.panorama360 && req.files.panorama360.length) panorama360 = `/uploads/properties/${req.files.panorama360[0].filename}`;
+            // Upload all media to Cloudinary
+            if (req.files?.images && req.files.images.length > 0) {
+                images = await uploadToCloudinary(req.files.images, 'images', 'image');
             }
+            
+            if (req.files?.video && req.files.video.length > 0) {
+                video = await uploadToCloudinary(req.files.video, 'videos', 'video');
+            }
+            
+            if (req.files?.panorama360 && req.files.panorama360.length > 0) {
+                const panoramaResult = await uploadToCloudinary(req.files.panorama360, 'panorama', 'image');
+                panorama360 = panoramaResult[0] || '';
+            }
+
             if (images.length > MAX_IMAGES) {
+                // Clean up uploaded images if we exceed the limit
+                await deleteCloudinaryAssets(images);
                 return res.status(400).json({ error: `Maximum of ${MAX_IMAGES} images exceeded` });
             }
 
@@ -212,12 +189,15 @@ export const addProperty = async (req, res) => {
             });
 
             await newProperty.save();
+            
+            // Return Cloudinary URLs directly - no need for formatting
             const responseProperty = {
                 ...newProperty._doc,
-                images: formatImagePaths(req, newProperty.images),
-                video: toAbsolute(req, newProperty.video),
-                panorama360: toAbsolute(req, newProperty.panorama360)
+                images: newProperty.images, // Already Cloudinary URLs
+                video: newProperty.video, // Already Cloudinary URL
+                panorama360: newProperty.panorama360 // Already Cloudinary URL
             };
+            
             res.status(201).json({ message: "Property added successfully!", property: responseProperty });
 
         } catch (error) {
@@ -233,11 +213,12 @@ export const getAllProperties = async (req, res) => {
         const properties = await Property.find().populate('landlord', 'fullName username profilePic address contactNumber role landlordVerified');
         // Filter out properties whose landlord is null (deleted)
         const filtered = properties.filter(property => property.landlord !== null);
+        
         res.status(200).json(filtered.map(property => ({
             ...property._doc,
-            images: formatImagePaths(req, property.images),
-            video: toAbsolute(req, property.video),
-            panorama360: toAbsolute(req, property.panorama360),
+            images: property.images, // Cloudinary URLs - return as-is
+            video: property.video, // Cloudinary URL - return as-is
+            panorama360: property.panorama360, // Cloudinary URL - return as-is
             latitude: property.latitude,
             longitude: property.longitude,
             landlordProfile: property.landlord ? {
@@ -247,7 +228,7 @@ export const getAllProperties = async (req, res) => {
                 contactNumber: property.landlord.contactNumber || '',
                 address: property.landlord.address || '',
                 verified: !!property.landlord.landlordVerified,
-                profilePic: property.landlord.profilePic ? (property.landlord.profilePic.startsWith('http') ? property.landlord.profilePic : toAbsolute(req, `/uploads/profiles/${property.landlord.profilePic}`)) : ''
+                profilePic: property.landlord.profilePic || '' // Cloudinary URL or empty
             } : null
         })));
     } catch (error) {
@@ -270,16 +251,16 @@ export const getPropertiesByLandlord = async (req, res) => {
         const properties = await Property.find({ landlord: req.user.id }).populate('landlord', 'fullName username profilePic landlordVerified contactNumber');
         res.status(200).json(properties.map(p => ({
             ...p._doc,
-            images: formatImagePaths(req, p.images || []),
-            video: toAbsolute(req, p.video),
-            panorama360: toAbsolute(req, p.panorama360),
+            images: p.images || [], // Cloudinary URLs - return as-is
+            video: p.video, // Cloudinary URL - return as-is
+            panorama360: p.panorama360, // Cloudinary URL - return as-is
             landlordProfile: p.landlord ? {
                 id: p.landlord._id,
                 fullName: p.landlord.fullName || p.landlord.username || 'You',
                 username: p.landlord.username || '',
                 contactNumber: p.landlord.contactNumber || '',
                 verified: !!p.landlord.landlordVerified,
-                profilePic: p.landlord.profilePic ? (p.landlord.profilePic.startsWith('http') ? p.landlord.profilePic : toAbsolute(req, `/uploads/profiles/${p.landlord.profilePic}`)) : ''
+                profilePic: p.landlord.profilePic || '' // Cloudinary URL or empty
             } : null
         })));
     } catch (error) {
@@ -295,9 +276,9 @@ export const getProperty = async (req, res) => {
         if (!property) return res.status(404).json({ error: 'Property not found' });
         res.status(200).json({
             ...property._doc,
-            images: formatImagePaths(req, property.images),
-            video: toAbsolute(req, property.video),
-            panorama360: toAbsolute(req, property.panorama360),
+            images: property.images, // Cloudinary URLs - return as-is
+            video: property.video, // Cloudinary URL - return as-is
+            panorama360: property.panorama360, // Cloudinary URL - return as-is
             landlordProfile: property.landlord ? {
                 id: property.landlord._id,
                 fullName: property.landlord.fullName || property.landlord.username || 'Landlord',
@@ -305,7 +286,7 @@ export const getProperty = async (req, res) => {
                 contactNumber: property.landlord.contactNumber || '',
                 address: property.landlord.address || '',
                 verified: !!property.landlord.landlordVerified,
-                profilePic: property.landlord.profilePic ? (property.landlord.profilePic.startsWith('http') ? property.landlord.profilePic : toAbsolute(req, `/uploads/profiles/${property.landlord.profilePic}`)) : ''
+                profilePic: property.landlord.profilePic || '' // Cloudinary URL or empty
             } : null
         });
     } catch (error) {
@@ -316,7 +297,7 @@ export const getProperty = async (req, res) => {
 
 // 🏡 Update Property
 export const updateProperty = async (req, res) => {
-    upload(req, res, async (err) => {
+    uploadMemory(req, res, async (err) => {
         if (err) {
             console.error("Multer upload error:", err);
             return res.status(400).json({ error: err.message || "Error uploading media" });
@@ -329,88 +310,72 @@ export const updateProperty = async (req, res) => {
                 return res.status(404).json({ error: "Property not found" });
             }
 
-            // Handle panorama360 upload/replacement/removal
-            // Log incoming body and files for debugging
-            console.log("UpdateProperty req.body:", req.body);
-            console.log("UpdateProperty req.files:", req.files);
-            let updatedPanorama = property.panorama360 || '';
-            // If a new panorama is uploaded, delete the old one
-            if (req.files?.panorama360 && req.files.panorama360.length) {
-                if (updatedPanorama) {
-                    const prevName = updatedPanorama.split('/').pop();
-                    const prevPath = path.join(process.cwd(), 'uploads/properties', prevName);
-                    fs.unlink(prevPath).catch(()=>{});
-                }
-                updatedPanorama = `/uploads/properties/${req.files.panorama360[0].filename}`;
-            }
-            // Allow explicit panorama removal
-            if (req.body.removePanorama === 'true' && updatedPanorama) {
-                const prevName = updatedPanorama.split('/').pop();
-                const prevPath = path.join(process.cwd(), 'uploads/properties', prevName);
-                fs.unlink(prevPath).catch(()=>{});
-                updatedPanorama = '';
-            }
-
             if (property.landlord.toString() !== req.user.id) {
                 return res.status(403).json({ error: "Unauthorized" });
             }
 
-            let updatedImages = property.images;
+            let updatedImages = [...property.images];
+            let updatedVideo = property.video || '';
+            let updatedPanorama = property.panorama360 || '';
 
             // Remove deleted images from the property
             if (req.body.deletedImages) {
-                const imagesToDelete = req.body.deletedImages;
-                updatedImages = updatedImages.filter(img => !imagesToDelete.includes(img.split("/").pop()));
-
-                // Delete images from storage
-                await deleteImages(imagesToDelete);
+                const imagesToDelete = updatedImages.filter(img => 
+                    req.body.deletedImages.some(deleted => img.includes(deleted))
+                );
+                
+                // Delete images from Cloudinary
+                await deleteCloudinaryAssets(imagesToDelete);
+                
+                // Remove from the array
+                updatedImages = updatedImages.filter(img => 
+                    !req.body.deletedImages.some(deleted => img.includes(deleted))
+                );
             }
 
             // Handle new image uploads
-                if (req.files?.images && req.files.images.length > 0) {
-                    const imgs = req.files.images;
-                    const hasBuffer = imgs.some(f => f && f.buffer);
-                    if (hasBuffer) {
-                        const { uploadBuffer, extractPublicId, default: cloudinary } = await import('../utils/cloudinary.js');
-                        for (const file of imgs) {
-                            try {
-                                const res = await uploadBuffer(file.buffer, { folder: `tahanap/properties/images`, resource_type: 'image', format: 'auto' });
-                                updatedImages.push(res.secure_url);
-                            } catch (e) {
-                                console.error('Cloudinary upload for new property image failed:', e);
-                            }
-                        }
-                    } else {
-                        const newUploadedImages = imgs.map(file => `/uploads/properties/${file.filename}`);
-                        updatedImages = [...updatedImages, ...newUploadedImages];
-                    }
-                }
+            if (req.files?.images && req.files.images.length > 0) {
+                const newImages = await uploadToCloudinary(req.files.images, 'images', 'image');
+                updatedImages = [...updatedImages, ...newImages];
+            }
+
             if (updatedImages.length > MAX_IMAGES) {
-                // Delete just-uploaded new images to avoid orphan files
+                // Delete just-uploaded new images to avoid orphan files in Cloudinary
                 const overflow = updatedImages.length - MAX_IMAGES;
-                const newUploaded = (req.files?.images || []).slice(-overflow);
-                await deleteImages(newUploaded.map(f => f.filename));
+                const imagesToDelete = updatedImages.slice(-overflow);
+                await deleteCloudinaryAssets(imagesToDelete);
                 return res.status(400).json({ error: `Maximum of ${MAX_IMAGES} images allowed` });
             }
 
             // Handle video upload / replacement
-            let updatedVideo = property.video || '';
-            if (req.files?.video && req.files.video.length) {
-                // delete previous video if exists
+            if (req.files?.video && req.files.video.length > 0) {
+                // Delete previous video from Cloudinary if exists
                 if (updatedVideo) {
-                    const prevName = updatedVideo.split('/').pop();
-                    const prevPath = path.join(process.cwd(), 'uploads/properties', prevName);
-                    fs.unlink(prevPath).catch(()=>{});
+                    await deleteCloudinaryAssets([updatedVideo]);
                 }
-                updatedVideo = `/uploads/properties/${req.files.video[0].filename}`;
+                updatedVideo = await uploadToCloudinary(req.files.video, 'videos', 'video');
             }
 
             // Allow explicit video removal
             if (req.body.removeVideo === 'true' && updatedVideo) {
-                const prevName = updatedVideo.split('/').pop();
-                const prevPath = path.join(process.cwd(), 'uploads/properties', prevName);
-                fs.unlink(prevPath).catch(()=>{});
+                await deleteCloudinaryAssets([updatedVideo]);
                 updatedVideo = '';
+            }
+
+            // Handle panorama360 upload/replacement
+            if (req.files?.panorama360 && req.files.panorama360.length > 0) {
+                // Delete previous panorama from Cloudinary if exists
+                if (updatedPanorama) {
+                    await deleteCloudinaryAssets([updatedPanorama]);
+                }
+                const newPanorama = await uploadToCloudinary(req.files.panorama360, 'panorama', 'image');
+                updatedPanorama = newPanorama[0] || '';
+            }
+
+            // Allow explicit panorama removal
+            if (req.body.removePanorama === 'true' && updatedPanorama) {
+                await deleteCloudinaryAssets([updatedPanorama]);
+                updatedPanorama = '';
             }
 
             // Prevent landlords from arbitrarily changing admin workflow status
@@ -472,9 +437,9 @@ export const updateProperty = async (req, res) => {
 
             res.json({
                 ...updatedProperty._doc,
-                images: formatImagePaths(req, updatedProperty.images),
-                video: toAbsolute(req, updatedProperty.video),
-                panorama360: toAbsolute(req, updatedProperty.panorama360)
+                images: updatedProperty.images, // Cloudinary URLs - return as-is
+                video: updatedProperty.video, // Cloudinary URL - return as-is
+                panorama360: updatedProperty.panorama360 // Cloudinary URL - return as-is
             });
         } catch (error) {
             console.error("UpdateProperty error:", error);
@@ -495,8 +460,8 @@ export const setPropertyStatus = async (req, res) => {
         if (!property) return res.status(404).json({ error: 'Property not found' });
         res.json({ message:'Status updated', property: {
             ...property._doc,
-            images: formatImagePaths(req, property.images),
-            video: toAbsolute(req, property.video)
+            images: property.images, // Cloudinary URLs - return as-is
+            video: property.video // Cloudinary URL - return as-is
         }});
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -513,29 +478,14 @@ export const deleteProperty = async (req, res) => {
             return res.status(403).json({ error: "Unauthorized" });
         }
 
-        // Remove images asynchronously
+        // Remove all media from Cloudinary
+        const assetsToDelete = [
+            ...property.images,
+            property.video,
+            property.panorama360
+        ].filter(Boolean); // Remove empty strings
 
-        await deleteImages(property.images);
-        // Remove video if exists
-        if (property.video) {
-            const videoPath = path.join(process.cwd(), 'uploads/properties', property.video.split('/').pop());
-            console.log('[Property Delete] Attempting to delete video:', videoPath);
-            fs.unlink(videoPath).then(() => {
-                console.log('[Property Delete] Deleted video:', videoPath);
-            }).catch((err) => {
-                console.error('[Property Delete] Failed to delete video', videoPath, err.message);
-            });
-        }
-        // Remove panorama360 if exists
-        if (property.panorama360) {
-            const panoPath = path.join(process.cwd(), 'uploads/properties', property.panorama360.split('/').pop());
-            console.log('[Property Delete] Attempting to delete panorama:', panoPath);
-            fs.unlink(panoPath).then(() => {
-                console.log('[Property Delete] Deleted panorama:', panoPath);
-            }).catch((err) => {
-                console.error('[Property Delete] Failed to delete panorama', panoPath, err.message);
-            });
-        }
+        await deleteCloudinaryAssets(assetsToDelete);
 
         await property.deleteOne();
         res.status(200).json({ message: "Property deleted successfully" });
