@@ -4,13 +4,15 @@ import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
 dotenv.config();
 
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+// Initialize Resend client (matches requested pattern)
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 async function tryResend(to) {
-  if (!resend) return { data: null, error: new Error('RESEND_API_KEY not set') };
+  if (!process.env.RESEND_API_KEY) return { data: null, error: new Error('RESEND_API_KEY not set') };
   try {
+    // Use the exact format requested by the team
     const data = await resend.emails.send({
-    from: process.env.RESEND_FROM || `TaHanap <onboarding@resend.dev>`,
+      from: process.env.RESEND_FROM,
       to,
       subject: 'TaHanap test email (Resend)',
       html: '<b>This is a test from TaHanap backend using Resend.</b>',

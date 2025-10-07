@@ -1,3 +1,6 @@
+import User from '../models/User.js';
+import Property from '../models/Property.js'; // Assuming this is your property model
+
 // Get per-barangay user stats (landlords and tenants)
 export const getUserBarangayStats = async (req, res) => {
     try {
@@ -31,8 +34,6 @@ export const getUserBarangayStats = async (req, res) => {
         res.status(500).json({ message: 'Failed to fetch barangay stats', error });
     }
 };
-import User from '../models/User.js';
-import Property from '../models/Property.js'; // Assuming this is your property model
 
 // Fetch admin dashboard stats
 export const getAdminStats = async (req, res) => {

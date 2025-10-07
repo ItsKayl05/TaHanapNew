@@ -14,6 +14,7 @@ const DEFAULT_RESEND_FROM = process.env.RESEND_FROM || 'onboarding@resend.dev';
 
 // We removed Nodemailer/SMTP support. Resend is now the required email provider.
 // Initialize Resend client if API key is present
+// Initialize Resend client (preferred email provider)
 let resendClient = null;
 try {
   if (process.env.RESEND_API_KEY) {
@@ -46,15 +47,19 @@ try {
 }
 
 // Initialize Resend client if API key is present
-// Unified email sender: prefers Resend; falls back to SMTP transporter if available.
-// If you want to force SMTP even when RESEND_API_KEY exists, set FORCE_SMTP=true in env.
+// Unified email sender: prefers Resend using the explicit Resend SDK format
+// (from is taken from process.env.RESEND_FROM to match the requested format).
+// Falls back to SMTP transporter only if Resend is not configured or fails and transporter exists.
+// To force SMTP even when RESEND_API_KEY exists, set FORCE_SMTP=true in env.
 const sendEmail = async ({ from, to, subject, html, text }) => {
   const useSmtp = !!process.env.FORCE_SMTP;
 
+  // Use Resend if available and not forcing SMTP
   if (resendClient && !useSmtp) {
     try {
-      // Resend SDK returns an object; some versions return { id } or a richer object.
-      const resp = await resendClient.emails.send({ from, to, subject, html, text });
+      // Force the 'from' to use RESEND_FROM env per requested format, fallback to DEFAULT_RESEND_FROM.
+  // Use the RESEND_FROM env variable explicitly as requested
+  const resp = await resendClient.emails.send({ from: process.env.RESEND_FROM, to, subject, html, text });
       lastMailStatus.provider = 'resend';
       lastMailStatus.lastSend = { ts: Date.now(), response: resp && (resp.id || resp.messageId) ? (resp.id || resp.messageId) : JSON.stringify(resp) };
       console.log('[mail] Sent via Resend:', lastMailStatus.lastSend.response);
@@ -66,9 +71,10 @@ const sendEmail = async ({ from, to, subject, html, text }) => {
     }
   }
 
+  // SMTP fallback (if configured)
   if (transporter) {
     try {
-      const info = await transporter.sendMail({ from, to, subject, html, text });
+      const info = await transporter.sendMail({ from: from || process.env.RESEND_FROM || DEFAULT_RESEND_FROM, to, subject, html, text });
       lastMailStatus.provider = 'smtp';
       lastMailStatus.lastSend = { ts: Date.now(), response: info && (info.response || info.messageId) ? (info.response || info.messageId) : JSON.stringify(info) };
       console.log('[mail] Sent via SMTP:', lastMailStatus.lastSend.response);
@@ -254,7 +260,8 @@ export const registerUser = async (req, res) => {
     const otpExpiration = Date.now() + 10 * 60 * 1000;
 
     const mailOptions = {
-      from: `"TaHanap" <${DEFAULT_RESEND_FROM}>`,
+      // Ensure the from is taken from env as requested
+      from: process.env.RESEND_FROM,
       to: lowerEmail,
       subject: 'Email Verification - TaHanap',
       html: `
@@ -301,7 +308,8 @@ export const registerUser = async (req, res) => {
 
       // Send email asynchronously so registration returns immediately to the client.
       // Use unified sender (Resend or Nodemailer)
-      sendEmail({ from: mailOptions.from, to: mailOptions.to, subject: mailOptions.subject, html: mailOptions.html })
+  // Use unified sendEmail helper which prefers Resend and uses RESEND_FROM
+  sendEmail({ to: mailOptions.to, subject: mailOptions.subject, html: mailOptions.html })
         .then(info => {
           lastMailStatus.lastSend = { ts: Date.now(), response: info && (info.response || info.id || JSON.stringify(info)) };
           console.log('Email sent (async):', lastMailStatus.lastSend.response);
@@ -395,7 +403,15 @@ export const resendOtp = async (req, res) => {
 
     // send via Resend
     try {
-      await sendEmail({ from: `"TaHanap" <${DEFAULT_RESEND_FROM}>`, to: lowerEmail, subject: 'Resend OTP - TaHanap', html: `...` });
+      await sendEmail({ to: lowerEmail, subject: 'Resend OTP - TaHanap', html: `
+        <div style="max-width:520px;margin:auto;padding:24px 26px 30px;font-family:Arial,Helvetica,sans-serif;border:1px solid #e2e8f0;border-radius:18px;background:#0f172a;color:#f1f5f9;">
+          <h1 style="margin:0;font-size:22px;letter-spacing:.5px;background:linear-gradient(90deg,#38bdf8,#6366f1,#3b82f6);-webkit-background-clip:text;color:transparent;">TaHanap</h1>
+          <p style="margin:4px 0 16px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:#94a3b8;">Hanap-Bahay Made Simple</p>
+          <h2 style="margin:0 0 12px;font-size:18px;font-weight:600;color:#f1f5f9;">Your One-Time Passcode</h2>
+          <div style="font-size:30px;font-weight:700;letter-spacing:6px;text-align:center;padding:14px 10px;margin:0 0 14px;background:linear-gradient(135deg,#6366f1,#3b82f6);color:#fff;border-radius:14px;font-family:'Courier New',monospace;">${newOtp}</div>
+          <p style="font-size:11px;line-height:1.4;color:#64748b;text-align:center;margin:0;">If you didn't request this, you can ignore this email.</p>
+        </div>
+      ` });
       res.status(200).json({ msg: 'New OTP sent successfully.' });
     } catch (err) {
       res.status(500).json({ msg: 'Failed to send OTP email', error: String(err) });
@@ -426,7 +442,7 @@ export const sendOtpForReset = async (req, res) => {
 
     // Send email with OTP
     const mailOptions = {
-      from: `"TaHanap" <${DEFAULT_RESEND_FROM}>`,
+      from: process.env.RESEND_FROM,
       to: lowerEmail,
       subject: 'Password Reset OTP - TaHanap',
       html: `
@@ -442,7 +458,7 @@ export const sendOtpForReset = async (req, res) => {
     };
 
     try {
-      await sendEmail({ from: mailOptions.from, to: mailOptions.to, subject: mailOptions.subject, html: mailOptions.html });
+      await sendEmail({ to: mailOptions.to, subject: mailOptions.subject, html: mailOptions.html });
       res.status(200).json({ msg: 'OTP sent to email' });
     } catch (err) {
       console.error('Error sending OTP (reset):', err);
