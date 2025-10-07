@@ -9,8 +9,8 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // Default sender address for Resend if RESEND_FROM is not set.
-// Use otp@onresend.com to avoid unverified-domain errors when a custom domain isn't configured.
-const DEFAULT_RESEND_FROM = process.env.RESEND_FROM || 'otp@onresend.com';
+// Use Resend's official free onboarding sender so the free plan can send without verifying a custom domain.
+const DEFAULT_RESEND_FROM = process.env.RESEND_FROM || 'onboarding@resend.dev';
 
 // We removed Nodemailer/SMTP support. Resend is now the required email provider.
 // Initialize Resend client if API key is present
