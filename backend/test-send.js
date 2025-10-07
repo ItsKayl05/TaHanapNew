@@ -10,9 +10,13 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 async function tryResend(to) {
   if (!process.env.RESEND_API_KEY) return { data: null, error: new Error('RESEND_API_KEY not set') };
   try {
-    // Use the exact format requested by the team
+    // Compose friendly sender header if env parts provided
+    const fromName = process.env.RESEND_FROM_NAME || 'Tahanap';
+    const fromEmail = process.env.RESEND_FROM_EMAIL || process.env.RESEND_FROM || 'noreply@tahanap.xyz';
+    const fromHeader = `${fromName} <${fromEmail}>`;
+
     const data = await resend.emails.send({
-      from: process.env.RESEND_FROM,
+      from: fromHeader,
       to,
       subject: 'TaHanap test email (Resend)',
       html: '<b>This is a test from TaHanap backend using Resend.</b>',

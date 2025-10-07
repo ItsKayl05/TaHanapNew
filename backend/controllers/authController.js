@@ -8,9 +8,15 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Default sender address for Resend if RESEND_FROM is not set.
-// Use Resend's official free onboarding sender so the free plan can send without verifying a custom domain.
-const DEFAULT_RESEND_FROM = process.env.RESEND_FROM || 'onboarding@resend.dev';
+// Sender configuration: allow a display name and an email address via env.
+// If RESEND_FROM_NAME is not provided we default to 'Tahanap'.
+// If RESEND_FROM_EMAIL is not provided we first try RESEND_FROM, then fallback to 'noreply@tahanap.xyz'.
+const RESEND_FROM_NAME = process.env.RESEND_FROM_NAME || 'Tahanap';
+const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || process.env.RESEND_FROM || 'noreply@tahanap.xyz';
+const FULL_RESEND_FROM = `${RESEND_FROM_NAME} <${RESEND_FROM_EMAIL}>`;
+
+// Default onboarding sender (used only as a last-resort fallback by the helper)
+const DEFAULT_ONBOARDING_FROM = 'TaHanap <onboarding@resend.dev>';
 
 // We removed Nodemailer/SMTP support. Resend is now the required email provider.
 // Initialize Resend client if API key is present
@@ -57,9 +63,8 @@ const sendEmail = async ({ from, to, subject, html, text }) => {
   // Use Resend if available and not forcing SMTP
   if (resendClient && !useSmtp) {
     try {
-      // Force the 'from' to use RESEND_FROM env per requested format, fallback to DEFAULT_RESEND_FROM.
-  // Use the RESEND_FROM env variable explicitly as requested
-  const resp = await resendClient.emails.send({ from: process.env.RESEND_FROM, to, subject, html, text });
+      // Use the composed full from header (e.g. "Tahanap <noreply@tahanap.xyz>")
+      const resp = await resendClient.emails.send({ from: FULL_RESEND_FROM, to, subject, html, text });
       lastMailStatus.provider = 'resend';
       lastMailStatus.lastSend = { ts: Date.now(), response: resp && (resp.id || resp.messageId) ? (resp.id || resp.messageId) : JSON.stringify(resp) };
       console.log('[mail] Sent via Resend:', lastMailStatus.lastSend.response);
@@ -278,8 +283,8 @@ export const registerUser = async (req, res) => {
     const otpExpiration = Date.now() + 10 * 60 * 1000;
 
     const mailOptions = {
-      // Ensure the from is taken from env as requested
-      from: process.env.RESEND_FROM,
+      // Use the composed friendly sender (e.g. "Tahanap <noreply@tahanap.xyz>")
+      from: FULL_RESEND_FROM,
       to: lowerEmail,
       subject: 'Email Verification - TaHanap',
       html: `
@@ -460,7 +465,7 @@ export const sendOtpForReset = async (req, res) => {
 
     // Send email with OTP
     const mailOptions = {
-      from: process.env.RESEND_FROM,
+      from: FULL_RESEND_FROM,
       to: lowerEmail,
       subject: 'Password Reset OTP - TaHanap',
       html: `
