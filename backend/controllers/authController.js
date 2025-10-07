@@ -65,8 +65,26 @@ const sendEmail = async ({ from, to, subject, html, text }) => {
       console.log('[mail] Sent via Resend:', lastMailStatus.lastSend.response);
       return { data: resp, error: null };
     } catch (err) {
-      lastMailStatus.lastError = String(err && err.message ? err.message : err);
+      const errMsg = String(err && err.message ? err.message : err);
+      lastMailStatus.lastError = errMsg;
       console.error('[mail] Resend send error:', err);
+
+      // If Resend complains that the domain is not verified, retry using the default onboarding sender
+      // This improves deliverability while the domain is being verified in Resend dashboard.
+      if ((err && err.name === 'validation_error') || /not verified/i.test(errMsg) || /domain is not verified/i.test(errMsg)) {
+        try {
+          console.log('[mail] Retrying with onboarding sender due to domain verification error');
+          const resp2 = await resendClient.emails.send({ from: DEFAULT_RESEND_FROM, to, subject, html, text });
+          lastMailStatus.provider = 'resend (onboarding)';
+          lastMailStatus.lastSend = { ts: Date.now(), response: resp2 && (resp2.id || resp2.messageId) ? (resp2.id || resp2.messageId) : JSON.stringify(resp2) };
+          console.log('[mail] Sent via Resend (onboarding):', lastMailStatus.lastSend.response);
+          return { data: resp2, error: null };
+        } catch (err2) {
+          lastMailStatus.lastError = String(err2 && err2.message ? err2.message : err2);
+          console.error('[mail] Resend retry (onboarding) failed:', err2);
+          // fallthrough to try SMTP if available
+        }
+      }
       // fallthrough to try SMTP if available
     }
   }
