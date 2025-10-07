@@ -33,11 +33,15 @@ const server = http.createServer(app);
 const getCorsOptions = () => {
     const allowedOrigins = [
         'http://localhost:5173',
-        'http://localhost:5174', 
+        'http://localhost:5174',
         'http://localhost:5176',
         'https://tahanap-frontend.onrender.com',
         'https://tahanap-backend.onrender.com',
-        'https://tahanap-admin.onrender.com'
+        'https://tahanap-admin.onrender.com',
+        'https://tahanap.xyz',
+        'https://www.tahanap.xyz',
+        'https://api.tahanap.xyz',
+        'https://admin.tahanap.xyz'
     ];
 
     // Add any additional origins from environment variable
@@ -49,7 +53,7 @@ const getCorsOptions = () => {
         origin: (origin, callback) => {
             // Allow requests with no origin (mobile apps, curl, etc.)
             if (!origin) return callback(null, true);
-            
+
             if (allowedOrigins.includes(origin)) {
                 return callback(null, true);
             } else {
@@ -179,7 +183,7 @@ const storage = multer.diskStorage({
     }
 });
 
-const upload = multer({ 
+const upload = multer({
     storage,
     limits: { fileSize: 1024 * 1024 * 5 }, // 5MB limit
     fileFilter: (req, file, cb) => {
@@ -206,22 +210,26 @@ app.use((req, res, next) => {
         'https://tahanap-admin.onrender.com',
         'http://localhost:5173',
         'http://localhost:5174',
-        'http://localhost:5176'
+        'http://localhost:5176',
+        'https://tahanap.xyz',
+        'https://www.tahanap.xyz',
+        'https://api.tahanap.xyz',
+        'https://admin.tahanap.xyz'
     ];
-    
+
     const origin = req.headers.origin;
     if (allowedOrigins.includes(origin)) {
         res.header('Access-Control-Allow-Origin', origin);
     }
-    
+
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
     res.header('Access-Control-Allow-Credentials', 'true');
-    
+
     if (req.method === 'OPTIONS') {
         return res.sendStatus(200);
     }
-    
+
     next();
 });
 
@@ -245,7 +253,7 @@ app.use("/api/applications", applicationRoutes);
 
 // Health check route
 app.get('/', (req, res) => {
-    res.json({ 
+    res.json({
         message: 'Server is running. MongoDB connected!',
         timestamp: new Date().toISOString()
     });
@@ -268,14 +276,14 @@ app.put('/api/users/update-profile', protect, upload.single('profilePic'), async
         // Check if user is banned (additional protection)
         const user = await User.findById(req.user.id);
         if (user.status === 'banned') {
-            return res.status(403).json({ 
+            return res.status(403).json({
                 message: "🚨 Account banned. Profile cannot be updated.",
                 banned: true
             });
         }
 
         const updatedUser = await User.findByIdAndUpdate(
-            req.user.id, 
+            req.user.id,
             { fullName, address, contactNumber, profilePic },
             { new: true, runValidators: true }
         ).select('-password -tokens');
@@ -293,7 +301,7 @@ app.put('/api/users/update-profile', protect, upload.single('profilePic'), async
         });
     } catch (error) {
         console.error('Profile update error:', error);
-        res.status(500).json({ 
+        res.status(500).json({
             message: 'Error updating profile',
             error: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
@@ -316,10 +324,10 @@ app.get('/api/users/check-status', protect, async (req, res) => {
 // Error handling middleware
 app.use((err, req, res, next) => {
     console.error(err.stack);
-    
+
     // Handle CORS errors
     if (err.message === 'Not allowed by CORS') {
-        return res.status(403).json({ 
+        return res.status(403).json({
             message: 'CORS Error: Origin not allowed',
             allowedOrigins: [
                 'https://tahanap-frontend.onrender.com',
@@ -327,19 +335,23 @@ app.use((err, req, res, next) => {
                 'https://tahanap-admin.onrender.com',
                 'http://localhost:5173',
                 'http://localhost:5174',
-                'http://localhost:5176'
+                'http://localhost:5176',
+                'https://tahanap.xyz',
+                'https://www.tahanap.xyz',
+                'https://api.tahanap.xyz',
+                'https://admin.tahanap.xyz'
             ]
         });
     }
-    
+
     // Handle multer errors (file upload)
     if (err.code === 'LIMIT_FILE_SIZE') {
-        return res.status(413).json({ 
-            message: 'File too large. Maximum size is 5MB.' 
+        return res.status(413).json({
+            message: 'File too large. Maximum size is 5MB.'
         });
     }
-    
-    res.status(500).json({ 
+
+    res.status(500).json({
         message: 'Something went wrong!',
         error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
@@ -347,7 +359,7 @@ app.use((err, req, res, next) => {
 
 // 404 handler
 app.use('*', (req, res) => {
-    res.status(404).json({ 
+    res.status(404).json({
         message: 'Route not found',
         path: req.originalUrl
     });
@@ -363,6 +375,10 @@ server.listen(port, '0.0.0.0', () => {
         'https://tahanap-admin.onrender.com',
         'http://localhost:5173',
         'http://localhost:5174',
-        'http://localhost:5176'
+        'http://localhost:5176',
+        'https://tahanap.xyz',
+        'https://www.tahanap.xyz',
+        'https://api.tahanap.xyz',
+        'https://admin.tahanap.xyz'
     ].join(', ')}`);
 });
