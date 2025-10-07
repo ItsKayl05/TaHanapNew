@@ -479,6 +479,8 @@ export { uploadProfilePicMemory };
 // ✅ Update Profile (Including Profile Picture)
 export const updateProfile = async (req, res) => {
     try {
+        console.log('updateProfile called for user:', req.user?._id, 'filePresent:', !!req.file);
+        if (req.file) console.log('updateProfile file:', { originalname: req.file.originalname, size: req.file.size });
         const { fullName, address, barangay, contactNumber, email, occupation, showEmailPublicly } = req.body;
 
         const user = await User.findById(req.user._id);
@@ -503,31 +505,48 @@ export const updateProfile = async (req, res) => {
             // If multer memory storage used, req.file.buffer will exist
             if (req.file.buffer) {
                 try {
-                    const { uploadBuffer } = await import('../utils/cloudinary.js');
-                    const result = await uploadBuffer(req.file.buffer, { folder: `tahanap/profiles`, format: 'auto', resource_type: 'image' });
-                    // Delete old remote image if it's a cloudinary public id
-                    if (user.profilePic && user.profilePic.startsWith('http')) {
-                        try {
-                            const { extractPublicId, default: cloudinary } = await import('../utils/cloudinary.js');
-                            const pubId = extractPublicId(user.profilePic);
-                            if (pubId) await cloudinary.uploader.destroy(pubId);
-                        } catch (e) { console.warn('Failed to delete old Cloudinary image', e.message); }
-                    } else if (user.profilePic) {
-                        // legacy disk file - delete
-                        const oldPath = path.join(process.cwd(), 'uploads', 'profiles', user.profilePic);
-                        try { await fs.promises.unlink(oldPath); } catch(e){}
+                    // Defensive dynamic import so we can explain missing module issues
+                    const cloudMod = await import('../utils/cloudinary.js').catch(err => {
+                        console.error('Failed to import cloudinary util:', err && err.message ? err.message : err);
+                        return null;
+                    });
+                    if (!cloudMod || typeof cloudMod.uploadBuffer !== 'function') {
+                        console.error('cloudinary helper uploadBuffer not available');
+                        return res.status(500).json({ message: 'Cloudinary upload helper missing on server' });
                     }
-                    user.profilePic = result.secure_url; // store full secure URL
+
+                    const result = await cloudMod.uploadBuffer(req.file.buffer, { folder: `tahanap/profiles`, format: 'auto', resource_type: 'image' });
+                    // Delete old remote image if it's a cloudinary public id
+                    if (user.profilePic && typeof user.profilePic === 'string' && user.profilePic.startsWith('http')) {
+                        try {
+                            const pubId = cloudMod.extractPublicId ? cloudMod.extractPublicId(user.profilePic) : null;
+                            const cloud = cloudMod.default || cloudMod.cloudinary || null;
+                            if (pubId && cloud && cloud.uploader && typeof cloud.uploader.destroy === 'function') {
+                                await cloud.uploader.destroy(pubId, { resource_type: 'image' }).catch(e => console.warn('cloudinary destroy failed:', e && e.message));
+                            }
+                        } catch (e) { console.warn('Failed to delete old Cloudinary image', e && e.message ? e.message : e); }
+                    } else if (user.profilePic && typeof user.profilePic === 'string') {
+                        // legacy disk file - delete safely
+                        const oldPath = path.join(process.cwd(), 'uploads', 'profiles', user.profilePic);
+                        try { if (fs.existsSync(oldPath)) await fs.promises.unlink(oldPath); } catch (e) { console.warn('Failed to delete old profile pic file', e && e.message ? e.message : e); }
+                    }
+                    if (result && result.secure_url) user.profilePic = result.secure_url; // store full secure URL
+                    else {
+                        console.error('Cloudinary upload did not return secure_url', result);
+                        return res.status(500).json({ message: 'Cloudinary upload failed (no secure_url returned)' });
+                    }
                 } catch (e) {
-                    console.error('Cloudinary upload failed for profile pic:', e);
-                    return res.status(500).json({ message: 'Failed to upload profile picture' });
+                    console.error('Cloudinary upload failed for profile pic:', e && e.stack ? e.stack : e);
+                    return res.status(500).json({ message: 'Failed to upload profile picture', error: process.env.NODE_ENV !== 'production' ? (e && e.message ? e.message : String(e)) : undefined });
                 }
             } else {
                 // Disk upload path (legacy)
-                if (user.profilePic && user.profilePic !== req.file.filename) {
-                    const oldPath = path.join(process.cwd(), 'uploads', 'profiles', user.profilePic);
-                    try { await fs.promises.unlink(oldPath); } catch(e){}
-                }
+                try {
+                    if (user.profilePic && user.profilePic !== req.file.filename) {
+                        const oldPath = path.join(process.cwd(), 'uploads', 'profiles', user.profilePic);
+                        if (fs.existsSync(oldPath)) await fs.promises.unlink(oldPath);
+                    }
+                } catch (e) { console.warn('Failed to delete old legacy profile pic', e && e.message ? e.message : e); }
                 user.profilePic = req.file.filename; // Store only the filename for legacy path
             }
         }
@@ -549,7 +568,8 @@ export const updateProfile = async (req, res) => {
             }
         });
     } catch (error) {
-        res.status(500).json({ message: "Error updating profile" });
+        console.error('updateProfile error:', error && error.stack ? error.stack : error);
+        res.status(500).json({ message: "Error updating profile", error: process.env.NODE_ENV !== 'production' ? (error && error.message ? error.message : String(error)) : undefined });
     }
 };
 
