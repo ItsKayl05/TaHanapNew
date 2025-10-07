@@ -515,7 +515,7 @@ export const updateProfile = async (req, res) => {
                         return res.status(500).json({ message: 'Cloudinary upload helper missing on server' });
                     }
 
-                    const result = await cloudMod.uploadBuffer(req.file.buffer, { folder: `tahanap/profiles`, format: 'auto', resource_type: 'image' });
+                    const result = await cloudMod.uploadBuffer(req.file.buffer, { folder: `tahanap/profiles`});
                     // Delete old remote image if it's a cloudinary public id
                     if (user.profilePic && typeof user.profilePic === 'string' && user.profilePic.startsWith('http')) {
                         try {
