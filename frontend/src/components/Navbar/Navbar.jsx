@@ -20,6 +20,15 @@ const Navbar = () => {
 
   return (
     <nav className="navbar">
+      {/* Mobile hamburger to toggle dashboard sidebar */}
+      <button
+        className="hamburger-toggle desktop-only"
+        aria-label="Toggle menu"
+        onClick={() => window.dispatchEvent(new CustomEvent('toggle-dashboard-sidebar'))}
+        type="button"
+      >
+        ☰
+      </button>
       <div className="navbar-logo" onClick={handleLogoClick}>
         <img src={images.logoF} alt="TaHanap logo" className="navbar-logo-image" />
         <div className="navbar-brand-block">

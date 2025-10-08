@@ -29,6 +29,13 @@ const DashboardSidebar = ({
 
   useEffect(() => { if (isMobile) setOpen(false); else setOpen(true); }, [isMobile]);
 
+  // Listen for navbar hamburger toggle to open/close sidebar on mobile
+  useEffect(() => {
+    const handler = () => { if (isMobile) setOpen(o => !o); };
+    window.addEventListener('toggle-dashboard-sidebar', handler);
+    return () => window.removeEventListener('toggle-dashboard-sidebar', handler);
+  }, [isMobile]);
+
   const brandTitle = variant === 'landlord' ? 'TaHanap Landlord' : 'TaHanap Tenant';
 
   const statusPill = (() => {

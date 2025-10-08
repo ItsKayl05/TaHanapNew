@@ -139,3 +139,19 @@
     font-size: 20px;
   }
 }
+
+/* Ensure full-width and comfortable targets on small screens */
+@media (max-width:640px) {
+  .verify-otp-page { padding: 18px; align-items:flex-start; }
+  .verify-otp-container { width:100%; max-width:720px; padding:22px; }
+  .otp-inputs { gap:8px; }
+  .otp-inputs input { width:46px; height:52px; font-size:20px; }
+  .verify-otp-form button { padding:13px; font-size:15px; }
+}
+
+@media (max-width:420px) {
+  /* hide any heavy decorative art if present on the page */
+  .auth-illustration, .illu-art, .illu-inner { display:none !important; }
+  .verify-otp-page { padding:12px; }
+  .verify-otp-container { padding:18px; }
+}
