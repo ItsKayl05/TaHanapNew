@@ -4,6 +4,8 @@
   min-height: 100vh;
   width: 100%;
   background: linear-gradient(120deg, rgba(59,130,246,0.04), rgba(99,102,241,0.03));
+  margin: 0;
+  padding: 0;
 }
 
 /* Main Content */
@@ -13,6 +15,7 @@
   margin-left: 250px; /* Match sidebar width */
   box-sizing: border-box;
   min-height: 100vh;
+  margin-top: 0;
 }
 
 .tenant-my-rentals {
@@ -206,7 +209,7 @@
 @media (min-width: 1400px) {
   .main-content {
     max-width: 1400px;
-    margin-left: auto;
+    margin-left: 250px;
     margin-right: auto;
     padding: 3rem 4rem;
   }
@@ -340,32 +343,9 @@
   }
 }
 
-/* Fix for very small screens */
-@media (max-width: 360px) {
-  .tabs button {
-    padding: 0.5rem 0.8rem;
-    font-size: 0.8rem;
-  }
-  
-  .app-row {
-    padding: 0.8rem;
-  }
-  
-  .tenant-my-rentals h2 {
-    font-size: 1.4rem;
-  }
-}
-
 /* Ensure no horizontal overflow */
 .dashboard-container,
 .main-content,
 .tenant-my-rentals {
   overflow-x: hidden;
-}
-
-/* Smooth transitions for all interactive elements */
-.tabs button,
-.app-row,
-.actions button {
-  transition: all 0.3s ease;
 }
