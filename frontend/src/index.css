@@ -34,7 +34,12 @@ html {
     width: 100% !important;
     height: 100% !important;
     display: block;
-    object-fit: cover; /* make canvas behave like images to avoid black bars */
+}
+
+/* Prefer an aspect-ratio so the container scales predictably; fallback to fixed heights via media queries. */
+.photo-dome-container {
+    aspect-ratio: 16 / 9;
+    min-height: 220px; /* avoid collapsing too small on very narrow screens */
 }
 
 @media (max-width: 768px) {
@@ -113,6 +118,24 @@ body:-ms-fullscreen .photo-dome-container {
     background:#0f172a;
     background-image: radial-gradient(circle at 18% 22%, rgba(255,255,255,0.08), transparent 60%),
                       radial-gradient(circle at 82% 70%, rgba(255,255,255,0.05), transparent 65%);
+}
+
+/* Fullscreen fallback class for mobile when Fullscreen API is unavailable/denied */
+.photo-dome-fullscreen-fallback {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 99999 !important;
+    border-radius: 0 !important;
+    background: #000 !important;
+}
+
+/* Prevent body scroll while in the fallback fullscreen mode */
+.no-scroll {
+    overflow: hidden !important;
+    height: 100vh !important;
 }
 
 :root {
