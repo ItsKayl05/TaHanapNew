@@ -5,7 +5,7 @@ import { fetchApplicationsByProperty, approveApplication, rejectApplication } fr
 import { normalizePayload, buildApi } from '../../../services/apiConfig';
 import { toast } from 'react-toastify';
 import { FaUserCircle, FaCheckCircle, FaTimesCircle, FaClock, FaArrowLeft } from 'react-icons/fa';
-import LandlordSidebar from '../LandlordSidebar/LandlordSidebar';
+
 
 const RentalRequests = () => {
   const { propertyId } = useParams();
