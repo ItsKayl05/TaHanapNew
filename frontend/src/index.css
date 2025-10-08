@@ -35,54 +35,7 @@ html {
     --shadow:0 4px 14px -2px rgba(0,0,0,0.12),0 0 0 1px rgba(0,0,0,0.04);
 }
 
-body { 
-    background:transparent; 
-}
-
-/* ========== APP LAYOUT STYLES ========== */
-.app-container {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-}
-
-.main-content {
-    flex: 1;
-    transition: margin-left 0.3s ease;
-    min-height: calc(100vh - 120px); /* Account for header/footer */
-}
-
-/* Dashboard layout styles */
-.dashboard-layout {
-    background: #f8fafc;
-}
-
-.main-content.with-sidebar.sidebar-open {
-    margin-left: 250px;
-}
-
-.main-content.with-sidebar.sidebar-closed {
-    margin-left: 0;
-}
-
-/* Mobile styles */
-@media (max-width: 1023px) {
-    .main-content.with-sidebar.sidebar-open,
-    .main-content.with-sidebar.sidebar-closed {
-        margin-left: 0;
-    }
-}
-
-/* Ensure proper spacing */
-body {
-    margin: 0;
-    padding: 0;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-        'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-        sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-}
+body { background:transparent; }
 
 /* Legal / Contact pages */
 .legal-page { max-width:900px; margin:60px auto 80px; padding:0 1.25rem; }
@@ -118,13 +71,13 @@ body {
 .dashboard-container.landlord-dashboard, 
 .tenant-dashboard .favorites-main, 
 .tenant-dashboard .panel, 
-.tenant-dashboard .ll-card { color: var(--text-primary); }
+.tenant-dashboard .ll-card { color: var(--color-text-primary); }
 
 /* Generic correction: any paragraph/span with pure white inside a light container gets downgraded */
 .favorites-container p, 
 .favorites-container span, 
 .landlord-dashboard .ll-card p, 
-.landlord-dashboard .ll-card span { color: var(--text-secondary); }
+.landlord-dashboard .ll-card span { color: var(--color-text-secondary); }
 
 /* Preserve intentional inverse text on dark / colored chips & buttons via explicit classes */
 .btn, .ll-btn.primary, .ll-btn.danger, .ll-btn.warn,
@@ -136,7 +89,7 @@ body {
 }
 
 /* Fine-tune small meta text previously inheriting white making it low contrast on light panels */
-.property-date, .favorite-meta span, .favorites-toolbar label, .results-count, .results-metrics { color: var(--text-secondary) !important; }
+.property-date, .favorite-meta span, .favorites-toolbar label, .results-count, .results-metrics { color: var(--color-text-secondary) !important; }
 
 /* Ensure links inside light surfaces are dark unless styled as button */
 .favorites-container a:not(.btn):not(.ll-btn),
@@ -144,8 +97,8 @@ body {
 .favorites-container a:not(.btn):not(.ll-btn):hover { text-decoration:underline; }
 
 /* Utility classes */
-.text-primary { color: var(--text-primary) !important; }
-.text-secondary { color: var(--text-secondary) !important; }
+.text-primary { color: var(--color-text-primary) !important; }
+.text-secondary { color: var(--color-text-secondary) !important; }
 .text-muted { color: var(--color-text-muted, #6b7280) !important; }
 .text-inverse { color:#fff !important; }
 
@@ -159,7 +112,7 @@ body {
 .favorite-icon { color:#e11d48 !important; }
 
 /* Override any accidental global white text that might have cascaded into light theme containers */
-.landlord-dashboard h1, .landlord-dashboard h2, .landlord-dashboard h3, .landlord-dashboard h4, .landlord-dashboard h5, .landlord-dashboard h6 { color: var(--text-primary); }
+.landlord-dashboard h1, .landlord-dashboard h2, .landlord-dashboard h3, .landlord-dashboard h4, .landlord-dashboard h5, .landlord-dashboard h6 { color: var(--color-text-primary); }
 
 /* Dark surface contexts: reinforce light foreground for readability */
 .dark-surface, .glass-panel, .property-listing-container, .property-card, .property-detail-wrapper, .home-hero, .aboutus-hero, .footer, .navbar, .property-images-overlay {
@@ -170,7 +123,7 @@ body {
 /* Utilities for explicit intent */
 .on-dark { color:#f8fafc !important; }
 .on-dark .muted, .on-dark-muted, .text-on-dark-muted { color:#cbd5e1 !important; }
-.on-light { color: var(--text-primary) !important; }
+.on-light { color: var(--color-text-primary) !important; }
 
 /* High contrast focus ring adjustments for dark areas */
 .on-dark a:focus-visible, .dark-surface a:focus-visible, .glass-panel a:focus-visible, .property-card a:focus-visible, .on-dark button:focus-visible, .dark-surface button:focus-visible {
@@ -245,29 +198,3 @@ img.responsive, .responsive-img { max-width:100%; height:auto; display:block; }
     img.responsive, .property-thumb { max-height:160px; object-fit:cover; }
 }
 
-/* ========== DASHBOARD CONTENT STYLES ========== */
-.dashboard-content {
-    padding: 2rem;
-    min-height: calc(100vh - 60px);
-    background: #f8fafc;
-}
-
-@media (max-width: 1023px) {
-    .dashboard-content {
-        padding: 1rem;
-        margin-left: 0 !important;
-    }
-}
-
-/* Smooth transitions for all interactive elements */
-button, .btn, .nav-item, .logout-btn {
-    transition: all 0.2s ease-in-out;
-}
-
-/* Focus styles for accessibility */
-button:focus-visible, 
-.btn:focus-visible, 
-.nav-item:focus-visible {
-    outline: 2px solid #2563eb;
-    outline-offset: 2px;
-}
