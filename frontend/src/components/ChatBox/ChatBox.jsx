@@ -5,8 +5,146 @@ import { buildUpload, buildApi } from '../../services/apiConfig';
 import axios from 'axios';
 import './ChatBox.css';
 
-// ... (keep all the existing helper functions exactly the same) ...
+// --- Helper functions ---
+function renderMessageRow(msg, i, messages, currentUser, targetUserAvatar, targetUserName, buildUpload, deriveAvatarFromLocal, normalizeIdStr) {
+  // Ensure messages is an array
+  if (!Array.isArray(messages)) return null;
+  
+  const myId = normalizeIdStr(
+    currentUser?._id || 
+    currentUser?.id || 
+    localStorage.getItem('user_id')
+  );
+  const msgSenderId = normalizeIdStr(
+    msg.senderId || 
+    msg.sender?._id || 
+    msg.sender?.id || 
+    msg.sender
+  );
+  const isMyMessage = msgSenderId === myId || msg.id?.startsWith('local-');
+  let messageStyle, avatarSrc;
+  
+  if (isMyMessage) {
+    messageStyle = {
+      rowClass: 'mine',
+      bubbleClass: 'me'
+    };
+    avatarSrc = msg.senderAvatar || 
+               (currentUser?.profilePic && (
+                 currentUser.profilePic.startsWith('http')
+                   ? currentUser.profilePic
+                   : (currentUser.profilePic.startsWith('/uploads/') ? buildUpload(currentUser.profilePic.replace(/^\/uploads/, '')) : buildUpload(`/profiles/${currentUser.profilePic}`))
+               )) ||
+               deriveAvatarFromLocal() ||
+               '/default-avatar.png';
+  } else {
+    messageStyle = {
+      rowClass: 'theirs', 
+      bubbleClass: 'them'
+    };
+    avatarSrc = msg.senderAvatar ||
+               (targetUserAvatar && (
+                 (targetUserAvatar.startsWith('http'))
+                   ? targetUserAvatar
+                   : (targetUserAvatar.startsWith('/uploads/') ? buildUpload(targetUserAvatar.replace(/^\/uploads/, '')) : buildUpload(`/profiles/${targetUserAvatar}`))
+               )) ||
+               buildUpload(`/profiles/${msgSenderId}_profile.jpg`) ||
+               '/default-avatar.png';
+  }
+  
+  const prevMsg = messages[i - 1];
+  const showAvatar = !prevMsg || normalizeIdStr(prevMsg.senderId) !== msgSenderId;
+  
+  return (
+    <div 
+      key={msg.id || msg._id || i} 
+      className={`chatbox-message-row ${messageStyle.rowClass}`}
+      title={isMyMessage ? 'You' : targetUserName}
+    >
+      {/* Only render avatar for receiver (their) messages */}
+      {!isMyMessage && (
+        <img
+          className="msg-avatar loading"
+          src={avatarSrc}
+          alt={targetUserName || 'User avatar'}
+          style={{ 
+            display: showAvatar ? 'block' : 'none'
+          }}
+          onLoad={(e) => {
+            e.currentTarget.classList.remove('loading');
+          }}
+          onError={(e) => {
+            e.currentTarget.classList.remove('loading');
+            if (e.currentTarget.src !== '/default-avatar.png') {
+              e.currentTarget.src = '/default-avatar.png';
+            }
+            e.currentTarget.onerror = null;
+          }}
+        />
+      )}
+      <div className={`chatbox-message ${messageStyle.bubbleClass}`}>
+        {msg.content || msg.message}
+      </div>
+    </div>
+  );
+}
 
+function renderMessagesWithPropertyContext(messages, currentUser, targetUserAvatar, targetUserName, buildUpload, deriveAvatarFromLocal, normalizeIdStr) {
+  // SAFETY CHECK: Ensure messages is always an array
+  if (!Array.isArray(messages)) {
+    console.warn('⚠️ messages is not an array:', messages);
+    return null;
+  }
+  
+  let shownPropertyIds = new Set();
+  return messages.map((msg, i) => {
+    let property = msg.property && typeof msg.property === 'object' && (msg.property.title || msg.property.price || (Array.isArray(msg.property.images) && msg.property.images.length));
+    if (property && !shownPropertyIds.has(msg.property._id)) {
+      shownPropertyIds.add(msg.property._id);
+      console.log('DEBUG property in chat:', msg.property);
+      
+      let propertyImg = (Array.isArray(msg.property.images) && msg.property.images.length > 0) ? msg.property.images[0] : null;
+      let propertyImgSrc = propertyImg
+        ? (propertyImg.startsWith('http') ? propertyImg : (propertyImg.startsWith('/uploads/') ? buildUpload(propertyImg.replace(/^\/uploads/, '')) : buildUpload(`/properties/${propertyImg}`)))
+        : '/default-property.png';
+      
+      return [
+        <div key={`property-context-${msg.property._id || i}`} className="chatbox-property-context" style={{display:'flex',alignItems:'center',gap:12,background:'#23272f',padding:'12px 16px',borderRadius:10,margin:'24px 0 12px 0',color:'#fff',maxWidth:420,position:'relative',zIndex:2}}>
+          <img src={propertyImgSrc} alt="Property" style={{width:64,height:64,borderRadius:8,objectFit:'cover',border:'2px solid #fff',boxShadow:'0 2px 8px #0003'}} onError={e => { e.target.onerror = null; e.target.src = '/default-property.png'; }} />
+          <div style={{flex:1}}>
+            <div style={{fontWeight:600,fontSize:'1.08em',marginBottom:2}}>{msg.property.title}</div>
+            {msg.property.price && <div style={{fontSize:'1em',color:'#a3e635'}}>₱{Number(msg.property.price).toLocaleString()}</div>}
+          </div>
+          <a href={`/property/${msg.property._id}`} style={{marginLeft:'auto',background:'linear-gradient(90deg,#2563eb 0%,#1e40af 100%)',color:'#fff',padding:'9px 20px',borderRadius:7,fontWeight:600,textDecoration:'none',fontSize:'1em',boxShadow:'0 2px 8px #2563eb55'}}>View Details</a>
+        </div>,
+        renderMessageRow(msg, i, messages, currentUser, targetUserAvatar, targetUserName, buildUpload, deriveAvatarFromLocal, normalizeIdStr)
+      ];
+    }
+    return renderMessageRow(msg, i, messages, currentUser, targetUserAvatar, targetUserName, buildUpload, deriveAvatarFromLocal, normalizeIdStr);
+  }).flat();
+}
+
+function deriveAvatarFromLocal() {
+  const user = localStorage.getItem('current_user');
+  if (user) {
+    try {
+      const parsed = JSON.parse(user);
+      if (parsed.profilePic) {
+        if (parsed.profilePic.startsWith('http')) return parsed.profilePic;
+        if (parsed.profilePic.startsWith('/uploads/')) return buildUpload(parsed.profilePic.replace(/^\/uploads/, ''));
+        return `/uploads/profiles/${parsed.profilePic}`;
+      }
+    } catch {}
+  }
+  return '/default-avatar.png';
+}
+
+function normalizeIdStr(id) {
+  if (!id) return '';
+  return typeof id === 'string' ? id : String(id);
+}
+
+// --- Main component render ---
 function ChatBox({
   large,
   currentUserId,
@@ -157,6 +295,45 @@ function ChatBox({
     });
   }, [chatMessages, targetUserId, targetUserName]);
 
+  // FIXED: Define the render function inside the component to have access to all variables
+  const renderMessages = () => {
+    if (!Array.isArray(chatMessages) || chatMessages.length === 0) {
+      return (
+        <div className="chatbox-empty">
+          No messages yet. Start a conversation!
+        </div>
+      );
+    }
+
+    let shownPropertyIds = new Set();
+    return chatMessages.map((msg, i) => {
+      let property = msg.property && typeof msg.property === 'object' && (msg.property.title || msg.property.price || (Array.isArray(msg.property.images) && msg.property.images.length));
+      
+      if (property && !shownPropertyIds.has(msg.property._id)) {
+        shownPropertyIds.add(msg.property._id);
+        console.log('DEBUG property in chat:', msg.property);
+        
+        let propertyImg = (Array.isArray(msg.property.images) && msg.property.images.length > 0) ? msg.property.images[0] : null;
+        let propertyImgSrc = propertyImg
+          ? (propertyImg.startsWith('http') ? propertyImg : (propertyImg.startsWith('/uploads/') ? buildUpload(propertyImg.replace(/^\/uploads/, '')) : buildUpload(`/properties/${propertyImg}`)))
+          : '/default-property.png';
+        
+        return [
+          <div key={`property-context-${msg.property._id || i}`} className="chatbox-property-context">
+            <img src={propertyImgSrc} alt="Property" onError={e => { e.target.onerror = null; e.target.src = '/default-property.png'; }} />
+            <div className="chatbox-property-info">
+              <div className="chatbox-property-title">{msg.property.title}</div>
+              {msg.property.price && <div className="chatbox-property-price">₱{Number(msg.property.price).toLocaleString()}</div>}
+            </div>
+            <a href={`/property/${msg.property._id}`} className="chatbox-property-link">View Details</a>
+          </div>,
+          renderMessageRow(msg, i, chatMessages, currentUser, targetUserAvatar, targetUserName, buildUpload, deriveAvatarFromLocal, normalizeIdStr)
+        ];
+      }
+      return renderMessageRow(msg, i, chatMessages, currentUser, targetUserAvatar, targetUserName, buildUpload, deriveAvatarFromLocal, normalizeIdStr);
+    }).flat();
+  };
+
   return (
     <div className={`chatbox-wrapper ${isMobile ? 'mobile-chat' : ''}`}>
       <div className={`chatbox-container ${large ? 'large' : ''} ${isMobile ? 'mobile-fullscreen' : ''}`}>
@@ -210,14 +387,8 @@ function ChatBox({
         <div className="chatbox-content">
           {/* Scrollable messages */}
           <div className="chatbox-messages">
-            {/* FIXED: Always ensure chatMessages is treated as array */}
-            {!Array.isArray(chatMessages) || chatMessages.length === 0 ? (
-              <div className="chatbox-empty">
-                No messages yet. Start a conversation!
-              </div>
-            ) : (
-              renderMessagesWithPropertyContext(chatMessages, currentUser, targetUserAvatar, targetUserName, buildUpload, deriveAvatarFromLocal, normalizeIdStr)
-            )}
+            {/* FIXED: Use the internal renderMessages function */}
+            {renderMessages()}
             <div ref={messagesEndRef} />
           </div>
           
