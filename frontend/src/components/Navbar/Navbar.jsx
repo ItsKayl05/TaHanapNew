@@ -1,4 +1,5 @@
 import React, { useContext } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import { FaHome, FaInfoCircle, FaBuilding, FaSignInAlt, FaUser } from 'react-icons/fa';
 import { AuthContext } from '../../context/AuthContext';
@@ -7,6 +8,15 @@ import './Navbar.css';
 
 const Navbar = () => {
   const { userRole, isBanned } = useContext(AuthContext);
+  const { pathname } = useLocation();
+
+  // Only show hamburger on dashboard-related routes
+  const dashboardPaths = [
+    '/my-rental', '/favorites', '/tenant-profile', '/landlord-profile',
+    '/add-properties', '/my-properties'
+  ];
+  const startsWithPaths = ['/edit-property', '/rental-requests', '/tenant/messages', '/landlord/messages'];
+  const showHamburger = dashboardPaths.includes(pathname) || startsWithPaths.some(p => pathname.startsWith(p));
 
   // Clear user data if banned
   if (isBanned) {
@@ -20,15 +30,17 @@ const Navbar = () => {
 
   return (
     <nav className="navbar">
-      {/* Mobile hamburger to toggle dashboard sidebar */}
-      <button
-        className="hamburger-toggle desktop-only"
-        aria-label="Toggle menu"
-        onClick={() => window.dispatchEvent(new CustomEvent('toggle-dashboard-sidebar'))}
-        type="button"
-      >
-        ☰
-      </button>
+      {/* Mobile hamburger to toggle dashboard sidebar (only on dashboard pages) */}
+      {showHamburger && (
+        <button
+          className="hamburger-toggle"
+          aria-label="Toggle menu"
+          onClick={() => window.dispatchEvent(new CustomEvent('toggle-dashboard-sidebar'))}
+          type="button"
+        >
+          ☰
+        </button>
+      )}
       <div className="navbar-logo" onClick={handleLogoClick}>
         <img src={images.logoF} alt="TaHanap logo" className="navbar-logo-image" />
         <div className="navbar-brand-block">
