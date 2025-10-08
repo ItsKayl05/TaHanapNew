@@ -38,6 +38,19 @@ const DashboardSidebar = ({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Prevent body scroll when sidebar is open on mobile
+  useEffect(() => {
+    if (isMobile && open) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isMobile, open]);
+
   const brandTitle = variant === 'landlord' ? 'TaHanap Landlord' : 'TaHanap Tenant';
 
   const statusPill = (() => {
@@ -92,6 +105,17 @@ const DashboardSidebar = ({
             <div className="verification-pill">
               {statusPill}
             </div>
+          )}
+          
+          {/* Close button for mobile */}
+          {isMobile && (
+            <button 
+              className="mobile-close-btn"
+              onClick={() => setOpen(false)}
+              aria-label="Close menu"
+            >
+              ✕
+            </button>
           )}
         </div>
 
