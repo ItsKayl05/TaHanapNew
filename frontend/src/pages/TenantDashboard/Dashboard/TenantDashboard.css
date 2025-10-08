@@ -21,3 +21,15 @@
 	.tenant-dashboard .ll-grid { grid-template-columns:1fr; }
 	.tenant-avatar { width:120px; height:120px; border-radius:50%; }
 }
+
+/* Mobile tightening for tenant dashboard and connected pages */
+@media (max-width: 900px) {
+	.tenant-dashboard.dashboard-container { flex-direction: column; }
+	.tenant-dashboard .ll-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 480px) {
+	.tenant-dashboard.dashboard-container { padding: 8px; }
+	.tenant-avatar { width:100px; height:100px; }
+	.tenant-username { font-size:0.78rem; }
+}
