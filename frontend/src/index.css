@@ -21,12 +21,39 @@ html {
     user-select: none;
 }
 
+/* Ensure the photo dome container keeps a usable aspect ratio and scales on different screens */
+.photo-dome-container {
+    display: block;
+    width: 100%;
+    /* default height for desktop */
+    height: 400px;
+    max-height: 75vh;
+}
+
+.photo-dome-container canvas {
+    width: 100% !important;
+    height: 100% !important;
+    display: block;
+    object-fit: cover; /* make canvas behave like images to avoid black bars */
+}
+
 @media (max-width: 768px) {
     .expand-button {
         min-width: 60px !important;
         min-height: 44px !important;
         font-size: 16px !important;
     }
+}
+
+/* Smaller devices get a shorter but still usable viewer height */
+@media (max-width: 1024px) {
+    .photo-dome-container { height: 360px; }
+}
+@media (max-width: 720px) {
+    .photo-dome-container { height: 300px; }
+}
+@media (max-width: 420px) {
+    .photo-dome-container { height: 260px; }
 }
 
 /* Fullscreen mobile optimizations */

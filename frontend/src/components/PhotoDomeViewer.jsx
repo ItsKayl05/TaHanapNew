@@ -12,7 +12,8 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
   useEffect(() => {
     if (!canvasRef.current || !imageUrl) return;
 
-    const engine = new BABYLON.Engine(canvasRef.current, true);
+    // Create engine using the canvas element
+    const engine = new BABYLON.Engine(canvasRef.current, true, { preserveDrawingBuffer: true, stencil: true });
     engineRef.current = engine;
     const scene = new BABYLON.Scene(engine);
     sceneRef.current = scene;
@@ -67,21 +68,54 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
     // Optimize FOV for full view
     dome.fovMultiplier = 0.8;
 
-    // Handle window resize
-    const handleResize = () => {
-      engine.resize();
+    // Utility: ensure canvas pixel buffer matches CSS size and DPR
+    const resizeCanvas = () => {
+      try {
+        const canvas = canvasRef.current;
+        if (!canvas || !engine) return;
+        // Ensure CSS sizing is applied
+        canvas.style.width = '100%';
+        canvas.style.height = '100%';
+        const dpr = window.devicePixelRatio || 1;
+        // Set actual pixel width/height to match client size * dpr
+        const w = Math.max(1, Math.floor(canvas.clientWidth * dpr));
+        const h = Math.max(1, Math.floor(canvas.clientHeight * dpr));
+        if (canvas.width !== w || canvas.height !== h) {
+          canvas.width = w;
+          canvas.height = h;
+        }
+        engine.resize();
+      } catch (err) {
+        // swallow
+      }
     };
 
-    window.addEventListener("resize", handleResize);
+    // Handle window resize and other visual changes
+    window.addEventListener("resize", resizeCanvas);
+    window.addEventListener('orientationchange', resizeCanvas);
+    document.addEventListener('fullscreenchange', resizeCanvas);
+    document.addEventListener('webkitfullscreenchange', resizeCanvas);
+    document.addEventListener('msfullscreenchange', resizeCanvas);
+
+    // Run render loop and ensure correct initial sizing
+    resizeCanvas();
     engine.runRenderLoop(() => scene.render());
 
     return () => {
-      window.removeEventListener("resize", handleResize);
-      if (sceneRef.current) {
-        sceneRef.current.dispose();
-      }
-      if (engineRef.current) {
-        engineRef.current.dispose();
+      window.removeEventListener("resize", resizeCanvas);
+      window.removeEventListener('orientationchange', resizeCanvas);
+      document.removeEventListener('fullscreenchange', resizeCanvas);
+      document.removeEventListener('webkitfullscreenchange', resizeCanvas);
+      document.removeEventListener('msfullscreenchange', resizeCanvas);
+      try {
+        if (sceneRef.current) {
+          sceneRef.current.dispose();
+        }
+        if (engineRef.current) {
+          engineRef.current.dispose();
+        }
+      } catch (err) {
+        // ignore dispose errors
       }
     };
   }, [imageUrl, mode]);
