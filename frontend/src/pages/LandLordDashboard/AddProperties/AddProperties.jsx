@@ -30,6 +30,17 @@ const LANDMARKS = [
 ];
 
 const AddProperties = () => {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  
+  // Handle window resize
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Panoramic image state
   const [panorama, setPanorama] = useState(null);
@@ -37,32 +48,34 @@ const AddProperties = () => {
 
   // Handle panoramic image upload
   const handlePanoramaChange = (e) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
-  const validType = file.type.startsWith('image/');
-  const sizeOk = file.size <= 10*1024*1024;
-  if (!validType) { toast.error('Panoramic image must be an image file.'); return; }
-  if (!sizeOk) { toast.error('Panoramic file too large (max 10MB).'); return; }
-  if (panoramaPreview) URL.revokeObjectURL(panoramaPreview);
-  setPanorama(file);
-  setPanoramaPreview(URL.createObjectURL(file));
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const validType = file.type.startsWith('image/');
+    const sizeOk = file.size <= 10*1024*1024;
+    if (!validType) { toast.error('Panoramic image must be an image file.'); return; }
+    if (!sizeOk) { toast.error('Panoramic file too large (max 10MB).'); return; }
+    if (panoramaPreview) URL.revokeObjectURL(panoramaPreview);
+    setPanorama(file);
+    setPanoramaPreview(URL.createObjectURL(file));
   };
+  
   const removePanorama = () => {
     if (panoramaPreview) URL.revokeObjectURL(panoramaPreview);
     setPanorama(null);
     setPanoramaPreview(null);
   };
+  
   const SJDM_CENTER = [14.8136, 121.0450];
   const SJDM_ZOOM = 13;
-    const { logout } = useContext(AuthContext);
-    const navigate = useNavigate();
+  const { logout } = useContext(AuthContext);
+  const navigate = useNavigate();
   const [propertyData, setPropertyData] = useState({
     title:'', description:'', address:'', price:'', barangay:'', category:'', petFriendly:false, allowedPets:'', occupancy:'', parking:false, rules:'', landmarks:'', numberOfRooms:'', areaSqm:'', images:[], video:null, latitude:'', longitude:'', availabilityStatus: 'Available', totalUnits: 1, availableUnits: 1
   });
   const [imagePreviews, setImagePreviews] = useState([]);
-    const [videoPreview, setVideoPreview] = useState(null);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const MAX_IMAGES = 8;
+  const [videoPreview, setVideoPreview] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const MAX_IMAGES = 8;
 
   // Geocode address+barangay to get lat/lng
   const geocodeAddress = async (address, barangay) => {
@@ -112,28 +125,29 @@ const AddProperties = () => {
     }
   };
 
-    const handleImageChange = (e) => {
-        const selected = Array.from(e.target.files || []);
-        if (!selected.length) return;
-        const spaceLeft = MAX_IMAGES - propertyData.images.length;
-        if (spaceLeft <= 0) { toast.info(`Max ${MAX_IMAGES} images reached.`); return; }
+  const handleImageChange = (e) => {
+    const selected = Array.from(e.target.files || []);
+    if (!selected.length) return;
+    const spaceLeft = MAX_IMAGES - propertyData.images.length;
+    if (spaceLeft <= 0) { toast.info(`Max ${MAX_IMAGES} images reached.`); return; }
     const usable = selected.slice(0, spaceLeft).filter(f => {
       const validType = f.type.startsWith('image/');
       const sizeOk = f.size <= 10*1024*1024;
-            if (!validType) toast.warn(`${f.name} skipped (not image).`);
-            if (!sizeOk) toast.warn(`${f.name} skipped (image file too large, max 10MB).`);
+      if (!validType) toast.warn(`${f.name} skipped (not image).`);
+      if (!sizeOk) toast.warn(`${f.name} skipped (image file too large, max 10MB).`);
       return validType && sizeOk;
     });
-        if (!usable.length) return;
-        setPropertyData(p => ({ ...p, images:[...p.images, ...usable] }));
-        setImagePreviews(p => [...p, ...usable.map(f => URL.createObjectURL(f))]);
-    };
+    if (!usable.length) return;
+    setPropertyData(p => ({ ...p, images:[...p.images, ...usable] }));
+    setImagePreviews(p => [...p, ...usable.map(f => URL.createObjectURL(f))]);
+  };
 
-    const removeImage = (index) => {
-        setPropertyData(p => ({ ...p, images: p.images.filter((_,i)=>i!==index) }));
-        setImagePreviews(p => p.filter((_,i)=>i!==index));
-    };
-    // Cleanup blob URLs on unmount
+  const removeImage = (index) => {
+    setPropertyData(p => ({ ...p, images: p.images.filter((_,i)=>i!==index) }));
+    setImagePreviews(p => p.filter((_,i)=>i!==index));
+  };
+  
+  // Cleanup blob URLs on unmount
   useEffect(()=>{
     return () => {
       imagePreviews.forEach(url => URL.revokeObjectURL(url));
@@ -142,23 +156,24 @@ const AddProperties = () => {
     };
   },[imagePreviews, videoPreview, panoramaPreview]);
 
-    const handleVideoChange = (e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        const allowed = ['video/mp4','video/webm','video/ogg'];
-  if (!allowed.includes(file.type)) { toast.error('Invalid video format. Use MP4, WebM, or OGG.'); return; }
-  if (file.size > 50*1024*1024) { toast.error('Video file too large (max 50MB).'); return; }
-        if (propertyData.video) URL.revokeObjectURL(videoPreview);
-        setPropertyData(p => ({ ...p, video:file }));
-        setVideoPreview(URL.createObjectURL(file));
-    };
-    const removeVideo = () => {
-        if (videoPreview) URL.revokeObjectURL(videoPreview);
-        setPropertyData(p => ({ ...p, video:null }));
-        setVideoPreview(null);
-    };
+  const handleVideoChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const allowed = ['video/mp4','video/webm','video/ogg'];
+    if (!allowed.includes(file.type)) { toast.error('Invalid video format. Use MP4, WebM, or OGG.'); return; }
+    if (file.size > 50*1024*1024) { toast.error('Video file too large (max 50MB).'); return; }
+    if (propertyData.video) URL.revokeObjectURL(videoPreview);
+    setPropertyData(p => ({ ...p, video:file }));
+    setVideoPreview(URL.createObjectURL(file));
+  };
+  
+  const removeVideo = () => {
+    if (videoPreview) URL.revokeObjectURL(videoPreview);
+    setPropertyData(p => ({ ...p, video:null }));
+    setVideoPreview(null);
+  };
 
-    const handleSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (isSubmitting) return;
     const token = localStorage.getItem('user_token');
@@ -206,13 +221,13 @@ const AddProperties = () => {
     }
   }
 
-    const handleLogout = () => {
-        logout();
-        localStorage.removeItem('user_token');
-        toast.success('Logged out successfully');
-        navigate('/');
-        window.dispatchEvent(new Event('storage'));
-    };
+  const handleLogout = () => {
+    logout();
+    localStorage.removeItem('user_token');
+    toast.success('Logged out successfully');
+    navigate('/');
+    window.dispatchEvent(new Event('storage'));
+  };
 
   return (
     <div className="dashboard-container landlord-dashboard">
@@ -226,7 +241,8 @@ const AddProperties = () => {
           <div className="info-banner" style={{marginBottom:'32px', padding:'12px 18px', background:'#f7f7f7', borderRadius:'8px', fontSize:'15px'}}>
             <strong>Verification Reminder:</strong> Upload <strong>one clear government ID</strong> in the sidebar verification panel to unlock publishing. Review may take up to <strong>1 hour</strong>.
           </div>
-          <div className="ll-grid ll-gap-md">
+          
+          <div className={`ll-grid ${isMobile ? 'mobile-grid' : ''} ll-gap-md`}>
             <div className="ll-stack">
               {/* Property Info Section */}
               <div className="form-group">
@@ -234,15 +250,18 @@ const AddProperties = () => {
                 <input className="ll-field" name="title" value={propertyData.title} onChange={handleInputChange} required placeholder="Property Title" maxLength={100} />
                 <div className="field-hint small">{propertyData.title.length}/100</div>
               </div>
+              
               <div className="form-group full">
                 <label className="required">Description</label>
-                <textarea className="ll-field" name="description" value={propertyData.description} onChange={handleInputChange} rows={5} maxLength={500} required />
+                <textarea className="ll-field" name="description" value={propertyData.description} onChange={handleInputChange} rows={isMobile ? 3 : 5} maxLength={500} required />
                 <div className="field-hint small">{propertyData.description.length}/500</div>
               </div>
+              
               <div className="form-group">
                 <label className="required">Address</label>
                 <input className="ll-field" name="address" value={propertyData.address} onChange={handleInputChange} required placeholder="Street, Building, etc." />
               </div>
+              
               <div className="form-group">
                 <label className="required">Barangay</label>
                 <select className="ll-field" name="barangay" value={propertyData.barangay} onChange={handleInputChange} required>
@@ -250,6 +269,7 @@ const AddProperties = () => {
                   {barangayList.map(b => <option key={b} value={b}>{b}</option>)}
                 </select>
               </div>
+              
               <div className="form-group">
                 <label className="required">Category</label>
                 <select className="ll-field" name="category" value={propertyData.category} onChange={handleInputChange} required>
@@ -257,14 +277,17 @@ const AddProperties = () => {
                   {categories.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
+              
               <div className="form-group">
                 <label className="required">Price (₱)</label>
                 <input className="ll-field" type="number" min={0} name="price" value={propertyData.price} onChange={handleInputChange} required />
               </div>
+              
               <div className="form-group">
                 <label>Number of Rooms</label>
                 <input className="ll-field" type="number" min={0} name="numberOfRooms" value={propertyData.numberOfRooms} onChange={handleInputChange} placeholder="e.g. 2" />
               </div>
+              
               <div className="form-group">
                 <label>Availability Status</label>
                 <select className="ll-field" name="availabilityStatus" value={propertyData.availabilityStatus} onChange={handleInputChange}>
@@ -273,31 +296,38 @@ const AddProperties = () => {
                   <option value="Not Yet Ready">Not Yet Ready</option>
                 </select>
               </div>
+              
               <div className="form-group">
                 <label className="required">Total Units</label>
                 <input className="ll-field" type="number" min={1} name="totalUnits" value={propertyData.totalUnits} onChange={handleInputChange} required />
                 <div className="field-hint small">Set how many rentable units this listing has (e.g., number of rooms/slots).</div>
               </div>
+              
               <div className="form-group">
                 <label>Available Units</label>
                 <input className="ll-field" type="number" min={0} name="availableUnits" value={propertyData.availableUnits} onChange={handleInputChange} />
                 <div className="field-hint small">Optional: leave blank to default to Total Units.</div>
               </div>
+              
               <div className="form-group">
                 <label>Property Size (sqm)</label>
                 <input className="ll-field" type="number" min={0} step={0.1} name="areaSqm" value={propertyData.areaSqm} onChange={handleInputChange} placeholder="e.g. 45" />
               </div>
+              
               <div className="form-group">
                 <label className="required">Max Occupancy</label>
                 <input className="ll-field" type="number" min={1} name="occupancy" value={propertyData.occupancy} onChange={handleInputChange} required />
               </div>
+              
               <div className="form-group toggle-field">
                 <label className="checkbox-label"><input type="checkbox" name="parking" checked={propertyData.parking} onChange={handleInputChange} /> Parking Available</label>
               </div>
+              
               <div className="form-group toggle-field">
                 <label className="checkbox-label"><input type="checkbox" name="petFriendly" checked={propertyData.petFriendly} onChange={handleInputChange} /> Pet Friendly</label>
                 {propertyData.petFriendly && <input className="ll-field mt-6" name="allowedPets" value={propertyData.allowedPets} placeholder="Allowed pets (e.g. Cats, Dogs)" onChange={handleInputChange} />}
               </div>
+              
               <div className="form-group full">
                 <label>Nearby Landmark</label>
                 <select className="ll-field" name="landmarks" value={propertyData.landmarks} onChange={handleInputChange} required>
@@ -307,11 +337,13 @@ const AddProperties = () => {
                   ))}
                 </select>
               </div>
+              
               <div className="form-group full">
                 <label>House Rules</label>
-                <textarea className="ll-field" name="rules" value={propertyData.rules} onChange={handleInputChange} placeholder="No loud noises after 10 PM, No smoking inside" rows={3} />
+                <textarea className="ll-field" name="rules" value={propertyData.rules} onChange={handleInputChange} placeholder="No loud noises after 10 PM, No smoking inside" rows={isMobile ? 2 : 3} />
               </div>
-              <div className="form-row">
+              
+              <div className={`form-row ${isMobile ? 'mobile-column' : ''}`}>
                 <div className="form-group">
                   <label htmlFor="latitude">Latitude (auto-filled)</label>
                   <input id="latitude" name="latitude" type="number" step="any" value={propertyData.latitude} readOnly style={{background:'#f5f5f5'}} placeholder="Auto-filled" />
@@ -322,6 +354,7 @@ const AddProperties = () => {
                 </div>
               </div>
             </div>
+            
             <div className="ll-stack">
               {/* Images Section */}
               <div className="images-section" style={{marginTop:'0'}}>
@@ -361,6 +394,7 @@ const AddProperties = () => {
                   </label>
                 )}
               </div>
+              
               {/* Video Section */}
               <div className="video-section" style={{marginTop:'32px'}}>
                 <h3 className="section-title">Property Video <span style={{fontWeight:400, fontSize:'0.7rem'}}>{propertyData.video ? 'selected' : 'none'}</span></h3>
@@ -384,7 +418,7 @@ const AddProperties = () => {
               {/* Map Preview Section */}
               <div className="ll-card map-preview-section" style={{marginTop:'32px', padding:'24px', borderRadius:'12px', boxShadow:'0 2px 12px rgba(0,0,0,0.05)', background:'#fafafa'}}>
                 <h3 style={{marginBottom:'18px'}}>Map Preview (SJDM only)</h3>
-                <div style={{height:'320px', width:'100%', border:'1px solid #ccc', borderRadius:'8px', overflow:'hidden'}}>
+                <div style={{height: isMobile ? '220px' : '320px', width:'100%', border:'1px solid #ccc', borderRadius:'8px', overflow:'hidden'}}>
                   <MapContainer center={propertyData.latitude && propertyData.longitude ? [parseFloat(propertyData.latitude), parseFloat(propertyData.longitude)] : SJDM_CENTER} zoom={SJDM_ZOOM} style={{height:'100%', width:'100%'}} scrollWheelZoom={true}>
                     <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap contributors" />
                     <LocationSelector />
@@ -421,6 +455,7 @@ const AddProperties = () => {
                   )}
                 </div>
               </div>
+              
               <div className="form-actions" style={{marginTop:'32px', display:'flex', gap:'16px', justifyContent:'flex-end'}}>
                 <button type="button" className="ll-btn outline" onClick={()=>navigate(-1)}>Cancel</button>
                 <button type="submit" className="ll-btn primary" disabled={isSubmitting}>{isSubmitting ? 'Adding...' : 'Add Property'}</button>
