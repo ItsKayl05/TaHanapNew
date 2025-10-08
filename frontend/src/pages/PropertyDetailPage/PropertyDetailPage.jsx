@@ -20,6 +20,7 @@ const PropertyDetailPage = () => {
     const [applying, setApplying] = useState(false);
     const { userRole } = useContext(AuthContext);
     const currentUserId = localStorage.getItem('user_id') || null;
+    const [panoramaLoaded, setPanoramaLoaded] = useState(false);
 
     useEffect(() => {
         const fetchProperty = async () => {
@@ -122,12 +123,24 @@ const PropertyDetailPage = () => {
             <div className="property-content">
                 {/* Left Side: Media (Video if exists + Image Slideshow) */}
                 <div className="property-gallery glass-panel">
-                    {/* 360° Panoramic Image Viewer */}
+                    {/* 360° Panoramic Image Viewer - FIXED */}
                     {property.panorama360 && (
                         <div className="panorama-section">
                             <h3 className="section-title white">360° Panoramic View</h3>
                             <div className="panorama-container">
-                                <PhotoDomeViewer imageUrl={property.panorama360} mode="MONOSCOPIC" />
+                                <div className="panorama-wrapper">
+                                    <PhotoDomeViewer 
+                                        imageUrl={property.panorama360} 
+                                        mode="MONOSCOPIC"
+                                        onLoad={() => setPanoramaLoaded(true)}
+                                    />
+                                    {!panoramaLoaded && (
+                                        <div className="panorama-loading">
+                                            <div className="loading-spinner small"></div>
+                                            <p>Loading 360° View...</p>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     )}
@@ -307,14 +320,17 @@ const PropertyDetailPage = () => {
                                     }
                                 }}
                             >
-                                Apply
+                                {applying ? 'Applying...' : 'Apply Now'}
                             </button>
                         )}
                         
                         {(typeof property.availableUnits !== 'undefined' || typeof property.totalUnits !== 'undefined') && (
                             <div className="availability-counter improved-units">
                                 <span className="units-pill">
-                                    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style={{verticalAlign:'middle',marginRight:'6px'}}><rect x="3" y="7" width="14" height="8" rx="2.5" fill="#38bdf8"/><rect x="7" y="3" width="6" height="4" rx="2" fill="#60aaff"/></svg>
+                                    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style={{verticalAlign:'middle',marginRight:'6px'}}>
+                                        <rect x="3" y="7" width="14" height="8" rx="2.5" fill="#2563eb"/>
+                                        <rect x="7" y="3" width="6" height="4" rx="2" fill="#3b82f6"/>
+                                    </svg>
                                     {property.availableUnits !== undefined ? property.availableUnits : '0'}{property.totalUnits ? ` / ${property.totalUnits}` : ''}
                                 </span>
                                 <span className="units-label">Available Unit{(property.availableUnits === 1) ? '' : 's'}</span>
