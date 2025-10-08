@@ -9,13 +9,13 @@
   flex-direction: column; 
   box-shadow: 0 4px 14px -4px rgba(0, 0, 0, .15); 
   border-right: 1px solid var(--color-border, rgba(0, 0, 0, 0.10)); 
-  position: fixed;
-  left: 0;
+  position: sticky;
   top: 0;
   z-index: 100; 
   transition: transform 0.3s ease;
   margin: 0;
   overflow-y: auto;
+  flex-shrink: 0;
 }
 
 .dashboard-sidebar:after { 
@@ -255,17 +255,21 @@
   }
 
   /* Sidebar mobile styles */
-  .dashboard-sidebar.mobile {
+  .dashboard-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
     transform: translateX(-100%);
     width: 280px;
+    z-index: 100;
   }
 
-  .dashboard-sidebar.mobile.mobile-open {
+  .dashboard-sidebar.mobile-open {
     transform: translateX(0);
     box-shadow: 4px 0 20px rgba(0, 0, 0, 0.2);
   }
 
-  .dashboard-sidebar.mobile li.active:after {
+  .dashboard-sidebar li.active:after {
     display: none;
   }
 }
@@ -273,9 +277,8 @@
 /* Desktop Styles */
 @media (min-width: 768px) {
   .dashboard-sidebar {
-    position: fixed;
+    position: sticky;
     top: 0;
-    left: 0;
     height: 100vh;
   }
   
@@ -290,12 +293,6 @@
 
 /* Ensure no margin conflicts */
 body {
-  margin: 0;
-  padding: 0;
-}
-
-/* Fix for main content when sidebar is present */
-.dashboard-container {
   margin: 0;
   padding: 0;
 }

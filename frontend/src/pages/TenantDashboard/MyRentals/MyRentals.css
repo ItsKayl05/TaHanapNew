@@ -12,10 +12,9 @@
 .main-content {
   flex: 1;
   padding: 2rem;
-  margin-left: 250px; /* Match sidebar width */
   box-sizing: border-box;
   min-height: 100vh;
-  margin-top: 0;
+  margin-left: 0; /* Remove margin-left since sidebar is in flex flow */
 }
 
 .tenant-my-rentals {
@@ -205,20 +204,9 @@
 
 /* Responsive Design */
 
-/* Large Desktop */
-@media (min-width: 1400px) {
-  .main-content {
-    max-width: 1400px;
-    margin-left: 250px;
-    margin-right: auto;
-    padding: 3rem 4rem;
-  }
-}
-
 /* Tablet and Small Desktop */
 @media (max-width: 1024px) {
   .main-content {
-    margin-left: 220px;
     padding: 1.5rem;
   }
   
@@ -244,7 +232,6 @@
   }
   
   .main-content {
-    margin-left: 0;
     padding: 1rem;
     margin-top: 0;
     width: 100%;
