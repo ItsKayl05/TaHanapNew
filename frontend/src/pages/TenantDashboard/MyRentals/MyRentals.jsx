@@ -1,10 +1,10 @@
-    import React, { useEffect, useState } from 'react';
-    import { fetchMyApplications } from '../../../services/application/ApplicationService';
-    import { toast } from 'react-toastify';
-    import { useNavigate } from 'react-router-dom';
-    import { FaHome, FaUser, FaCheckCircle, FaTimesCircle, FaClock } from 'react-icons/fa';
-    import './MyRentals.css';
-    import TenantSidebar from '../TenantSidebar/TenantSidebar';
+import React, { useEffect, useState } from 'react';
+import { fetchMyApplications } from '../../../services/application/ApplicationService';
+import { toast } from 'react-toastify';
+import { useNavigate } from 'react-router-dom';
+import { FaHome, FaUser, FaCheckCircle, FaTimesCircle, FaClock } from 'react-icons/fa';
+import './MyRentals.css';
+import TenantSidebar from '../TenantSidebar/TenantSidebar';
 
 const MyRentals = () => {
   const [apps, setApps] = useState([]);
@@ -31,12 +31,18 @@ const MyRentals = () => {
   return (
     <div className="dashboard-container">
       <TenantSidebar />
-      <div className="main-content tenant-my-rentals page">
+      <div className="main-content tenant-my-rentals">
         <h2>My Rentals</h2>
         <div className="tabs">
-          <button onClick={() => setTab('Pending')} className={tab==='Pending'? 'active':''}><FaClock style={{marginRight:4}}/>Pending</button>
-          <button onClick={() => setTab('Approved')} className={tab==='Approved'? 'active':''}><FaCheckCircle style={{marginRight:4}}/>Approved</button>
-          <button onClick={() => setTab('History')} className={tab==='History'? 'active':''}><FaTimesCircle style={{marginRight:4}}/>History / Rejected</button>
+          <button onClick={() => setTab('Pending')} className={tab==='Pending'? 'active':''}>
+            <FaClock style={{marginRight:4}}/>Pending
+          </button>
+          <button onClick={() => setTab('Approved')} className={tab==='Approved'? 'active':''}>
+            <FaCheckCircle style={{marginRight:4}}/>Approved
+          </button>
+          <button onClick={() => setTab('History')} className={tab==='History'? 'active':''}>
+            <FaTimesCircle style={{marginRight:4}}/>History / Rejected
+          </button>
         </div>
 
         <div className="tab-content">
@@ -44,15 +50,19 @@ const MyRentals = () => {
           {grouped[tab].map(app => (
             <div key={app._id} className="app-row">
               <div className="app-row-header">
-                {app.status === 'Pending' && <FaClock className="status-icon pending" />}
-                {app.status === 'Approved' && <FaCheckCircle className="status-icon approved" />}
-                {app.status === 'Rejected' && <FaTimesCircle className="status-icon rejected" />}
-                <span className={`status-badge ${app.status.toLowerCase()}`}>{app.status}</span>
+                <div className="status-section">
+                  {app.status === 'Pending' && <FaClock className="status-icon pending" />}
+                  {app.status === 'Approved' && <FaCheckCircle className="status-icon approved" />}
+                  {app.status === 'Rejected' && <FaTimesCircle className="status-icon rejected" />}
+                  <span className={`status-badge ${app.status.toLowerCase()}`}>{app.status}</span>
+                </div>
                 <h4><FaHome style={{marginRight:6}}/>{app.property?.title || 'Property'}</h4>
               </div>
               <p><FaUser style={{marginRight:4}}/>Landlord: {app.landlord?.fullName || ''}</p>
               <div className="actions">
-                <button onClick={() => navigate(`/property/${app.property?._id}`)}><FaHome style={{marginRight:4}}/>View Property</button>
+                <button onClick={() => navigate(`/property/${app.property?._id}`)}>
+                  <FaHome style={{marginRight:4}}/>View Property
+                </button>
               </div>
             </div>
           ))}
