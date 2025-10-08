@@ -12,6 +12,11 @@
   overflow-y: auto;
 }
 
+/* Hide desktop sidebar on mobile */
+.desktop-sidebar.hidden {
+  display: none;
+}
+
 .sidebar-header {
   margin-bottom: 30px;
   text-align: center;
@@ -150,9 +155,23 @@
   justify-content: center;
 }
 
-/* Spacer to push content below fixed header */
+/* Hide mobile header on desktop */
+@media (min-width: 768px) {
+  .mobile-header {
+    display: none;
+  }
+}
+
+/* Spacer to push content below fixed header - mobile only */
 .mobile-header-spacer {
   height: 60px;
+}
+
+/* Hide spacer on desktop */
+@media (min-width: 768px) {
+  .mobile-header-spacer {
+    display: none;
+  }
 }
 
 /* ========== MOBILE MENU ========== */
@@ -214,28 +233,9 @@
   background: #b91c1c;
 }
 
-/* ========== MAIN CONTENT ADJUSTMENT ========== */
-/* Add this to your main content CSS */
-.main-content-with-sidebar {
-  margin-left: 250px; /* Desktop sidebar width */
-}
-
-.main-content-mobile {
-  margin-left: 0;
-  padding-top: 60px; /* Mobile header height */
-}
-
-/* Responsive */
-@media (max-width: 767px) {
-  .desktop-sidebar {
-    display: none;
-  }
-}
-
+/* Hide mobile menu on desktop */
 @media (min-width: 768px) {
-  .mobile-header,
-  .mobile-menu,
-  .mobile-header-spacer {
+  .mobile-menu {
     display: none;
   }
 }

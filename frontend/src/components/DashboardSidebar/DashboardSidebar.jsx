@@ -15,7 +15,7 @@ const DashboardSidebar = ({
     const handleResize = () => {
       const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
-      if (!mobile) setOpen(true);
+      if (!mobile) setOpen(false); // Close mobile menu on desktop
     };
     
     handleResize();
@@ -43,34 +43,32 @@ const DashboardSidebar = ({
 
   return (
     <>
-      {/* Desktop Sidebar - Always visible */}
-      {!isMobile && (
-        <div className="desktop-sidebar">
-          <div className="sidebar-header">
-            <h2>{brandTitle}</h2>
-            {verification && <div className="verification-pill">{statusPill}</div>}
-          </div>
-          
-          <nav className="sidebar-nav">
-            {links.map(link => (
-              <div
-                key={link.key}
-                className={`nav-item ${link.active ? 'active' : ''} ${link.locked ? 'locked' : ''}`}
-                onClick={() => handleLinkClick(link.to, link.locked)}
-              >
-                <span>{link.label}</span>
-                {link.locked && <span className="lock">🔒</span>}
-              </div>
-            ))}
-          </nav>
-          
-          <button className="logout-btn" onClick={onLogout}>
-            Logout
-          </button>
+      {/* DESKTOP SIDEBAR - Only shows on desktop */}
+      <div className={`desktop-sidebar ${isMobile ? 'hidden' : ''}`}>
+        <div className="sidebar-header">
+          <h2>{brandTitle}</h2>
+          {verification && <div className="verification-pill">{statusPill}</div>}
         </div>
-      )}
+        
+        <nav className="sidebar-nav">
+          {links.map(link => (
+            <div
+              key={link.key}
+              className={`nav-item ${link.active ? 'active' : ''} ${link.locked ? 'locked' : ''}`}
+              onClick={() => handleLinkClick(link.to, link.locked)}
+            >
+              <span>{link.label}</span>
+              {link.locked && <span className="lock">🔒</span>}
+            </div>
+          ))}
+        </nav>
+        
+        <button className="logout-btn" onClick={onLogout}>
+          Logout
+        </button>
+      </div>
 
-      {/* Mobile Header - Fixed at top */}
+      {/* MOBILE HEADER - Only shows on mobile */}
       {isMobile && (
         <div className="mobile-header">
           <div className="mobile-header-content">
@@ -86,7 +84,7 @@ const DashboardSidebar = ({
         </div>
       )}
 
-      {/* Mobile Menu - Fixed below header */}
+      {/* MOBILE MENU - Only shows on mobile when open */}
       {isMobile && open && (
         <div className="mobile-menu">
           <div className="mobile-menu-content">
@@ -107,7 +105,7 @@ const DashboardSidebar = ({
         </div>
       )}
 
-      {/* Spacer for mobile header */}
+      {/* SPACER - Only for mobile to push content below header */}
       {isMobile && <div className="mobile-header-spacer"></div>}
     </>
   );
