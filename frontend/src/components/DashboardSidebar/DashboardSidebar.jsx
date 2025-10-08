@@ -22,28 +22,28 @@ const DashboardSidebar = ({
       const mobile = window.innerWidth < 1024;
       setIsMobile(mobile);
       
-      // Only auto-set sidebar state if we have the external setter
-      if (setSidebarOpen) {
-        if (mobile) {
-          setSidebarOpen(false);
-        } else {
-          setSidebarOpen(true);
-        }
-      } else {
-        // Use internal state management
-        if (mobile) {
-          setInternalSidebarOpen(false);
-        } else {
-          setInternalSidebarOpen(true);
-        }
+      // Auto-close sidebar on mobile when resizing
+      if (mobile && isSidebarOpen) {
+        setSidebarState(false);
+      }
+      
+      // Auto-open sidebar on desktop when resizing from mobile
+      if (!mobile && !isSidebarOpen) {
+        setSidebarState(true);
       }
     };
 
-    handleResize();
+    // Initial setup based on screen size
+    const mobile = window.innerWidth < 1024;
+    setIsMobile(mobile);
+    if (!setSidebarOpen) {
+      setInternalSidebarOpen(!mobile); // Open on desktop, closed on mobile by default
+    }
+
     window.addEventListener('resize', handleResize);
     
     return () => window.removeEventListener('resize', handleResize);
-  }, [setSidebarOpen]);
+  }, [isSidebarOpen, setSidebarOpen, setSidebarState]);
 
   const brandTitle = variant === 'landlord' ? 'TaHanap Landlord' : 'TaHanap Tenant';
 
@@ -59,7 +59,7 @@ const DashboardSidebar = ({
   const handleLinkClick = (to, locked) => {
     if (!locked && onNavigate) {
       onNavigate(to);
-      // Close sidebar on mobile after navigation
+      // Auto-close sidebar on mobile after navigation
       if (isMobile) {
         setSidebarState(false);
       }
@@ -70,31 +70,65 @@ const DashboardSidebar = ({
     setSidebarState(!isSidebarOpen);
   };
 
+  const closeSidebar = () => {
+    setSidebarState(false);
+  };
+
   return (
     <>
-      {/* BURGER TOGGLE - Shows on both mobile and desktop */}
-      <button 
-        className={`burger-toggle ${isSidebarOpen ? 'open' : ''} ${isMobile ? 'mobile' : 'desktop'}`}
-        onClick={toggleSidebar}
-        aria-label="Toggle sidebar"
-        aria-expanded={isSidebarOpen}
-      >
-        <span></span>
-        <span></span>
-        <span></span>
-      </button>
+      {/* MOBILE HEADER - Only shows on mobile */}
+      {isMobile && (
+        <div className="mobile-header">
+          <div className="mobile-header-content">
+            <h3>{brandTitle}</h3>
+            <button 
+              className="burger-toggle mobile"
+              onClick={toggleSidebar}
+              aria-label="Toggle menu"
+            >
+              <span></span>
+              <span></span>
+              <span></span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* DESKTOP BURGER TOGGLE - Only shows on desktop when sidebar is closed */}
+      {!isMobile && !isSidebarOpen && (
+        <button 
+          className="burger-toggle desktop"
+          onClick={toggleSidebar}
+          aria-label="Open sidebar"
+        >
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+      )}
 
       {/* OVERLAY - Shows when sidebar is open on mobile */}
       {isMobile && isSidebarOpen && (
         <div 
           className="sidebar-overlay"
-          onClick={() => setSidebarState(false)}
+          onClick={closeSidebar}
           aria-hidden="true"
         />
       )}
 
-      {/* SIDEBAR - Works for both mobile and desktop */}
-      <div className={`sidebar ${isSidebarOpen ? 'open' : ''} ${isMobile ? 'mobile' : 'desktop'}`}>
+      {/* SIDEBAR - Responsive behavior for both mobile and desktop */}
+      <div className={`sidebar ${isSidebarOpen ? 'open' : 'closed'} ${isMobile ? 'mobile' : 'desktop'}`}>
+        {/* CLOSE BUTTON - Only on mobile */}
+        {isMobile && (
+          <button 
+            className="sidebar-close-btn"
+            onClick={closeSidebar}
+            aria-label="Close sidebar"
+          >
+            ✕
+          </button>
+        )}
+        
         <div className="sidebar-header">
           <h2>{brandTitle}</h2>
           {verification && <div className="verification-pill">{statusPill}</div>}
@@ -130,6 +164,9 @@ const DashboardSidebar = ({
           Logout
         </button>
       </div>
+
+      {/* MOBILE SPACER - Pushes content below mobile header */}
+      {isMobile && <div className="mobile-spacer"></div>}
     </>
   );
 };
