@@ -26,17 +26,10 @@
   text-align: left;
   width: 100%;
 }
-.navbar-tagline {
-  margin-top: 0.1rem;
-  font-size: 0.85rem;
-  color: #e0e7ef;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-}
+
 /* Navbar Container */
 .navbar {
   width: 100%;
-  /* make navbar non-sticky so it scrolls with the page */
   position: relative;
   z-index: 200;
   display: flex;
@@ -44,11 +37,9 @@
   align-items: center;
   padding: 12px clamp(1rem, 2vw, 2.25rem);
   background: rgba(15, 23, 42, 0.95);
-  /* remove heavy backdrop/overlay effects that make the header feel noisy */
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
-  /* allow items to wrap on very small screens rather than forcing a column layout */
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 /* Logo Styling */
@@ -58,12 +49,12 @@
   gap: 8px;
   cursor: pointer;
   transition: transform 0.3s ease-in-out;
+  flex-shrink: 0;
 }
 
 .navbar-logo:hover {
   transform: scale(1.05);
 }
-
 
 .navbar-brand-image {
   height: 38px;
@@ -80,9 +71,9 @@
   gap: 28px;
   margin: 0 auto;
   padding: 0;
-  flex: 1 1 auto; /* flexible so it can shrink on narrow screens */
-  justify-content: center; /* Centers links */
-  min-width: 0; /* allow children to shrink without overflowing */
+  flex: 1 1 auto;
+  justify-content: center;
+  min-width: 0;
 }
 
 .navbar-links li {
@@ -91,38 +82,69 @@
 }
 
 .navbar-links li a {
-  color:#e2e8f0; text-decoration:none; font-size:.9rem; display:flex; align-items:center; gap:10px; font-weight:500; letter-spacing:.4px; padding:8px 14px; border-radius:10px; position:relative; transition:color .3s, background .35s, transform .35s;
+  color:#e2e8f0; 
+  text-decoration:none; 
+  font-size:.9rem; 
+  display:flex; 
+  align-items:center; 
+  gap:10px; 
+  font-weight:500; 
+  letter-spacing:.4px; 
+  padding:8px 14px; 
+  border-radius:10px; 
+  position:relative; 
+  transition:color .3s, background .35s, transform .35s;
 }
 
 .navbar-links li a:hover {
-  color:#ffffff; background:rgba(255,255,255,0.08); transform:translateY(-2px);
+  color:#ffffff; 
+  background:rgba(255,255,255,0.08); 
+  transform:translateY(-2px);
 }
-.navbar-links li a.active { color:#fff; background:linear-gradient(90deg,#38bdf8,#6366f1); box-shadow:0 4px 14px -2px rgba(56,189,248,.45); }
+
+.navbar-links li a.active { 
+  color:#fff; 
+  background:linear-gradient(90deg,#38bdf8,#6366f1); 
+  box-shadow:0 4px 14px -2px rgba(56,189,248,.45); 
+}
 
 /* Navbar Login/Register & Dashboard Button */
 .navbar-login {
   display: flex;
   align-items: center;
   margin-left: 12px;
+  flex-shrink: 0;
 }
-
-/* Hamburger toggle for mobile dashboard sidebar */
-/* hamburger removed */
 
 /* Common styles for both Login/Register & Dashboard buttons */
 .navbar-login .login-register,
 .navbar-login .dashboard-link {
-  display:flex; align-items:center; gap:8px; font-size:.8rem; font-weight:600; letter-spacing:.05em; text-decoration:none; color:#fff; padding:10px 18px; border-radius:12px; position:relative; background:linear-gradient(135deg,#6366f1,#3b82f6); box-shadow:0 4px 18px -2px rgba(99,102,241,.5); overflow:hidden; transition:filter .35s, transform .35s;
+  display:flex; 
+  align-items:center; 
+  gap:8px; 
+  font-size:.8rem; 
+  font-weight:600; 
+  letter-spacing:.05em; 
+  text-decoration:none; 
+  color:#fff; 
+  padding:10px 18px; 
+  border-radius:12px; 
+  position:relative; 
+  background:linear-gradient(135deg,#6366f1,#3b82f6); 
+  box-shadow:0 4px 18px -2px rgba(99,102,241,.5); 
+  overflow:hidden; 
+  transition:filter .35s, transform .35s;
 }
 
 .navbar-login .login-register:hover,
 .navbar-login .dashboard-link:hover {
-  filter:brightness(1.1); transform:translateY(-2px);
+  filter:brightness(1.1); 
+  transform:translateY(-2px);
 }
 
 /* Ensures icon in Login/Register & Dashboard aligns correctly */
 .navbar-login .navbar-icon {
-  font-size: 20px; /* Adjust icon size */
+  font-size: 20px;
   transition: transform 0.3s ease;
 }
 
@@ -133,65 +155,318 @@
 }
 
 /* Logo Image */
-.navbar-logo-image { width:46px; height:46px; border-radius:14px; object-fit:cover; position:relative; z-index:2; box-shadow:0 4px 12px -2px rgba(0,0,0,.4); outline:2px solid rgba(255,255,255,0.15); transition:transform .6s ease, filter .6s; }
-.navbar-logo-image:hover { transform:rotate(12deg) scale(1.05); filter:brightness(1.15); }
+.navbar-logo-image { 
+  width:46px; 
+  height:46px; 
+  border-radius:14px; 
+  object-fit:cover; 
+  position:relative; 
+  z-index:2; 
+  box-shadow:0 4px 12px -2px rgba(0,0,0,.4); 
+  outline:2px solid rgba(255,255,255,0.15); 
+  transition:transform .6s ease, filter .6s; 
+}
+
+.navbar-logo-image:hover { 
+  transform:rotate(12deg) scale(1.05); 
+  filter:brightness(1.15); 
+}
 
 /* Navbar Links Hover Effect */
 .navbar-links li a:hover .navbar-icon {
   transform: scale(1.15);
 }
 
+/* ========== MOBILE RESPONSIVE STYLES ========== */
+
+/* Mobile Menu Toggle */
+.mobile-menu-toggle {
+  display: flex;
+  align-items: center;
+}
+
+.menu-toggle-btn {
+  background: none;
+  border: none;
+  color: #e2e8f0;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 8px;
+  transition: background-color 0.3s, transform 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.menu-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: scale(1.1);
+}
+
+/* Mobile Menu Overlay */
+.mobile-menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 1000;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.mobile-menu {
+  width: 85%;
+  max-width: 320px;
+  height: 100%;
+  background: #0f172a;
+  display: flex;
+  flex-direction: column;
+  animation: slideInRight 0.3s ease-out;
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.3);
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+/* Mobile Menu Header */
+.mobile-menu-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.95);
+}
+
+.mobile-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.mobile-logo-image {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  object-fit: cover;
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.4);
+  outline: 2px solid rgba(255, 255, 255, 0.15);
+}
+
+.mobile-brand-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.mobile-brand-image {
+  height: 24px;
+  width: auto;
+  object-fit: contain;
+}
+
+.mobile-tagline {
+  font-size: 0.75rem;
+  color: #e0e7ef;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.menu-close-btn {
+  background: none;
+  border: none;
+  color: #e2e8f0;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 8px;
+  transition: background-color 0.3s;
+}
+
+.menu-close-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Mobile Navigation Links */
+.mobile-nav-links {
+  list-style: none;
+  padding: 20px 0;
+  margin: 0;
+  flex: 1;
+}
+
+.mobile-nav-links li {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.mobile-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 24px;
+  color: #e2e8f0;
+  text-decoration: none;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: background-color 0.3s, color 0.3s;
+  border-left: 4px solid transparent;
+}
+
+.mobile-nav-link:hover,
+.mobile-nav-link:active {
+  background: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+  border-left-color: #3b82f6;
+}
+
+.mobile-nav-icon {
+  font-size: 1.2rem;
+  width: 24px;
+  text-align: center;
+}
+
+/* Mobile Login Section */
+.mobile-login-section {
+  padding: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.mobile-dashboard-link,
+.mobile-login-register {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  padding: 16px 20px;
+  border-radius: 12px;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  text-align: center;
+}
+
+.mobile-dashboard-link {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.mobile-login-register {
+  background: linear-gradient(135deg, #6366f1, #3b82f6);
+  color: white;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.mobile-dashboard-link:hover,
+.mobile-login-register:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+}
+
 /* Responsive Styles */
 @media screen and (max-width: 768px) {
   .navbar {
-    /* prefer a horizontal compact header with wrapping instead of forcing column layout */
-    flex-direction: row;
-    align-items: center;
-    padding: 10px 12px;
+    padding: 10px 16px;
+    flex-wrap: nowrap;
   }
 
   .navbar-logo {
-    margin: 0 0 10px 0;
+    margin: 0;
   }
 
-  .navbar-links {
-    gap: 12px;
-    font-size: .92rem;
-    width: 100%;
-    justify-content: center;
-    overflow-x: auto;
-    padding-bottom: 6px;
-    flex-wrap: nowrap; /* keep nav horizontally scrollable on small screens */
-  }
-
-  /* Improve touch scrolling for horizontal nav and hide scrollbar for a cleaner look */
-  .navbar-links {
-    -webkit-overflow-scrolling: touch;
-    scroll-behavior: smooth;
-  }
-  .navbar-links::-webkit-scrollbar { display:none; height:6px; }
-  .navbar-links { scrollbar-width: none; -ms-overflow-style: none; }
-
-  .navbar-links li a {
-    font-size: 15px;
-    padding:8px 10px;
-  }
-
+  /* Hide desktop elements on mobile */
+  .navbar-links,
   .navbar-login {
-    margin-top: 0;
-    justify-content: flex-end;
-    flex: 0 0 auto;
+    display: none;
   }
 
-  /* If the available width is very small, push the login button to the next line for readability */
-  @media screen and (max-width: 420px) {
-    .navbar {
-      padding: 8px 10px;
-    }
-    .navbar-login {
-      width: 100%;
-      margin-top: 8px;
-      justify-content: center;
-    }
+  .navbar-brand-block {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .navbar {
+    padding: 8px 12px;
+  }
+
+  .mobile-menu {
+    width: 90%;
+    max-width: 280px;
+  }
+
+  .mobile-menu-header {
+    padding: 14px 16px;
+  }
+
+  .mobile-nav-link {
+    padding: 16px 20px;
+    font-size: 0.95rem;
+  }
+
+  .mobile-login-section {
+    padding: 16px;
+  }
+
+  .mobile-dashboard-link,
+  .mobile-login-register {
+    padding: 14px 16px;
+    font-size: 0.95rem;
+  }
+}
+
+/* Small screen adjustments */
+@media screen and (max-width: 360px) {
+  .navbar {
+    padding: 6px 10px;
+  }
+
+  .navbar-logo-image {
+    width: 40px;
+    height: 40px;
+  }
+
+  .mobile-menu {
+    width: 95%;
+  }
+
+  .mobile-nav-link {
+    padding: 14px 16px;
+  }
+}
+
+/* Improve touch targets for mobile */
+@media (max-width: 768px) {
+  .menu-toggle-btn,
+  .menu-close-btn,
+  .mobile-nav-link,
+  .mobile-dashboard-link,
+  .mobile-login-register {
+    min-height: 44px;
+  }
+}
+
+/* Smooth transitions */
+.mobile-menu {
+  transition: transform 0.3s ease-out;
+}
+
+/* Backdrop blur for modern browsers */
+@supports (backdrop-filter: blur(10px)) {
+  .mobile-menu-overlay {
+    backdrop-filter: blur(10px);
   }
 }
