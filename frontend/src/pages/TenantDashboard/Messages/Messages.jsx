@@ -103,18 +103,12 @@ const Messages = ({ currentUserId: propCurrentUserId }) => {
   };
 
   return (
-    <div className="tenant-dashboard dashboard-container">
+    <div className="dashboard-container">
       <TenantSidebar handleLogout={() => { logout(); localStorage.removeItem('user_token'); window.dispatchEvent(new Event('storage')); }} />
-      <main className={`tenant-messages-main ${isMobile ? 'mobile-messages' : ''}`} style={{flex:1, display:'flex', flexDirection:'column', alignItems:'stretch', justifyContent:'center', minHeight:'100vh', height:'100vh', boxSizing:'border-box'}}>
-        <div style={{display:'flex',height:'100%',width:'100%',margin:'0 auto',boxSizing:'border-box'}}>
+      <main className={`tenant-messages-main ${isMobile ? 'mobile-messages' : ''}`}>
+        <div className="messages-content-wrapper">
           {/* Conversations List */}
-          <div className={`conversations-list ${isMobile && showChat ? 'mobile-hidden' : ''}`} style={{
-            width: isMobile ? '100%' : 320, 
-            borderRight: isMobile ? 'none' : '1px solid #eee', 
-            overflowY: 'auto', 
-            background: '#f7f7fa',
-            display: isMobile && showChat ? 'none' : 'block'
-          }}>
+          <div className={`conversations-list ${isMobile && showChat ? 'mobile-hidden' : ''}`}>
             <div className="messages-header">
               <h3 className="messages-title">Messages</h3>
               {isMobile && (
@@ -123,54 +117,43 @@ const Messages = ({ currentUserId: propCurrentUserId }) => {
                 </button>
               )}
             </div>
-            {(!Array.isArray(users) || users.length === 0) && (
-              <div className="no-conversations" style={{color:'#888',padding:'1em', textAlign: 'center'}}>
-                No conversations yet.
-              </div>
-            )}
-            {Array.isArray(users) && users.map(u => (
-              <div 
-                key={u._id} 
-                className={`conversation-item ${selectedUser && selectedUser._id === u._id ? 'active' : ''}`}
-                onClick={() => handleSelectUser(u)}
-              >
-                <img 
-                  src={(u.profilePic && u.profilePic.startsWith('http')) ? u.profilePic : (u.profilePic ? buildUpload(`/profiles/${u.profilePic}`) : '/default-avatar.png')} 
-                  alt={u.fullName} 
-                  className="conversation-avatar"
-                />
-                <div className="conversation-info">
-                  <div className="messages-username">{u.fullName || u.username}</div>
-                  {u.lastMessage && (
-                    <div className="conversation-preview">
-                      {u.lastMessage}
-                    </div>
+            <div className="conversations-scroll-area">
+              {(!Array.isArray(users) || users.length === 0) && (
+                <div className="no-conversations">
+                  No conversations yet.
+                </div>
+              )}
+              {Array.isArray(users) && users.map(u => (
+                <div 
+                  key={u._id} 
+                  className={`conversation-item ${selectedUser && selectedUser._id === u._id ? 'active' : ''}`}
+                  onClick={() => handleSelectUser(u)}
+                >
+                  <img 
+                    src={(u.profilePic && u.profilePic.startsWith('http')) ? u.profilePic : (u.profilePic ? buildUpload(`/profiles/${u.profilePic}`) : '/default-avatar.png')} 
+                    alt={u.fullName} 
+                    className="conversation-avatar"
+                  />
+                  <div className="conversation-info">
+                    <div className="messages-username">{u.fullName || u.username}</div>
+                    {u.lastMessage && (
+                      <div className="conversation-preview">
+                        {u.lastMessage}
+                      </div>
+                    )}
+                  </div>
+                  {u.unreadCount > 0 && (
+                    <span className="unread-badge">{u.unreadCount}</span>
                   )}
                 </div>
-                {u.unreadCount > 0 && (
-                  <span className="unread-badge">{u.unreadCount}</span>
-                )}
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
           
           {/* Chat Area */}
-          <div className={`chat-area ${isMobile && !showChat ? 'mobile-hidden' : ''}`} style={{
-            flex:1,
-            display: isMobile && !showChat ? 'none' : 'flex',
-            alignItems:'center',
-            justifyContent:'center',
-            background:'#f4f6fb',
-            height:'100%',
-            position: isMobile ? 'fixed' : 'relative',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            zIndex: isMobile ? 10 : 1
-          }}>
+          <div className={`chat-area ${isMobile && !showChat ? 'mobile-hidden' : ''}`}>
             {selectedUser ? (
-              <div className="chat-container" style={{width: '100%', height: '100%', display: 'flex', flexDirection: 'column'}}>
+              <div className="chat-container">
                 {isMobile && (
                   <div className="mobile-chat-header">
                     <button className="back-button" onClick={handleBackToList}>
@@ -179,10 +162,10 @@ const Messages = ({ currentUserId: propCurrentUserId }) => {
                     <span className="mobile-chat-title">
                       {selectedUser.fullName || selectedUser.username}
                     </span>
-                    <div style={{width: '40px'}}></div> {/* Spacer for alignment */}
+                    <div className="header-spacer"></div>
                   </div>
                 )}
-                <div style={{flex: 1, width: '100%'}}>
+                <div className="chat-box-container">
                   <ChatBox
                     currentUserId={String(currentUserId)}
                     targetUserId={String(selectedUser._id)}
@@ -197,8 +180,8 @@ const Messages = ({ currentUserId: propCurrentUserId }) => {
                 </div>
               </div>
             ) : (
-              <div className="no-chat-selected" style={{color:'#888',fontSize:'1.1em', textAlign: 'center', padding: '20px'}}>
-                {isMobile ? 'Select a conversation to start chatting' : 'Select a conversation to start chatting'}
+              <div className="no-chat-selected">
+                {isMobile ? 'Select a conversation to start chatting' : 'Select a conversation from the list to start chatting'}
               </div>
             )}
           </div>
