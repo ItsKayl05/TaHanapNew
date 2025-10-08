@@ -399,6 +399,56 @@
     font-size: 1.5rem;
   }
   
+
+/* Portrait-phone specific tweaks (narrow screens) */
+@media (max-width: 420px) {
+  .property-detail-container { padding: 1.6rem 0.8rem 3.2rem; }
+
+  /* Make media smaller so content doesn't push horizontally in portrait */
+  .property-gallery-image { height: 220px; }
+  .property-video-player { max-height: 220px; }
+  .slider-item:hover .property-gallery-image { transform: none; }
+
+  /* Tighter info panel */
+  .property-info { padding: 12px; }
+  .price-section { flex-direction: column; align-items: flex-start; gap: .4rem; padding-bottom: .6rem; }
+  .price-section h2 { font-size: 1.25rem; }
+  .property-badge { padding: .35rem .65rem; font-size: .75rem; border-radius: 14px; }
+
+  /* Reduce header size so title wraps nicely */
+  .property-header h1 { font-size: 1.4rem; line-height:1.15; }
+
+  /* Features & details compact */
+  .feature { font-size: .82rem; padding: 6px 10px; }
+  .property-features { gap: .4rem; }
+  .detail-item { gap: .6rem; }
+  .detail-item p, .description-section p { font-size: .66rem; }
+
+  /* Buttons & actions */
+  .apply-btn, .contact-btn, .report-property-btn, .landlord-profile-btn { padding: .7rem .9rem; font-size: .85rem; }
+  .detail-actions { gap: .45rem; }
+
+  /* Landlord avatar smaller */
+  .landlord-card-avatar { width:48px; height:48px; }
+
+  /* Prevent image scale from causing overflow on tiny screens */
+  .property-gallery, .property-info { overflow: hidden; }
+
+  /* Minor visual tweaks */
+  .glass-panel { border-radius: 18px; }
+}
+
+/* Very small devices (older phones) */
+@media (max-width: 360px) {
+  .property-gallery-image { height: 200px; }
+  .property-video-player { max-height: 200px; }
+  .property-header h1 { font-size: 1.25rem; }
+  .price-section h2 { font-size: 1.05rem; }
+  .property-info { padding: 10px; }
+  .feature { font-size: .78rem; padding: 5px 8px; }
+  .detail-item p, .description-section p { font-size: .62rem; }
+  .apply-btn, .contact-btn, .report-property-btn { font-size: .82rem; padding: .6rem .85rem; }
+}
   .details-section h3,
   .description-section h3 {
     font-size: 1.2rem;
