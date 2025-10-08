@@ -1,15 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './DashboardSidebar.css';
 
-/**
- * Reusable dashboard sidebar for Landlord and Tenant
- * Props:
- *  - variant: 'landlord' | 'tenant'
- *  - links: [{ key, label, to, locked?, hint?, requiresVerification? }]
- *  - onNavigate: (to)=>void
- *  - onLogout: ()=>void
- *  - verification: { status: 'verified' | 'pending' | 'rejected' | 'none', rejectedReasons?: string[] }
- */
 const DashboardSidebar = ({
   variant = 'landlord',
   links = [],
@@ -18,13 +9,12 @@ const DashboardSidebar = ({
   verification,
 }) => {
   const [isMobile, setIsMobile] = useState(false);
-  const [open, setOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const sidebarRef = useRef(null);
 
   useEffect(() => {
     const handleResize = () => {
-      const mobile = window.innerWidth < 760;
+      const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
       if (!mobile) {
         setMobileMenuOpen(false);
@@ -36,17 +26,6 @@ const DashboardSidebar = ({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  useEffect(() => { 
-    if (isMobile) {
-      setOpen(false);
-      setMobileMenuOpen(false);
-    } else {
-      setOpen(true);
-      setMobileMenuOpen(false);
-    }
-  }, [isMobile]);
-
-  // Close mobile menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (mobileMenuOpen && sidebarRef.current && !sidebarRef.current.contains(event.target)) {
@@ -96,28 +75,27 @@ const DashboardSidebar = ({
         <div className="mobile-sidebar-overlay" onClick={() => setMobileMenuOpen(false)} />
       )}
       
+      {/* Mobile Hamburger Button - SEPARATE from sidebar */}
+      {isMobile && (
+        <button 
+          className={`mobile-hamburger ${mobileMenuOpen ? 'open' : ''}`}
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          aria-label="Toggle menu"
+          type="button"
+        >
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+      )}
+      
       <div 
         ref={sidebarRef}
-        className={`dashboard-sidebar ${variant} ${isMobile ? 'mobile' : ''} ${open ? 'open' : 'closed'} ${mobileMenuOpen ? 'mobile-open' : ''}`}
+        className={`dashboard-sidebar ${isMobile ? 'mobile' : ''} ${mobileMenuOpen ? 'mobile-open' : ''}`}
       >      
         <div className="sidebar-header">
           <h2 className="brand">{brandTitle}</h2>
           
-          {/* Mobile Hamburger Toggle - MOVED INSIDE HEADER */}
-          {isMobile && (
-            <button 
-              className={`mobile-toggle ${mobileMenuOpen ? 'open' : ''}`} 
-              onClick={() => setMobileMenuOpen(o => !o)} 
-              aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'} 
-              aria-expanded={mobileMenuOpen} 
-              type="button"
-            >
-              <span className="hamburger-line"></span>
-              <span className="hamburger-line"></span>
-              <span className="hamburger-line"></span>
-            </button>
-          )}
-
           {verification && !isMobile && (
             <div className="verification-pill">
               {statusPill}
@@ -125,14 +103,13 @@ const DashboardSidebar = ({
           )}
         </div>
 
-        {/* Mobile verification pill - appears below hamburger */}
         {isMobile && verification && (
           <div className="verification-pill mobile-verification">
             {statusPill}
           </div>
         )}
 
-        <div className={`sidebar-content ${mobileMenuOpen ? 'mobile-visible' : ''}`}>
+        <div className="sidebar-content">
           <ul>
             {links.map(link => {
               const { key, label, to, locked, hint } = link;

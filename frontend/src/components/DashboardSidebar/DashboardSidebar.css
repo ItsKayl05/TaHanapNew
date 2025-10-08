@@ -1,18 +1,19 @@
-/* Reusable Dashboard Sidebar */
+/* Reset and Base Styles */
 .dashboard-sidebar { 
   width: 250px; 
   background: var(--color-surface, #ffffff); 
   color: var(--color-text-primary, #111827); 
   padding: 26px 20px 24px; 
-  height: calc(100vh - var(--nav-offset, 80px)); 
+  height: 100vh; 
   display: flex; 
   flex-direction: column; 
   box-shadow: 0 4px 14px -4px rgba(0, 0, 0, .15); 
   border-right: 1px solid var(--color-border, rgba(0, 0, 0, 0.10)); 
-  position: sticky; 
-  top: var(--nav-offset, 80px); 
-  z-index: 40; 
-  transition: width .35s ease; 
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 100; 
+  transition: transform 0.3s ease;
 }
 
 .dashboard-sidebar:after { 
@@ -23,10 +24,6 @@
   background: linear-gradient(180deg, rgba(99, 132, 255, 0.12), transparent 50%, rgba(16, 185, 129, 0.08)); 
   mix-blend-mode: multiply; 
   opacity: .5; 
-}
-
-.dashboard-sidebar.closed { 
-  width: 90px; 
 }
 
 .dashboard-sidebar h2.brand { 
@@ -41,13 +38,6 @@
   color: transparent; 
 }
 
-.dashboard-sidebar.closed h2.brand { 
-  opacity: 0; 
-  pointer-events: none; 
-  height: 0; 
-  margin: 0; 
-}
-
 .dashboard-sidebar ul { 
   list-style: none; 
   padding: 4px 0 0; 
@@ -55,6 +45,7 @@
   display: flex; 
   flex-direction: column; 
   gap: 6px; 
+  flex: 1;
 }
 
 .dashboard-sidebar li { 
@@ -72,7 +63,7 @@
   display: flex; 
   flex-direction: column; 
   gap: 2px; 
-  transition: .25s background, .25s color, .25s border-color, .25s transform; 
+  transition: .25s background, .25s color, .25s border-color; 
 }
 
 .dashboard-sidebar li:hover { 
@@ -196,166 +187,105 @@
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.5);
-  z-index: 35;
+  z-index: 98;
 }
 
-/* Mobile Toggle - Hamburger */
-.mobile-toggle { 
-  position: absolute; 
-  right: 0; 
-  top: 0; 
-  background: #2563eb; 
-  border: none; 
-  width: 44px; 
-  height: 44px; 
-  border-radius: 12px; 
-  display: flex; 
-  flex-direction: column; 
-  align-items: center; 
-  justify-content: center; 
-  cursor: pointer; 
-  box-shadow: 0 6px 18px -6px rgba(37, 99, 235, .55); 
-  gap: 4px;
-  z-index: 50;
+/* Mobile Hamburger Button - SEPARATE from sidebar */
+.mobile-hamburger {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  width: 44px;
+  height: 44px;
+  background: #2563eb;
+  border: none;
+  border-radius: 8px;
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  z-index: 99;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
   transition: all 0.3s ease;
 }
 
-.mobile-toggle:hover { 
-  background: #1d4ed8; 
+.mobile-hamburger:hover {
+  background: #1d4ed8;
 }
 
-.mobile-toggle.open {
+.mobile-hamburger.open {
   background: #dc2626;
 }
 
-.mobile-toggle.open:hover {
+.mobile-hamburger.open:hover {
   background: #b91c1c;
 }
 
-.hamburger-line {
+.mobile-hamburger span {
   display: block;
   width: 20px;
   height: 2px;
-  background: #fff;
+  background: white;
   border-radius: 2px;
   transition: all 0.3s ease;
   transform-origin: center;
 }
 
-.mobile-toggle.open .hamburger-line:nth-child(1) {
-  transform: translateY(6px) rotate(45deg);
+.mobile-hamburger.open span:nth-child(1) {
+  transform: rotate(45deg) translate(6px, 6px);
 }
 
-.mobile-toggle.open .hamburger-line:nth-child(2) {
+.mobile-hamburger.open span:nth-child(2) {
   opacity: 0;
 }
 
-.mobile-toggle.open .hamburger-line:nth-child(3) {
-  transform: translateY(-6px) rotate(-45deg);
-}
-
-/* Desktop Styles */
-@media (max-width: 860px) { 
-  .dashboard-sidebar { 
-    width: 220px; 
-  } 
+.mobile-hamburger.open span:nth-child(3) {
+  transform: rotate(-45deg) translate(6px, -6px);
 }
 
 /* Mobile Styles */
-@media (max-width: 760px) {
-  .dashboard-sidebar { 
-    position: fixed; 
-    top: 0;
-    left: 0;
-    bottom: 0;
-    width: 280px; 
-    height: 100vh; 
-    flex-direction: column; 
-    align-items: flex-start; 
-    padding: 20px; 
-    overflow-x: hidden; 
-    overflow-y: auto;
-    border-right: 1px solid var(--color-border, rgba(0, 0, 0, 0.10)); 
-    border-top: none;
+@media (max-width: 767px) {
+  /* Show hamburger on mobile */
+  .mobile-hamburger {
+    display: flex;
+  }
+
+  /* Sidebar mobile styles */
+  .dashboard-sidebar.mobile {
     transform: translateX(-100%);
-    transition: transform 0.3s ease;
-    z-index: 45;
+    width: 280px;
   }
 
-  .dashboard-sidebar.mobile-open {
+  .dashboard-sidebar.mobile.mobile-open {
     transform: translateX(0);
-    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.2);
   }
 
-  .dashboard-sidebar:after { 
-    opacity: .35; 
-  }
-
-  .dashboard-sidebar ul { 
-    flex-direction: column; 
-    gap: 8px; 
-    width: 100%; 
-  }
-
-  .dashboard-sidebar li { 
-    flex: none; 
-    text-align: left; 
-    padding: 12px 14px; 
-  }
-
-  .dashboard-sidebar .logout { 
-    margin-top: auto; 
-  }
-
-  .sidebar-header {
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-    width: 100%;
-    margin-bottom: 10px;
-  }
-
-  .sidebar-header h2.brand {
-    margin: 0;
-    text-align: left;
-    font-size: 1rem;
-  }
-
-  /* Show mobile toggle on mobile */
-  .mobile-toggle {
-    display: flex;
-    position: relative;
-    right: 0;
-    top: 0;
-  }
-
-  .dashboard-sidebar.closed { 
-    width: 280px; 
-  }
-
-  /* Hide sidebar content by default on mobile */
-  .sidebar-content {
-    width: 100%;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-  }
-
-  /* Mobile verification pill */
-  .verification-pill.mobile-verification {
-    margin: 16px 0;
-    width: 100%;
-  }
-
-  /* Remove active indicator line on mobile */
   .dashboard-sidebar.mobile li.active:after {
     display: none;
   }
+
+  /* Adjust main content when sidebar is open */
+  body.sidebar-open {
+    overflow: hidden;
+  }
 }
 
-/* Ensure main content doesn't get overlapped on mobile */
-@media (max-width: 760px) {
-  body {
-    padding-bottom: 0;
+/* Desktop Styles */
+@media (min-width: 768px) {
+  .dashboard-sidebar {
+    position: sticky;
+    top: 80px;
+    height: calc(100vh - 80px);
+  }
+  
+  .mobile-hamburger {
+    display: none !important;
+  }
+  
+  .mobile-sidebar-overlay {
+    display: none !important;
   }
 }
