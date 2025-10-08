@@ -52,11 +52,10 @@
   cursor: pointer;
   transition: transform 0.2s ease-out;
   flex-shrink: 0;
-  transform: translateZ(0);
 }
 
 .navbar-logo:hover {
-  transform: scale(1.05) translateZ(0);
+  transform: scale(1.05);
 }
 
 .navbar-brand-image {
@@ -97,13 +96,12 @@
   border-radius: 10px; 
   position: relative; 
   transition: all 0.2s ease-out;
-  transform: translateZ(0);
 }
 
 .navbar-links li a:hover {
   color: #ffffff; 
   background: rgba(255, 255, 255, 0.08); 
-  transform: translateY(-2px) translateZ(0);
+  transform: translateY(-2px);
 }
 
 .navbar-links li a.active { 
@@ -138,13 +136,12 @@
   box-shadow: 0 4px 18px -2px rgba(99, 102, 241, 0.5); 
   overflow: hidden; 
   transition: all 0.2s ease-out;
-  transform: translateZ(0);
 }
 
 .navbar-login .login-register:hover,
 .navbar-login .dashboard-link:hover {
   filter: brightness(1.1); 
-  transform: translateY(-2px) translateZ(0);
+  transform: translateY(-2px);
 }
 
 /* Ensures icon in Login/Register & Dashboard aligns correctly */
@@ -156,7 +153,7 @@
 /* Icon Hover Effect */
 .navbar-login .login-register:hover .navbar-icon,
 .navbar-login .dashboard-link:hover .navbar-icon {
-  transform: scale(1.15) translateZ(0);
+  transform: scale(1.15);
 }
 
 /* Logo Image */
@@ -170,17 +167,16 @@
   box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.4); 
   outline: 2px solid rgba(255, 255, 255, 0.15); 
   transition: all 0.3s ease-out;
-  transform: translateZ(0);
 }
 
 .navbar-logo-image:hover { 
-  transform: rotate(12deg) scale(1.05) translateZ(0); 
+  transform: rotate(12deg) scale(1.05); 
   filter: brightness(1.15); 
 }
 
 /* Navbar Links Hover Effect */
 .navbar-links li a:hover .navbar-icon {
-  transform: scale(1.15) translateZ(0);
+  transform: scale(1.15);
 }
 
 /* ========== MOBILE RESPONSIVE STYLES ========== */
@@ -203,7 +199,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transform: translateZ(0);
   min-width: 44px;
   min-height: 44px;
 }
@@ -211,34 +206,35 @@
 .menu-toggle-btn:hover,
 .menu-toggle-btn:active {
   background: rgba(255, 255, 255, 0.12);
-  transform: scale(1.1) translateZ(0);
+  transform: scale(1.1);
 }
 
 .menu-toggle-btn.active {
   background: rgba(255, 255, 255, 0.15);
-  transform: scale(1.1) translateZ(0);
+  transform: scale(1.1);
 }
 
-/* Mobile Menu Overlay */
+/* Mobile Menu Overlay - SIMPLIFIED */
 .mobile-menu-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0);
+  background: rgba(0, 0, 0, 0.7);
   z-index: 999;
   display: flex;
   justify-content: flex-end;
-  pointer-events: none;
-  transition: background 0.25s ease-out;
+  animation: overlayFadeIn 0.2s ease-out;
 }
 
 .mobile-menu-overlay.active {
-  background: rgba(0, 0, 0, 0.7);
-  pointer-events: all;
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+}
+
+@keyframes overlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .mobile-menu {
@@ -248,14 +244,17 @@
   background: #0f172a;
   display: flex;
   flex-direction: column;
-  transform: translateX(100%);
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: slideInRight 0.25s ease-out;
   box-shadow: -4px 0 20px rgba(0, 0, 0, 0.3);
-  will-change: transform;
 }
 
 .mobile-menu.active {
-  transform: translateX(0);
+  animation: slideInRight 0.25s ease-out;
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
 }
 
 /* Mobile Menu Header */
@@ -274,11 +273,10 @@
   gap: 12px;
   cursor: pointer;
   transition: transform 0.2s ease-out;
-  transform: translateZ(0);
 }
 
 .mobile-logo:active {
-  transform: scale(0.98) translateZ(0);
+  transform: scale(0.98);
 }
 
 .mobile-logo-image {
@@ -324,13 +322,12 @@
   justify-content: center;
   min-width: 44px;
   min-height: 44px;
-  transform: translateZ(0);
 }
 
 .menu-close-btn:hover,
 .menu-close-btn:active {
   background: rgba(255, 255, 255, 0.12);
-  transform: scale(1.1) translateZ(0);
+  transform: scale(1.1);
 }
 
 /* Mobile Navigation Links */
@@ -358,8 +355,8 @@
   font-weight: 500;
   transition: all 0.15s ease-out;
   border-left: 4px solid transparent;
-  transform: translateZ(0);
   min-height: 60px;
+  cursor: pointer;
 }
 
 .mobile-nav-link:hover,
@@ -368,7 +365,7 @@
   background: rgba(255, 255, 255, 0.08);
   color: #ffffff;
   border-left-color: #3b82f6;
-  transform: translateX(4px) translateZ(0);
+  transform: translateX(4px);
 }
 
 .mobile-nav-icon {
@@ -379,7 +376,7 @@
 }
 
 .mobile-nav-link:active .mobile-nav-icon {
-  transform: scale(1.1) translateZ(0);
+  transform: scale(1.1);
 }
 
 /* Mobile Login Section */
@@ -403,8 +400,8 @@
   font-size: 1.05rem;
   transition: all 0.15s ease-out;
   text-align: center;
-  transform: translateZ(0);
   min-height: 56px;
+  cursor: pointer;
 }
 
 .mobile-dashboard-link {
@@ -421,7 +418,7 @@
 
 .mobile-dashboard-link:active,
 .mobile-login-register:active {
-  transform: translateY(-2px) scale(0.98) translateZ(0);
+  transform: translateY(-2px) scale(0.98);
   box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
 }
 
@@ -504,73 +501,5 @@
     min-width: 40px;
     min-height: 40px;
     padding: 8px;
-  }
-}
-
-/* Performance optimizations */
-.navbar * {
-  box-sizing: border-box;
-}
-
-/* Prevent flash of unstyled content */
-.navbar {
-  opacity: 1;
-  animation: fadeIn 0.3s ease-out;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0.8; }
-  to { opacity: 1; }
-}
-
-/* Hardware acceleration */
-.navbar-logo-image,
-.menu-toggle-btn,
-.mobile-nav-link,
-.mobile-dashboard-link,
-.mobile-login-register {
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-}
-
-/* Smooth scrolling for mobile */
-.mobile-nav-links {
-  scroll-behavior: smooth;
-}
-
-/* Focus styles for accessibility */
-.menu-toggle-btn:focus-visible,
-.menu-close-btn:focus-visible,
-.mobile-nav-link:focus-visible,
-.mobile-dashboard-link:focus-visible,
-.mobile-login-register:focus-visible {
-  outline: 2px solid #3b82f6;
-  outline-offset: 2px;
-}
-
-/* Reduced motion support */
-@media (prefers-reduced-motion: reduce) {
-  .navbar-logo,
-  .navbar-links li a,
-  .navbar-login .login-register,
-  .navbar-login .dashboard-link,
-  .navbar-logo-image,
-  .menu-toggle-btn,
-  .mobile-menu,
-  .mobile-menu-overlay,
-  .mobile-logo,
-  .mobile-nav-link,
-  .mobile-dashboard-link,
-  .mobile-login-register {
-    transition: none;
-    animation: none;
-  }
-  
-  .mobile-menu {
-    transform: none;
-  }
-  
-  .mobile-menu-overlay.active {
-    background: rgba(0, 0, 0, 0.85);
   }
 }

@@ -12,26 +12,20 @@ const Navbar = () => {
   const menuRef = useRef(null);
   const buttonRef = useRef(null);
   const location = useLocation();
+  const isInitialMount = useRef(true);
 
-  // Handle window resize with debounce
+  // Handle window resize
   useEffect(() => {
-    let timeoutId;
     const handleResize = () => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
-        const mobile = window.innerWidth < 768;
-        setIsMobile(mobile);
-        if (!mobile) {
-          setIsMenuOpen(false);
-        }
-      }, 100);
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (!mobile) {
+        setIsMenuOpen(false);
+      }
     };
     
     window.addEventListener('resize', handleResize);
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      clearTimeout(timeoutId);
-    };
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   // Clear user data if banned
@@ -44,28 +38,37 @@ const Navbar = () => {
 
   // Close menu when route changes
   useEffect(() => {
-    setIsMenuOpen(false);
+    if (!isInitialMount.current) {
+      setIsMenuOpen(false);
+    }
+    isInitialMount.current = false;
   }, [location.pathname]);
 
-  // Close menu when clicking outside
+  // Close menu when clicking outside - FIXED VERSION
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (isMenuOpen && 
-          menuRef.current && 
-          !menuRef.current.contains(event.target) &&
-          buttonRef.current &&
-          !buttonRef.current.contains(event.target)) {
+      // Check if click is outside both menu and toggle button
+      const isOutsideMenu = menuRef.current && !menuRef.current.contains(event.target);
+      const isOutsideButton = buttonRef.current && !buttonRef.current.contains(event.target);
+      
+      if (isMenuOpen && isOutsideMenu && isOutsideButton) {
         setIsMenuOpen(false);
       }
     };
 
-    // Use capture phase for immediate response
-    document.addEventListener('mousedown', handleClickOutside, true);
-    document.addEventListener('touchstart', handleClickOutside, true);
+    // Use timeout to avoid immediate closing
+    const handleDocumentClick = (event) => {
+      setTimeout(() => {
+        handleClickOutside(event);
+      }, 10);
+    };
+
+    document.addEventListener('mousedown', handleDocumentClick);
+    document.addEventListener('touchstart', handleDocumentClick);
     
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside, true);
-      document.removeEventListener('touchstart', handleClickOutside, true);
+      document.removeEventListener('mousedown', handleDocumentClick);
+      document.removeEventListener('touchstart', handleDocumentClick);
     };
   }, [isMenuOpen]);
 
@@ -73,15 +76,12 @@ const Navbar = () => {
   useEffect(() => {
     if (isMenuOpen) {
       document.body.style.overflow = 'hidden';
-      document.documentElement.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
-      document.documentElement.style.overflow = '';
     }
 
     return () => {
       document.body.style.overflow = '';
-      document.documentElement.style.overflow = '';
     };
   }, [isMenuOpen]);
 
@@ -93,26 +93,22 @@ const Navbar = () => {
     setIsMenuOpen(false);
   };
 
-  const toggleMenu = (e) => {
-    if (e) {
-      e.stopPropagation();
-    }
+  const toggleMenu = () => {
     setIsMenuOpen(prev => !prev);
   };
 
-  const handleMenuTouch = (e) => {
-    e.stopPropagation();
-    toggleMenu(e);
+  // Direct menu handlers without event propagation issues
+  const handleOverlayClick = (e) => {
+    // Only close if clicking directly on overlay background
+    if (e.target === e.currentTarget) {
+      setIsMenuOpen(false);
+    }
   };
 
-  // Preload hover states
-  useEffect(() => {
-    // Preload critical images
-    if (images.logoF) {
-      const img = new Image();
-      img.src = images.logoF;
-    }
-  }, []);
+  const handleMenuClick = (e) => {
+    // Prevent click from bubbling to overlay
+    e.stopPropagation();
+  };
 
   return (
     <>
@@ -196,7 +192,6 @@ const Navbar = () => {
               ref={buttonRef}
               className={`menu-toggle-btn ${isMenuOpen ? 'active' : ''}`}
               onClick={toggleMenu}
-              onTouchStart={handleMenuTouch}
               aria-label="Toggle menu"
               aria-expanded={isMenuOpen}
             >
@@ -206,16 +201,16 @@ const Navbar = () => {
         )}
       </nav>
 
-      {/* Mobile Menu Overlay */}
-      {isMobile && (
+      {/* Mobile Menu Overlay - SIMPLIFIED VERSION */}
+      {isMobile && isMenuOpen && (
         <div 
-          className={`mobile-menu-overlay ${isMenuOpen ? 'active' : ''}`}
-          onClick={() => setIsMenuOpen(false)}
+          className="mobile-menu-overlay active"
+          onClick={handleOverlayClick}
         >
           <div 
             ref={menuRef}
-            className={`mobile-menu ${isMenuOpen ? 'active' : ''}`}
-            onClick={(e) => e.stopPropagation()}
+            className="mobile-menu active"
+            onClick={handleMenuClick}
           >
             <div className="mobile-menu-header">
               <div className="mobile-logo" onClick={handleLogoClick}>
@@ -237,8 +232,7 @@ const Navbar = () => {
               </div>
               <button 
                 className="menu-close-btn"
-                onClick={toggleMenu}
-                onTouchStart={handleMenuTouch}
+                onClick={() => setIsMenuOpen(false)}
                 aria-label="Close menu"
               >
                 <FaTimes />
