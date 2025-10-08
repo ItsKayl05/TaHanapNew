@@ -180,40 +180,7 @@
 @media (max-width:560px){ .property-listing-container { padding:2rem 1rem 4.5rem; } .glass-panel { padding:2rem 1.1rem 2.2rem; border-radius:28px; } .listing-title { font-size:clamp(1.8rem,1.5rem + 2vw,2.4rem); } .properties-grid { gap:1rem; } .property-images { height:180px; } }
 /* Header already centered globally; no extra mobile override needed */
 @media (max-width:420px){ .property-images { height:160px; } .feature-tag { font-size:.5rem; padding:.4rem .55rem .35rem; } }
-/* Portrait-phone specific tweaks */
-@media (max-width:420px) {
-  .property-listing-container { padding:1.4rem .8rem 3.4rem; }
-  .properties-grid { gap:.75rem; grid-template-columns:repeat(1,1fr); }
-  .property-images { height:150px; }
-  .property-image { transition:none; }
-  .property-card:hover { transform:none; box-shadow:0 8px 26px -12px rgba(0,0,0,.5); }
-  .property-card:hover .property-image { transform:none; }
-
-  /* Make price row wrap and avoid overflow */
-  .property-price-row { left:10px; bottom:10px; gap:.5rem; }
-  .property-price, .property-availability { font-size:.68rem; padding:.45rem .75rem; }
-
-  /* Compact details */
-  .property-details { padding:.85rem .9rem 1rem; }
-  .property-details h3 { font-size:.9rem; }
-  .property-location { font-size:.6rem; }
-  .feature-tag { font-size:.52rem; padding:.35rem .5rem .32rem; }
-
-  /* Controls stack nicely */
-  .controls-wrapper { gap:.7rem; }
-  .search-input-container { max-width:100%; padding:0 6px; }
-  .property-search { padding:.9rem 1rem .9rem 2.6rem; }
-
-  /* Reduce favorite icon size on tiny screens */
-  .favorite-icon { width:36px; height:36px; }
-}
-
-@media (max-width:360px) {
-  .property-images { height:130px; }
-  .property-price, .property-availability { font-size:.64rem; padding:.38rem .62rem; }
-  .property-details h3 { font-size:.85rem; }
-  .listing-title { font-size:1.6rem; }
-}
+/* removed portrait-specific overrides */
 /* Landmarks Checkbox Grid */
 .landmarks-grid {
   display: grid;
