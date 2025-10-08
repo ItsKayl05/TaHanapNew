@@ -9,7 +9,7 @@ import { FaArrowLeft, FaHome, FaMapMarkerAlt, FaTag, FaPaw, FaCar, FaUsers, FaIn
 import { buildApi, buildUpload } from '../../services/apiConfig';
 import { AuthContext } from '../../context/AuthContext';
 import { createApplication } from '../../services/application/ApplicationService';
- 
+
 import "./PropertyDetailPage.css";
 
 const PropertyDetailPage = () => {
@@ -20,7 +20,6 @@ const PropertyDetailPage = () => {
     const [applying, setApplying] = useState(false);
     const { userRole } = useContext(AuthContext);
     const currentUserId = localStorage.getItem('user_id') || null;
- 
 
     useEffect(() => {
         const fetchProperty = async () => {
@@ -38,11 +37,11 @@ const PropertyDetailPage = () => {
                 if(norm.landlordProfile && norm.landlordProfile.profilePic && !norm.landlordProfile.profilePic.startsWith('http')) {
                     norm.landlordProfile.profilePic = buildUpload(`/profiles/${norm.landlordProfile.profilePic}`);
                 }
-                                // If backend returns a panorama field, normalize it
-                                if (norm.panorama360 && !norm.panorama360.startsWith('http')) {
-                                    norm.panorama360 = buildUpload(norm.panorama360);
-                                }
-                                setProperty(norm);
+                // If backend returns a panorama field, normalize it
+                if (norm.panorama360 && !norm.panorama360.startsWith('http')) {
+                    norm.panorama360 = buildUpload(norm.panorama360);
+                }
+                setProperty(norm);
                 setLoading(false);
             } catch (error) {
                 toast.error("Error fetching property details");
@@ -93,10 +92,17 @@ const PropertyDetailPage = () => {
         autoplay: true,
         autoplaySpeed: 3000,
         arrows: true,
+        adaptiveHeight: true,
+        responsive: [
+            {
+                breakpoint: 768,
+                settings: {
+                    arrows: false,
+                    dots: true
+                }
+            }
+        ]
     };
-
- 
- 
 
     const isAvailable = (typeof property.availableUnits !== 'undefined') ? (property.availableUnits > 0) : (property.availabilityStatus !== 'Fully Occupied');
 
@@ -106,23 +112,26 @@ const PropertyDetailPage = () => {
                 <button onClick={() => navigate(-1)} className="back-btn">
                     <FaArrowLeft /> Back to Listings
                 </button>
-                          <div className="property-header">
-                          <h1 className="gradient-text">{property.title}</h1>
-                          <p className="property-location"><FaMapMarkerAlt /> {property.barangay}, San Jose Del Monte</p>
-                          <div className="status-remark">{ property.availabilityStatus ? property.availabilityStatus : (property.occupancy >= (property.numberOfRooms || 1) ? 'Fully Occupied' : (property.numberOfRooms>0 ? 'Available' : 'Not Yet Ready')) }</div>
-                      </div>
+                <div className="property-header">
+                    <h1 className="gradient-text">{property.title}</h1>
+                    <p className="property-location"><FaMapMarkerAlt /> {property.barangay}, San Jose Del Monte</p>
+                    <div className="status-remark">{ property.availabilityStatus ? property.availabilityStatus : (property.occupancy >= (property.numberOfRooms || 1) ? 'Fully Occupied' : (property.numberOfRooms>0 ? 'Available' : 'Not Yet Ready')) }</div>
+                </div>
             </div>
 
             <div className="property-content">
                 {/* Left Side: Media (Video if exists + Image Slideshow) */}
-                                <div className="property-gallery glass-panel">
-                                        {/* 360° Panoramic Image Viewer */}
-                                        {property.panorama360 && (
-                                            <div className="panorama-section" style={{marginBottom:'2rem'}}>
-                                                <h3 className="section-title white">360° Panoramic View</h3>
-                                                <PhotoDomeViewer imageUrl={property.panorama360} mode="MONOSCOPIC" />
-                                            </div>
-                                        )}
+                <div className="property-gallery glass-panel">
+                    {/* 360° Panoramic Image Viewer */}
+                    {property.panorama360 && (
+                        <div className="panorama-section">
+                            <h3 className="section-title white">360° Panoramic View</h3>
+                            <div className="panorama-container">
+                                <PhotoDomeViewer imageUrl={property.panorama360} mode="MONOSCOPIC" />
+                            </div>
+                        </div>
+                    )}
+                    
                     {property.video && (
                         <div className="video-wrapper">
                             <video
@@ -135,29 +144,32 @@ const PropertyDetailPage = () => {
                             />
                         </div>
                     )}
-                    <Slider {...sliderSettings}>
-                        {property.images && property.images.length > 0 ? (
-                            property.images.map((image, index) => (
-                                <div key={index} className="slider-item">
+                    
+                    <div className="slider-container">
+                        <Slider {...sliderSettings}>
+                            {property.images && property.images.length > 0 ? (
+                                property.images.map((image, index) => (
+                                    <div key={index} className="slider-item">
+                                        <img
+                                            src={image}
+                                            alt={`Property ${index + 1}`}
+                                            className="property-gallery-image"
+                                            loading="lazy"
+                                            onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/default-property.jpg'; }}
+                                        />
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="slider-item">
                                     <img
-                                        src={image}
-                                        alt={`Property ${index + 1}`}
+                                        src="/default-property.jpg"
+                                        alt="Default Property"
                                         className="property-gallery-image"
-                                        loading="lazy"
-                                        onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/default-property.jpg'; }}
                                     />
                                 </div>
-                            ))
-                        ) : (
-                            <div className="slider-item">
-                                <img
-                                    src="/default-property.jpg"
-                                    alt="Default Property"
-                                    className="property-gallery-image"
-                                />
-                            </div>
-                        )}
-                    </Slider>
+                            )}
+                        </Slider>
+                    </div>
                 </div>
 
                 {/* Right Side: Property Details */}
@@ -264,7 +276,6 @@ const PropertyDetailPage = () => {
                             </div>
                             <div className="landlord-card-actions">
                                 <button type="button" className="landlord-profile-btn" onClick={()=>navigate(`/landlord/${property.landlordProfile.id}`)}>View Landlord Profile</button>
- 
                             </div>
                         </div>
                     )}
@@ -299,7 +310,7 @@ const PropertyDetailPage = () => {
                                 Apply
                             </button>
                         )}
-                        {/* Show a counter when availableUnits/totalUnits present */}
+                        
                         {(typeof property.availableUnits !== 'undefined' || typeof property.totalUnits !== 'undefined') && (
                             <div className="availability-counter improved-units">
                                 <span className="units-pill">
@@ -311,42 +322,38 @@ const PropertyDetailPage = () => {
                         )}
                         
                         <button
-                                    className="contact-btn"
-                                                                                                    onClick={() => {
-                                                                                                        if (property.landlordProfile) {
-                                                                                                            console.log('Message Landlord clicked. landlordProfile:', property.landlordProfile);
-                                                                                                            const ownerId = property.landlordProfile.id || property.landlordProfile._id;
-                                                                                                            if (!ownerId) {
-                                                                                                                toast.error('Owner user ID not found.');
-                                                                                                                return;
-                                                                                                            }
-                                                                                                            // Determine user role for correct action
-                                                                                                            const role = localStorage.getItem('user_role');
-                                                                                                            // Pass property info as query params for chat context
-                                                                                                            const params = new URLSearchParams({
-                                                                                                                user: ownerId,
-                                                                                                                propertyTitle: property.title || '',
-                                                                                                                propertyImage: (property.images && property.images[0]) ? property.images[0] : '',
-                                                                                                                propertyPrice: property.price ? String(property.price) : '',
-                                                                                                                propertyId: property._id || property.id || id || ''
-                                                                                                            }).toString();
-                                                                                                            if (role === 'landlord') {
-                                                                                                                navigate(`/landlord/messages?${params}`);
-                                                                                                            } else {
-                                                                                                                navigate(`/tenant/messages?${params}`);
-                                                                                                            }
-                                                                                                        } else {
-                                                                                                            toast.error('Owner information not available');
-                                                                                                        }
-                                                                                                    }}
-                                                                                                >
-                                                                                                    Message Landlord
-                                                                                                </button>
- 
+                            className="contact-btn"
+                            onClick={() => {
+                                if (property.landlordProfile) {
+                                    console.log('Message Landlord clicked. landlordProfile:', property.landlordProfile);
+                                    const ownerId = property.landlordProfile.id || property.landlordProfile._id;
+                                    if (!ownerId) {
+                                        toast.error('Owner user ID not found.');
+                                        return;
+                                    }
+                                    const role = localStorage.getItem('user_role');
+                                    const params = new URLSearchParams({
+                                        user: ownerId,
+                                        propertyTitle: property.title || '',
+                                        propertyImage: (property.images && property.images[0]) ? property.images[0] : '',
+                                        propertyPrice: property.price ? String(property.price) : '',
+                                        propertyId: property._id || property.id || id || ''
+                                    }).toString();
+                                    if (role === 'landlord') {
+                                        navigate(`/landlord/messages?${params}`);
+                                    } else {
+                                        navigate(`/tenant/messages?${params}`);
+                                    }
+                                } else {
+                                    toast.error('Owner information not available');
+                                }
+                            }}
+                        >
+                            Message Landlord
+                        </button>
                     </div>
                 </div>
             </div>
- 
         </div>
     );
 };

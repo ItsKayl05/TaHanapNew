@@ -7,22 +7,27 @@ import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import '../../landlord-theme.css';
-import '../MyProperties.css'; /* reuse some shared patterns like skeleton if any */
+import '../MyProperties.css';
 import "./EditProperty.css";
 import Sidebar from "../../Sidebar/Sidebar";
 import { buildApi, buildUpload } from '../../../../services/apiConfig';
 
+// Fix for default markers in react-leaflet
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.3/dist/images/marker-shadow.png',
+});
+
 const categories = ["Apartment", "Dorm", "House", "Studio"];
 const barangays = [
-    "Assumption",
-    "Bagong Buhay I", "Bagong Buhay II", "Bagong Buhay III",
-    "Ciudad Real", "Citrus",
-    "Dulong Bayan",
+    "Assumption", "Bagong Buhay I", "Bagong Buhay II", "Bagong Buhay III",
+    "Ciudad Real", "Citrus", "Dulong Bayan",
     "Fatima I", "Fatima II", "Fatima III", "Fatima IV", "Fatima V",
     "Francisco Homes – Guijo", "Francisco Homes – Mulawin", "Francisco Homes – Narra", "Francisco Homes – Yakal",
     "Gaya-gaya", "Graceville", "Gumaok Central", "Gumaok East", "Gumaok West",
-    "Kaybanban", "Kaypian",
-    "Lawang Pare",
+    "Kaybanban", "Kaypian", "Lawang Pare",
     "Maharlika", "Minuyan I", "Minuyan II", "Minuyan III", "Minuyan IV", "Minuyan V", "Minuyan Proper",
     "Muzon East", "Muzon Proper", "Muzon South", "Muzon West",
     "Paradise III", "Poblacion", "Poblacion 1",
@@ -30,60 +35,35 @@ const barangays = [
     "San Pedro", "San Rafael I", "San Rafael II", "San Rafael III", "San Rafael IV", "San Rafael V",
     "San Roque", "Sapang Palay Proper",
     "Sta. Cruz I", "Sta. Cruz II", "Sta. Cruz III", "Sta. Cruz IV", "Sta. Cruz V",
-    "Sto. Cristo", "Sto. Nino I", "Sto. Nino II",
-    "Tungkong Mangga"
+    "Sto. Cristo", "Sto. Nino I", "Sto. Nino II", "Tungkong Mangga"
 ];
 
 const LANDMARKS = [
-                    "park",
-                    "church",
-                    "public market",
-                    "major highway",
-                    "public transport stops",
-                    "banks and atms",
-                    "restaurant/food centers",
-                    "convenience store/supermarket",
-                    "school/university",
-                    "hospital/health care"
+    "park", "church", "public market", "major highway", "public transport stops",
+    "banks and atms", "restaurant/food centers", "convenience store/supermarket",
+    "school/university", "hospital/health care"
 ];
 
 const EditProperty = () => {
-
-    // Store original lat/lng for reset
     const [originalLatLng, setOriginalLatLng] = useState({ lat: "", lng: "" });
     const { propertyId } = useParams();
     const navigate = useNavigate();
     const [property, setProperty] = useState(null);
     const [formData, setFormData] = useState({
-        title: "",
-        description: "",
-        address: "",
-        price: "",
-        barangay: "",
-        category: "",
-        petFriendly: false,
-        allowedPets: "",
-        occupancy: "",
-        parking: false,
-        rules: "",
-        landmarks: "",
-    availabilityStatus: "Available",
-        numberOfRooms: "",
-        areaSqm: "",
-        latitude: "",
-        longitude: ""
+        title: "", description: "", address: "", price: "", barangay: "", category: "",
+        petFriendly: false, allowedPets: "", occupancy: "", parking: false, rules: "", landmarks: "",
+        availabilityStatus: "Available", numberOfRooms: "", areaSqm: "", latitude: "", longitude: ""
     });
     const [manualPin, setManualPin] = useState(false);
-    const [images, setImages] = useState([]); // existing image paths from server
-    const [newImages, setNewImages] = useState([]); // File objects newly added
-    const [deletedImages, setDeletedImages] = useState([]); // names marked for deletion
-    const [videoFile, setVideoFile] = useState(null); // new video file
-    const [videoPreview, setVideoPreview] = useState(null); // blob URL for preview
-    const [removeVideo, setRemoveVideo] = useState(false); // flag to remove existing video
-    // 360° Panoramic image state
-    const [panorama, setPanorama] = useState(null); // new file
-    const [panoramaPreview, setPanoramaPreview] = useState(null); // blob or url
-    const [existingPanorama, setExistingPanorama] = useState(null); // from server
+    const [images, setImages] = useState([]);
+    const [newImages, setNewImages] = useState([]);
+    const [deletedImages, setDeletedImages] = useState([]);
+    const [videoFile, setVideoFile] = useState(null);
+    const [videoPreview, setVideoPreview] = useState(null);
+    const [removeVideo, setRemoveVideo] = useState(false);
+    const [panorama, setPanorama] = useState(null);
+    const [panoramaPreview, setPanoramaPreview] = useState(null);
+    const [existingPanorama, setExistingPanorama] = useState(null);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
 
@@ -130,13 +110,11 @@ const EditProperty = () => {
                 if (data.video) {
                     setVideoPreview(data.video.startsWith('http') ? data.video : buildUpload(data.video));
                 }
-                                // If backend returns a panorama field, set it
-                                if (data.panorama360) {
-                                    setExistingPanorama(data.panorama360.startsWith('http') ? data.panorama360 : buildUpload(data.panorama360));
-                                }
-                                                // ensure availability fields are set
-                                setFormData(f => ({ ...f, totalUnits: data.totalUnits ?? 1, availableUnits: data.availableUnits ?? (data.totalUnits ?? 1) }));
-                                setLoading(false);
+                if (data.panorama360) {
+                    setExistingPanorama(data.panorama360.startsWith('http') ? data.panorama360 : buildUpload(data.panorama360));
+                }
+                setFormData(f => ({ ...f, totalUnits: data.totalUnits ?? 1, availableUnits: data.availableUnits ?? (data.totalUnits ?? 1) }));
+                setLoading(false);
             } catch (error) {
                 toast.error(error.message || "Error fetching property.");
                 setLoading(false);
@@ -145,46 +123,45 @@ const EditProperty = () => {
         fetchProperty();
     }, [propertyId]);
 
-    // Cleanup blob URL when component unmounts or when videoFile or panorama changes
-    useEffect(()=>{
+    useEffect(() => {
         return () => {
             if (videoFile && videoPreview?.startsWith('blob:')) URL.revokeObjectURL(videoPreview);
             if (panoramaPreview) URL.revokeObjectURL(panoramaPreview);
         };
-    },[videoFile, videoPreview, panoramaPreview]);
-        // Handle panoramic image upload
-        const handlePanoramaChange = (e) => {
-            const file = e.target.files?.[0];
-            if (!file) return;
-            const validType = file.type.startsWith('image/');
-            const sizeOk = file.size <= 10*1024*1024;
-            if (!validType) { toast.error('Panoramic image must be an image file.'); return; }
-            if (!sizeOk) { toast.error('Panoramic file too large (max 10MB).'); return; }
-            if (panoramaPreview) URL.revokeObjectURL(panoramaPreview);
-            setPanorama(file);
-            setPanoramaPreview(URL.createObjectURL(file));
-            setExistingPanorama(null);
-        };
-        const removePanorama = () => {
-            if (panoramaPreview) URL.revokeObjectURL(panoramaPreview);
-            setPanorama(null);
-            setPanoramaPreview(null);
-            setExistingPanorama(null);
-        };
+    }, [videoFile, videoPreview, panoramaPreview]);
+
+    const handlePanoramaChange = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const validType = file.type.startsWith('image/');
+        const sizeOk = file.size <= 10 * 1024 * 1024;
+        if (!validType) { toast.error('Panoramic image must be an image file.'); return; }
+        if (!sizeOk) { toast.error('Panoramic file too large (max 10MB).'); return; }
+        if (panoramaPreview) URL.revokeObjectURL(panoramaPreview);
+        setPanorama(file);
+        setPanoramaPreview(URL.createObjectURL(file));
+        setExistingPanorama(null);
+    };
+
+    const removePanorama = () => {
+        if (panoramaPreview) URL.revokeObjectURL(panoramaPreview);
+        setPanorama(null);
+        setPanoramaPreview(null);
+        setExistingPanorama(null);
+    };
 
     const handleChange = (e) => {
-                const { name, value, type, checked } = e.target;
-                let newValue = value;
-                // Normalize landmark value to match filter (trim, exact string)
-                if (name === 'landmarks') {
-                    const found = LANDMARKS.find(l => l === value);
-                    newValue = found || value;
-                }
-                setFormData({
-                        ...formData,
-                        [name]: type === "checkbox" ? checked : newValue,
-                });
-                if (name === "address") setManualPin(false); // If address changes, suggest auto pin
+        const { name, value, type, checked } = e.target;
+        let newValue = value;
+        if (name === 'landmarks') {
+            const found = LANDMARKS.find(l => l === value);
+            newValue = found || value;
+        }
+        setFormData({
+            ...formData,
+            [name]: type === "checkbox" ? checked : newValue,
+        });
+        if (name === "address") setManualPin(false);
     };
 
     const handleImageChange = (e) => {
@@ -200,7 +177,7 @@ const EditProperty = () => {
         const accepted = files.slice(0, availableSlots).filter(file => {
             const exists = newImages.some(f => f.name === file.name);
             const validType = file.type.startsWith('image/');
-            const sizeOk = file.size <= 10 * 1024 * 1024; // 10MB
+            const sizeOk = file.size <= 10 * 1024 * 1024;
             if (!validType) toast.warn(`${file.name} skipped (not an image).`);
             if (!sizeOk) toast.warn(`${file.name} skipped (image file too large, max 10MB).`);
             if (exists) toast.warn(`${file.name} already added.`);
@@ -213,10 +190,10 @@ const EditProperty = () => {
     const handleDeleteImage = (index, isExisting) => {
         if (isExisting) {
             const imageToDelete = images[index];
-            setDeletedImages((prev) => [...prev, imageToDelete]); // Track deleted images
-            setImages(images.filter((_, i) => i !== index)); // Remove from UI
+            setDeletedImages((prev) => [...prev, imageToDelete]);
+            setImages(images.filter((_, i) => i !== index));
         } else {
-            setNewImages(newImages.filter((_, i) => i !== index)); // Remove new images
+            setNewImages(newImages.filter((_, i) => i !== index));
         }
     };
 
@@ -231,30 +208,29 @@ const EditProperty = () => {
                 return;
             }
             setSubmitting(true);
-                        const formDataToSend = new FormData();
-                        Object.entries(formData).forEach(([key, value]) => {
-                            if (key === 'landmarks') {
-                                const v = (value || '').toLowerCase().trim();
-                                if (LANDMARKS.includes(v)) {
-                                    formDataToSend.append('landmarks', v);
-                                } else {
-                                    formDataToSend.append('landmarks', '');
-                                }
-                            } else if (value !== undefined && value !== null && value !== "") {
-                                formDataToSend.append(key, value);
-                            }
-                        });
-                        images.forEach(img => formDataToSend.append('existingImages', img));
-                        deletedImages.forEach(img => formDataToSend.append('deletedImages[]', img.split('/').pop()));
-                        newImages.forEach(file => formDataToSend.append('images', file));
-                        if (videoFile) formDataToSend.append('video', videoFile);
-                        if (removeVideo) formDataToSend.append('removeVideo', 'true');
-                        if (panorama) {
-                            formDataToSend.append('panorama360', panorama);
-                        } else if (existingPanorama === null && property && property.panorama360) {
-                            // Only send removePanorama if there was an existing panorama and now it's removed
-                            formDataToSend.append('removePanorama', 'true');
-                        }
+            const formDataToSend = new FormData();
+            Object.entries(formData).forEach(([key, value]) => {
+                if (key === 'landmarks') {
+                    const v = (value || '').toLowerCase().trim();
+                    if (LANDMARKS.includes(v)) {
+                        formDataToSend.append('landmarks', v);
+                    } else {
+                        formDataToSend.append('landmarks', '');
+                    }
+                } else if (value !== undefined && value !== null && value !== "") {
+                    formDataToSend.append(key, value);
+                }
+            });
+            images.forEach(img => formDataToSend.append('existingImages', img));
+            deletedImages.forEach(img => formDataToSend.append('deletedImages[]', img.split('/').pop()));
+            newImages.forEach(file => formDataToSend.append('images', file));
+            if (videoFile) formDataToSend.append('video', videoFile);
+            if (removeVideo) formDataToSend.append('removeVideo', 'true');
+            if (panorama) {
+                formDataToSend.append('panorama360', panorama);
+            } else if (existingPanorama === null && property && property.panorama360) {
+                formDataToSend.append('removePanorama', 'true');
+            }
             const response = await fetch(buildApi(`/properties/${propertyId}`), {
                 method: 'PUT',
                 headers: { Authorization: `Bearer ${userToken}` },
@@ -283,9 +259,14 @@ const EditProperty = () => {
                     </div>
                 ) : (
                     <form onSubmit={handleSubmit} className="ll-card edit-property-form" noValidate>
+                        <div className="form-header">
+                            <h2 className="form-title">Edit Property</h2>
+                            <p className="form-subtitle">Update your listing details and images. Changes go live immediately after saving.</p>
+                        </div>
+
                         <div className="map-preview-section">
                             <label>Property Location (drag marker to update)</label>
-                            <div style={{ height: "300px", width: "100%", marginBottom: "1rem", borderRadius: "8px", overflow: "hidden", boxShadow: "0 2px 8px #0001" }}>
+                            <div className="map-container">
                                 <MapContainer
                                     center={formData.latitude && formData.longitude ? [parseFloat(formData.latitude), parseFloat(formData.longitude)] : [14.813, 121.045]}
                                     zoom={15}
@@ -303,25 +284,16 @@ const EditProperty = () => {
                                                     setManualPin(true);
                                                 }
                                             }}
-                                            icon={L.icon({
-                                                iconUrl: "https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png",
-                                                iconSize: [25, 41],
-                                                iconAnchor: [12, 41],
-                                                popupAnchor: [1, -34],
-                                                shadowUrl: "https://unpkg.com/leaflet@1.9.3/dist/images/marker-shadow.png",
-                                                shadowSize: [41, 41]
-                                            })}
                                         >
                                             <Popup>Drag to update location</Popup>
                                         </Marker>
                                     )}
                                 </MapContainer>
                             </div>
-                            <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
-                                <input className="ll-field" type="text" name="latitude" value={formData.latitude} onChange={handleChange} placeholder="Latitude" style={{ width: "120px" }} />
-                                <input className="ll-field" type="text" name="longitude" value={formData.longitude} onChange={handleChange} placeholder="Longitude" style={{ width: "120px" }} />
-                                <button type="button" className="ll-btn tiny" onClick={() => {
-                                    // Reset pin to original property location
+                            <div className="coordinates-controls">
+                                <input className="ll-field coordinate-input" type="text" name="latitude" value={formData.latitude} onChange={handleChange} placeholder="Latitude" />
+                                <input className="ll-field coordinate-input" type="text" name="longitude" value={formData.longitude} onChange={handleChange} placeholder="Longitude" />
+                                <button type="button" className="ll-btn tiny reset-pin-btn" onClick={() => {
                                     setFormData(f => ({
                                         ...f,
                                         latitude: originalLatLng.lat,
@@ -330,13 +302,10 @@ const EditProperty = () => {
                                     setManualPin(false);
                                     toast.info("Pin reset to original property location.");
                                 }}>Reset Pin</button>
-                                {manualPin && <span className="field-hint" style={{ color: "#1976d2" }}>Manual pin active</span>}
+                                {manualPin && <span className="field-hint manual-pin-hint">Manual pin active</span>}
                             </div>
                         </div>
-                        <div className="form-header">
-                            <h2 className="form-title">Edit Property</h2>
-                            <p className="form-subtitle">Update your listing details and images. Changes go live immediately after saving.</p>
-                        </div>
+
                         <div className="form-grid">
                             <div className="field-group">
                                 <label className="required">Title</label>
@@ -402,49 +371,66 @@ const EditProperty = () => {
                                 <input className="ll-field" type="number" min={1} name="occupancy" value={formData.occupancy} onChange={handleChange} required />
                             </div>
                             <div className="field-group toggle-field">
-                                <label className="checkbox-label"><input type="checkbox" name="petFriendly" checked={formData.petFriendly} onChange={handleChange} /> Pet Friendly</label>
+                                <label className="checkbox-label">
+                                    <input type="checkbox" name="petFriendly" checked={formData.petFriendly} onChange={handleChange} /> 
+                                    Pet Friendly
+                                </label>
                                 {formData.petFriendly && (
                                     <input className="ll-field mt-6" name="allowedPets" placeholder="Allowed pets (e.g. Cats, Dogs)" value={formData.allowedPets} onChange={handleChange} />
                                 )}
                             </div>
                             <div className="field-group toggle-field">
-                                <label className="checkbox-label"><input type="checkbox" name="parking" checked={formData.parking} onChange={handleChange} /> Parking Available</label>
+                                <label className="checkbox-label">
+                                    <input type="checkbox" name="parking" checked={formData.parking} onChange={handleChange} /> 
+                                    Parking Available
+                                </label>
                             </div>
-                                                        <div className="field-group full">
-                                                                <label>Nearby Landmark</label>
-                                                                                                                                                                <select className="ll-field" name="landmarks" value={formData.landmarks} onChange={handleChange} required>
-                                                                                                                                                                    <option value="">Select Landmark</option>
-                                                                                                                                                                    {LANDMARKS.map(l => (
-                                                                                                                                                                        <option key={l} value={l}>{l.split(' ').map(word => word.includes('/') ? word.split('/').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('/') : word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</option>
-                                                                                                                                                                    ))}
-                                                                                                                                                                </select>
-                                                        </div>
+                            <div className="field-group full">
+                                <label>Nearby Landmark</label>
+                                <select className="ll-field" name="landmarks" value={formData.landmarks} onChange={handleChange}>
+                                    <option value="">Select Landmark</option>
+                                    {LANDMARKS.map(l => (
+                                        <option key={l} value={l}>
+                                            {l.split(' ').map(word => 
+                                                word.includes('/') ? 
+                                                word.split('/').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('/') : 
+                                                word.charAt(0).toUpperCase() + word.slice(1)
+                                            ).join(' ')}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
                             <div className="field-group full">
                                 <label>House Rules</label>
                                 <textarea className="ll-field" name="rules" value={formData.rules} onChange={handleChange} placeholder="No loud noises after 10 PM, No smoking inside" rows={3} />
                             </div>
                         </div>
 
-                                                {/* 360° Panoramic Image Section */}
-                                                <div className="panorama-section" style={{marginTop:'32px'}}>
-                                                    <h3 className="section-title">360° Panoramic Image</h3>
-                                                    <p className="field-hint">Optional: Add a panoramic 360° image (JPG/PNG/WebP, max 10MB, equirectangular projection).</p>
-                                                    {(panoramaPreview || existingPanorama) ? (
-                                                        <div style={{marginBottom:'12px'}}>
-                                                            <PhotoDomeViewer imageUrl={panoramaPreview || existingPanorama} mode="MONOSCOPIC" />
-                                                            <div style={{marginTop:'8px', display:'flex', gap:'8px'}}>
-                                                                <button type="button" className="ll-btn tiny danger" onClick={removePanorama}>Remove</button>
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        <label className="file-drop-modern">
-                                                            <input id="panorama-input" type="file" accept="image/*" style={{display:'none'}} onChange={handlePanoramaChange} />
-                                                            <span onClick={()=>document.getElementById('panorama-input').click()}>Add 360° Panoramic Image</span>
-                                                        </label>
-                                                    )}
-                                                </div>
-                                                <div className="images-section">
-                            <h3 className="section-title">Images <span style={{fontWeight:400, fontSize:'0.7rem'}}>({images.length + newImages.length}/8 total)</span></h3>
+                        {/* 360° Panoramic Image Section */}
+                        <div className="panorama-section">
+                            <h3 className="section-title">360° Panoramic Image</h3>
+                            <p className="field-hint">Optional: Add a panoramic 360° image (JPG/PNG/WebP, max 10MB, equirectangular projection).</p>
+                            {(panoramaPreview || existingPanorama) ? (
+                                <div className="panorama-preview">
+                                    <div className="panorama-viewer-container">
+                                        <PhotoDomeViewer imageUrl={panoramaPreview || existingPanorama} mode="MONOSCOPIC" />
+                                    </div>
+                                    <div className="panorama-actions">
+                                        <button type="button" className="ll-btn tiny danger" onClick={removePanorama}>Remove Panorama</button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <label className="file-drop-modern">
+                                    <input id="panorama-input" type="file" accept="image/*" onChange={handlePanoramaChange} />
+                                    <span>Add 360° Panoramic Image</span>
+                                </label>
+                            )}
+                        </div>
+
+                        <div className="images-section">
+                            <h3 className="section-title">
+                                Images <span className="image-count">({images.length + newImages.length}/8 total)</span>
+                            </h3>
                             <p className="field-hint">You can keep, remove, or add new images (max 8 total, JPG/PNG/WebP up to 10MB each).</p>
                             <div className="current-images-grid">
                                 {images.length ? images.map((img, i) => {
@@ -474,8 +460,13 @@ const EditProperty = () => {
                                 )}
                             </div>
                         </div>
+
                         <div className="video-section">
-                            <h3 className="section-title">Property Video <span style={{fontWeight:400, fontSize:'0.7rem'}}>({removeVideo ? 'will remove' : (videoFile ? 'new video selected' : (videoPreview ? 'existing' : 'none'))})</span></h3>
+                            <h3 className="section-title">
+                                Property Video <span className="video-status">
+                                    ({removeVideo ? 'will remove' : (videoFile ? 'new video selected' : (videoPreview ? 'existing' : 'none'))})
+                                </span>
+                            </h3>
                             <p className="field-hint">Optional walkthrough clip (MP4/WebM/OGG, up to 50MB). Uploading a new one replaces the existing video.</p>
                             {!videoPreview && !videoFile && !removeVideo && (
                                 <label className="file-drop-modern">
@@ -507,9 +498,12 @@ const EditProperty = () => {
                                 <div className="removed-note">Video will be removed. <button type="button" className="link-btn" onClick={()=>setRemoveVideo(false)}>Undo</button></div>
                             )}
                         </div>
+
                         <div className="form-actions">
                             <button type="button" className="ll-btn outline" onClick={() => navigate(-1)}>Cancel</button>
-                            <button type="submit" className="ll-btn primary" disabled={submitting}>{submitting ? 'Saving...' : 'Save Changes'}</button>
+                            <button type="submit" className="ll-btn primary" disabled={submitting}>
+                                {submitting ? 'Saving...' : 'Save Changes'}
+                            </button>
                         </div>
                     </form>
                 )}
