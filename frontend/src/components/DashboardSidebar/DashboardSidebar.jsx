@@ -18,21 +18,18 @@ const DashboardSidebar = ({
   verification,
 }) => {
   const [isMobile, setIsMobile] = useState(false);
-  const [isTablet, setIsTablet] = useState(false);
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false); // Start closed on mobile
 
   useEffect(() => {
     const handleResize = () => {
       const mobile = window.innerWidth < 768;
-      const tablet = window.innerWidth >= 768 && window.innerWidth < 1024;
       setIsMobile(mobile);
-      setIsTablet(tablet);
       
-      // Auto-close on mobile, auto-open on desktop
-      if (mobile) {
-        setOpen(false);
-      } else {
+      // Auto-open on desktop, stay closed on mobile
+      if (!mobile) {
         setOpen(true);
+      } else {
+        setOpen(false);
       }
     };
     
@@ -72,17 +69,22 @@ const DashboardSidebar = ({
     }
   };
 
+  const handleOverlayClick = () => {
+    setOpen(false);
+  };
+
   return (
     <>
-      {/* Mobile Overlay */}
+      {/* Mobile Overlay - Only show when sidebar is open on mobile */}
       {isMobile && open && (
         <div 
           className="sidebar-overlay"
-          onClick={() => setOpen(false)}
+          onClick={handleOverlayClick}
         />
       )}
       
-      <div className={`dashboard-sidebar ${variant} ${isMobile ? 'mobile' : ''} ${isTablet ? 'tablet' : ''} ${open ? 'open' : 'closed'}`}>
+      {/* Main Sidebar */}
+      <div className={`dashboard-sidebar ${variant} ${isMobile ? 'mobile' : 'desktop'} ${open ? 'open' : 'closed'}`}>
         {/* Header Section */}
         <div className="sidebar-header">
           <h2 className="brand">{brandTitle}</h2>
@@ -124,19 +126,19 @@ const DashboardSidebar = ({
             Logout
           </button>
         </div>
-
-        {/* Mobile Toggle Button */}
-        {isMobile && (
-          <button 
-            className="mobile-toggle"
-            onClick={() => setOpen(o => !o)}
-            aria-label={open ? 'Close menu' : 'Open menu'}
-            aria-expanded={open}
-          >
-            {open ? '✕' : '☰'}
-          </button>
-        )}
       </div>
+
+      {/* Mobile Toggle Button - Always visible on mobile */}
+      {isMobile && (
+        <button 
+          className="mobile-toggle"
+          onClick={() => setOpen(!open)}
+          aria-label={open ? 'Close menu' : 'Open menu'}
+          aria-expanded={open}
+        >
+          {open ? '✕' : '☰'}
+        </button>
+      )}
     </>
   );
 };
