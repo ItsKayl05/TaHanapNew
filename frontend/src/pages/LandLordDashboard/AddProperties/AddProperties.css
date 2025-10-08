@@ -418,3 +418,16 @@
         font-size: 14px;
     }
 }
+
+/* Additional mobile tweaks */
+@media (max-width: 480px) {
+    .map-preview-section > div[style], .map-preview-section > div {
+        height: 220px !important;
+        max-height: 260px !important;
+    }
+    .video-preview { max-height: 200px; }
+    .image-chip { width: 100px; height:80px; }
+    .file-drop-modern { padding:10px 12px; font-size:0.82rem; }
+    .add-property-form { padding: 16px; }
+    .panorama-section canvas { max-height: 180px; }
+}

@@ -9,3 +9,11 @@
   font-weight: 500;
   color: #111;
 }
+
+/* Mobile responsive: stack list above chat area and make list collapsible width */
+@media (max-width:720px) {
+  .messages-layout { flex-direction: column; height: auto !important; }
+  .messages-list { width: 100% !important; border-right: none !important; max-height: 260px; overflow-y: auto; }
+  .messages-area { width: 100% !important; min-height: 320px; }
+  .messages-list img { width:44px; height:44px; }
+}
