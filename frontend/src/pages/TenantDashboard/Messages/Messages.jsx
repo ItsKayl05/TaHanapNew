@@ -13,12 +13,30 @@ const Messages = ({ currentUserId: propCurrentUserId }) => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [searchParams] = useSearchParams();
   const targetUserId = searchParams.get('user');
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [showChat, setShowChat] = useState(false);
+  
   // Extract property context from URL if present
   const propertyTitle = searchParams.get('propertyTitle') || '';
   const propertyImage = searchParams.get('propertyImage') || '';
   const propertyPrice = searchParams.get('propertyPrice') || '';
   const propertyId = searchParams.get('propertyId') || '';
   const currentUserId = propCurrentUserId || localStorage.getItem('user_id') || '';
+
+  // Handle window resize
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      // On mobile, if we switch to desktop size, show both panels
+      if (!mobile) {
+        setShowChat(false);
+      }
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem('user_token');
@@ -46,6 +64,7 @@ const Messages = ({ currentUserId: propCurrentUserId }) => {
               };
             }
             setSelectedUser(userWithProperty);
+            if (isMobile) setShowChat(true);
           } else {
             axios.get(buildApi(`/users/landlord/${targetUserId}/profile`))
               .then(r => {
@@ -60,53 +79,127 @@ const Messages = ({ currentUserId: propCurrentUserId }) => {
                   };
                 }
                 setSelectedUser(userWithProperty);
+                if (isMobile) setShowChat(true);
               })
               .catch(() => {});
           }
         }
       })
       .catch((err) => { console.error('Error fetching threads:', err); setUsers([]); });
-  }, [currentUserId, targetUserId]);
+  }, [currentUserId, targetUserId, isMobile]);
 
   // When user clicks a conversation, always clear propertyInfo
   const handleSelectUser = (u) => {
     const { propertyInfo, ...rest } = u;
     setSelectedUser({ ...rest });
+    if (isMobile) {
+      setShowChat(true);
+    }
+  };
+
+  const handleBackToList = () => {
+    setShowChat(false);
+    setSelectedUser(null);
   };
 
   return (
     <div className="tenant-dashboard dashboard-container">
       <TenantSidebar handleLogout={() => { logout(); localStorage.removeItem('user_token'); window.dispatchEvent(new Event('storage')); }} />
-      <main className="tenant-messages-main" style={{flex:1, display:'flex', flexDirection:'column', alignItems:'stretch', justifyContent:'center', minHeight:'100vh', height:'100vh', boxSizing:'border-box'}}>
+      <main className={`tenant-messages-main ${isMobile ? 'mobile-messages' : ''}`} style={{flex:1, display:'flex', flexDirection:'column', alignItems:'stretch', justifyContent:'center', minHeight:'100vh', height:'100vh', boxSizing:'border-box'}}>
         <div style={{display:'flex',height:'100%',width:'100%',margin:'0 auto',boxSizing:'border-box'}}>
-          <div style={{width:320, borderRight:'1px solid #eee', overflowY:'auto', background:'#f7f7fa'}}>
-            <h3 className="messages-title">Messages</h3>
-            {(!Array.isArray(users) || users.length === 0) && <div style={{color:'#888',padding:'1em'}}>No conversations yet.</div>}
+          {/* Conversations List */}
+          <div className={`conversations-list ${isMobile && showChat ? 'mobile-hidden' : ''}`} style={{
+            width: isMobile ? '100%' : 320, 
+            borderRight: isMobile ? 'none' : '1px solid #eee', 
+            overflowY: 'auto', 
+            background: '#f7f7fa',
+            display: isMobile && showChat ? 'none' : 'block'
+          }}>
+            <div className="messages-header">
+              <h3 className="messages-title">Messages</h3>
+              {isMobile && (
+                <button className="mobile-menu-btn" onClick={() => {/* Add mobile menu functionality if needed */}}>
+                  ⋮
+                </button>
+              )}
+            </div>
+            {(!Array.isArray(users) || users.length === 0) && (
+              <div className="no-conversations" style={{color:'#888',padding:'1em', textAlign: 'center'}}>
+                No conversations yet.
+              </div>
+            )}
             {Array.isArray(users) && users.map(u => (
-              <div key={u._id} style={{padding:'0.75em 1em',cursor:'pointer',background:selectedUser&&selectedUser._id===u._id?'#e6eaff':'',display:'flex',alignItems:'center',borderRadius:8,margin:'0.25em 0'}} onClick={()=>handleSelectUser(u)}>
-                <img src={(u.profilePic && u.profilePic.startsWith('http')) ? u.profilePic : (u.profilePic ? buildUpload(`/profiles/${u.profilePic}`) : '/default-avatar.png')} alt={u.fullName} style={{width:40,height:40,borderRadius:'50%',marginRight:12,objectFit:'cover',border:'2px solid #dbeafe'}} />
-                <div style={{flex:1}}>
+              <div 
+                key={u._id} 
+                className={`conversation-item ${selectedUser && selectedUser._id === u._id ? 'active' : ''}`}
+                onClick={() => handleSelectUser(u)}
+              >
+                <img 
+                  src={(u.profilePic && u.profilePic.startsWith('http')) ? u.profilePic : (u.profilePic ? buildUpload(`/profiles/${u.profilePic}`) : '/default-avatar.png')} 
+                  alt={u.fullName} 
+                  className="conversation-avatar"
+                />
+                <div className="conversation-info">
                   <div className="messages-username">{u.fullName || u.username}</div>
-                  {u.lastMessage && <div style={{fontSize:'0.95em',color:'#888',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{u.lastMessage}</div>}
+                  {u.lastMessage && (
+                    <div className="conversation-preview">
+                      {u.lastMessage}
+                    </div>
+                  )}
                 </div>
+                {u.unreadCount > 0 && (
+                  <span className="unread-badge">{u.unreadCount}</span>
+                )}
               </div>
             ))}
           </div>
-          <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',background:'#f4f6fb',height:'100%'}}>
+          
+          {/* Chat Area */}
+          <div className={`chat-area ${isMobile && !showChat ? 'mobile-hidden' : ''}`} style={{
+            flex:1,
+            display: isMobile && !showChat ? 'none' : 'flex',
+            alignItems:'center',
+            justifyContent:'center',
+            background:'#f4f6fb',
+            height:'100%',
+            position: isMobile ? 'fixed' : 'relative',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: isMobile ? 10 : 1
+          }}>
             {selectedUser ? (
-              <ChatBox
-                currentUserId={String(currentUserId)}
-                targetUserId={String(selectedUser._id)}
-                targetUserName={selectedUser.fullName || selectedUser.username}
-                targetUserAvatar={selectedUser.profilePic}
-                large
-                propertyTitle={selectedUser.propertyInfo?.title || ''}
-                propertyImage={selectedUser.propertyInfo?.images?.[0] || ''}
-                propertyPrice={selectedUser.propertyInfo?.price || ''}
-                propertyId={selectedUser.propertyInfo?._id || ''}
-              />
+              <div className="chat-container" style={{width: '100%', height: '100%', display: 'flex', flexDirection: 'column'}}>
+                {isMobile && (
+                  <div className="mobile-chat-header">
+                    <button className="back-button" onClick={handleBackToList}>
+                      ← Back
+                    </button>
+                    <span className="mobile-chat-title">
+                      {selectedUser.fullName || selectedUser.username}
+                    </span>
+                    <div style={{width: '40px'}}></div> {/* Spacer for alignment */}
+                  </div>
+                )}
+                <div style={{flex: 1, width: '100%'}}>
+                  <ChatBox
+                    currentUserId={String(currentUserId)}
+                    targetUserId={String(selectedUser._id)}
+                    targetUserName={selectedUser.fullName || selectedUser.username}
+                    targetUserAvatar={selectedUser.profilePic}
+                    large
+                    propertyTitle={selectedUser.propertyInfo?.title || ''}
+                    propertyImage={selectedUser.propertyInfo?.images?.[0] || ''}
+                    propertyPrice={selectedUser.propertyInfo?.price || ''}
+                    propertyId={selectedUser.propertyInfo?._id || ''}
+                  />
+                </div>
+              </div>
             ) : (
-              <div style={{color:'#888',fontSize:'1.1em'}}>Select a conversation to start chatting</div>
+              <div className="no-chat-selected" style={{color:'#888',fontSize:'1.1em', textAlign: 'center', padding: '20px'}}>
+                {isMobile ? 'Select a conversation to start chatting' : 'Select a conversation to start chatting'}
+              </div>
             )}
           </div>
         </div>

@@ -165,6 +165,7 @@
   border: none;
   cursor: pointer;
   font-size: 0.9375rem;
+  min-width: 60px;
 }
 
 .chatbox-send-button:disabled {
@@ -316,34 +317,194 @@
   height: 80vh;
 }
 
-/* Page-level wrappers to ensure consistent layout when ChatBox is embedded */
-.messages-page .messages-layout { height: 100%; }
-.messages-list { padding: 0.75rem; box-sizing: border-box; }
-.messages-area { padding: 1rem; box-sizing: border-box; display:flex; align-items:stretch; justify-content:center; }
-.messages-area .chatbox-container.large { width: 100%; max-width: 720px; height: calc(80vh - 32px); }
+/* ========== MOBILE RESPONSIVE STYLES ========== */
+@media (max-width: 768px) {
+  .chatbox-wrapper.mobile-chat {
+    height: 100vh;
+  }
 
-/* small responsive tweaks */
-@media (max-width: 480px) {
-  .chatbox-container { 
-    max-width: 100%; 
+  .chatbox-container.mobile-fullscreen {
+    max-width: 100%;
     height: 100%;
     border-radius: 0;
+    box-shadow: none;
   }
-  
-  .chatbox-message { 
-    font-size: 0.95rem; 
-    max-width: 75%;
-  }
-  
+
   .chatbox-header {
     padding: 12px 16px;
   }
-  
+
+  .chatbox-header-avatar {
+    width: 36px;
+    height: 36px;
+  }
+
+  .chatbox-header-title {
+    font-size: 1rem;
+  }
+
   .chatbox-messages {
     padding: 12px 8px;
   }
-  
+
+  .chatbox-message {
+    max-width: 75%;
+    font-size: 0.95rem;
+  }
+
   .chatbox-input-row {
     padding: 8px 12px;
+  }
+
+  .chatbox-input {
+    padding: 12px;
+    font-size: 1rem;
+  }
+
+  .chatbox-send-button {
+    padding: 12px 16px;
+    min-width: 50px;
+    font-size: 1rem;
+  }
+
+  /* Adjust property context for mobile */
+  .chatbox-property-context {
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  .chatbox-property-context img {
+    width: 48px;
+    height: 48px;
+  }
+
+  .chatbox-property-title {
+    font-size: 0.95rem;
+  }
+
+  .chatbox-property-price {
+    font-size: 0.9rem;
+  }
+
+  .chatbox-property-link {
+    padding: 6px 12px;
+    font-size: 0.9rem;
+  }
+
+  /* Better touch targets for messages */
+  .chatbox-message {
+    padding: 10px 14px;
+  }
+
+  /* Adjust message padding for mobile */
+  .chatbox-message-row.mine {
+    padding-left: 40px;
+  }
+
+  .chatbox-message-row.theirs {
+    padding-right: 40px;
+  }
+}
+
+@media (max-width: 480px) {
+  .chatbox-header {
+    padding: 10px 12px;
+  }
+
+  .chatbox-header-avatar {
+    width: 32px;
+    height: 32px;
+    margin-right: 8px;
+  }
+
+  .chatbox-header-title {
+    font-size: 0.95rem;
+  }
+
+  .chatbox-messages {
+    padding: 10px 6px;
+  }
+
+  .chatbox-message {
+    max-width: 80%;
+    font-size: 0.9rem;
+    padding: 8px 12px;
+  }
+
+  .chatbox-input-row {
+    padding: 6px 10px;
+  }
+
+  .chatbox-input {
+    padding: 10px;
+    font-size: 0.95rem;
+  }
+
+  .chatbox-send-button {
+    padding: 10px 14px;
+    min-width: 45px;
+    font-size: 0.95rem;
+  }
+
+  .chatbox-property-context {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  .chatbox-property-context img {
+    width: 44px;
+    height: 44px;
+  }
+
+  .chatbox-property-title {
+    font-size: 0.9rem;
+  }
+
+  .chatbox-property-price {
+    font-size: 0.85rem;
+  }
+
+  .chatbox-property-link {
+    padding: 5px 10px;
+    font-size: 0.85rem;
+  }
+}
+
+/* Mobile-specific utility classes */
+.mobile-hidden {
+  display: none !important;
+}
+
+/* Improve scroll behavior on mobile */
+.chatbox-messages {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Keyboard avoidance for mobile */
+@media (max-width: 768px) {
+  .chatbox-input-container {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Loading states for better mobile UX */
+.chatbox-empty {
+  padding: 40px 20px;
+  font-size: 1rem;
+}
+
+/* Touch-friendly improvements */
+.chatbox-send-button {
+  touch-action: manipulation;
+}
+
+.chatbox-input {
+  touch-action: manipulation;
+}
+
+/* Prevent zoom on input focus for iOS */
+@media (max-width: 768px) {
+  .chatbox-input {
+    font-size: 16px; /* Prevents zoom on iOS */
   }
 }
