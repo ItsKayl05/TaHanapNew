@@ -5,44 +5,54 @@ import "babylonjs-loaders";
 const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
+  const engineRef = useRef(null);
+  const sceneRef = useRef(null);
+  const [isFullscreen, setIsFullscreen] = React.useState(false);
 
   useEffect(() => {
     if (!canvasRef.current || !imageUrl) return;
 
     const engine = new BABYLON.Engine(canvasRef.current, true);
+    engineRef.current = engine;
     const scene = new BABYLON.Scene(engine);
+    sceneRef.current = scene;
 
-    // Fullscreen state
-    const isFullscreen = () => !!document.fullscreenElement && document.fullscreenElement === containerRef.current;
-
-    // Camera
-    // Use a larger radius for fullscreen for a more natural view
-    const getInitialRadius = () => {
-      if (isFullscreen()) return 2.5; // Fullscreen: natural distance
-      return 2.5; // Default: same as before
-    };
+    // Camera with proper configuration for full panoramic view
     const camera = new BABYLON.ArcRotateCamera(
       "camera",
-      Math.PI / 2,
-      Math.PI / 2,
-      getInitialRadius(),
+      -Math.PI / 2,  // Start from front view
+      Math.PI / 2,   // Horizontal view
+      3,             // Distance from center
       BABYLON.Vector3.Zero(),
       scene
     );
+    
+    // Camera settings for full panoramic experience
+    camera.lowerBetaLimit = 0.1;
+    camera.upperBetaLimit = Math.PI - 0.1;
+    camera.lowerRadiusLimit = 1;
+    camera.upperRadiusLimit = 10;
+    camera.wheelPrecision = 50;
+    camera.panningSensibility = 1000;
+    
     camera.attachControl(canvasRef.current, true);
 
     // Light
-    new BABYLON.HemisphericLight("light", new BABYLON.Vector3(1, 1, 0), scene);
+    new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
 
-    // PhotoDome
+    // PhotoDome with optimized settings
     const dome = new BABYLON.PhotoDome(
       "property-dome",
       imageUrl,
-      { resolution: 32, size: 1000, useDirectMapping: true },
+      { 
+        resolution: 64,
+        size: 1000,
+        useDirectMapping: false
+      },
       scene
     );
 
-    // Switch mode based on prop
+    // Set image mode
     switch (mode) {
       case "SIDEBYSIDE":
         dome.imageMode = BABYLON.PhotoDome.MODE_SIDEBYSIDE;
@@ -54,110 +64,196 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
         dome.imageMode = BABYLON.PhotoDome.MODE_MONOSCOPIC;
     }
 
-    // FOV/Zoom logic
-    let tickCount = -240, zoomLevel = 1;
-    scene.registerAfterRender(() => {
-      tickCount++;
-      if (zoomLevel === 1) {
-        if (tickCount >= 0) {
-          dome.fovMultiplier = (Math.sin(tickCount / 100) * 0.5) + 1.0;
-        }
-      } else {
-        dome.fovMultiplier = zoomLevel;
-      }
-    });
+    // Optimize FOV for full view
+    dome.fovMultiplier = 0.8;
 
-    scene.onPointerObservable.add((e) => {
-      if (!dome) return;
-      if (e.type === BABYLON.PointerEventTypes.POINTERWHEEL) {
-        zoomLevel += e.event.wheelDelta * -0.0005;
-        if (zoomLevel < 0) zoomLevel = 0;
-        if (zoomLevel > 2) zoomLevel = 2;
-        if (zoomLevel === 1) tickCount = -60;
-      }
-    }, BABYLON.PointerEventTypes.POINTERWHEEL);
-
-    // Listen for fullscreen changes to adjust camera radius and FOV
-    const handleFullscreen = () => {
-      if (isFullscreen()) {
-        camera.radius = 2.5; // Set to natural view in fullscreen
-        // Optionally, adjust FOV multiplier for fullscreen
-        dome.fovMultiplier = 1.0;
-      } else {
-        camera.radius = 2.5;
-        dome.fovMultiplier = 1.0;
-      }
+    // Handle window resize
+    const handleResize = () => {
+      engine.resize();
     };
-    document.addEventListener('fullscreenchange', handleFullscreen);
 
+    window.addEventListener("resize", handleResize);
     engine.runRenderLoop(() => scene.render());
-    window.addEventListener("resize", () => engine.resize());
 
     return () => {
-      dome.dispose();
-      engine.dispose();
-      document.removeEventListener('fullscreenchange', handleFullscreen);
+      window.removeEventListener("resize", handleResize);
+      if (sceneRef.current) {
+        sceneRef.current.dispose();
+      }
+      if (engineRef.current) {
+        engineRef.current.dispose();
+      }
     };
   }, [imageUrl, mode]);
 
-  // Fullscreen expand
-  const handleExpand = () => {
-    if (containerRef.current) {
+  // Enhanced fullscreen functionality for mobile
+  const handleFullscreen = async () => {
+    if (!containerRef.current) return;
+
+    try {
       if (document.fullscreenElement) {
-        document.exitFullscreen();
+        // Exit fullscreen
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+          await document.webkitExitFullscreen();
+        } else if (document.msExitFullscreen) {
+          await document.msExitFullscreen();
+        }
       } else {
-        containerRef.current.requestFullscreen();
+        // Enter fullscreen
+        const element = containerRef.current;
+        
+        if (element.requestFullscreen) {
+          await element.requestFullscreen();
+        } else if (element.webkitRequestFullscreen) {
+          await element.webkitRequestFullscreen();
+        } else if (element.msRequestFullscreen) {
+          await element.msRequestFullscreen();
+        } else if (element.webkitEnterFullscreen) { // iOS Safari
+          element.webkitEnterFullscreen();
+        }
       }
+    } catch (err) {
+      console.log(`Fullscreen error: ${err.message}`);
+      // Fallback: Toggle mobile-friendly fullscreen mode
+      setIsFullscreen(!isFullscreen);
     }
   };
 
-  // Listen for fullscreen change to force rerender (for button text)
-  const [isFullscreen, setIsFullscreen] = React.useState(false);
+  // Listen for fullscreen changes
   useEffect(() => {
-    const handler = () => setIsFullscreen(!!document.fullscreenElement);
-    document.addEventListener('fullscreenchange', handler);
-    return () => document.removeEventListener('fullscreenchange', handler);
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    // Standard events
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('msfullscreenchange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('msfullscreenchange', handleFullscreenChange);
+    };
   }, []);
 
-    return (
-  <div ref={containerRef} style={{ position: 'relative', background: '#000', borderRadius: isFullscreen ? 0 : '12px', width: '100%', height: isFullscreen ? '100vh' : '400px', transition: 'border-radius 0.2s', outline: 'none', border: 'none' }}>
-        <canvas
-          ref={canvasRef}
-          style={{
-            width: '100%',
-            height: '100%',
-            borderRadius: isFullscreen ? 0 : '12px',
-            display: 'block',
-            background: '#000',
-            transition: 'border-radius 0.2s',
-            outline: 'none',
-            border: 'none'
-          }}
-        />
-        <button
-          onClick={handleExpand}
-          style={{
-            position: 'absolute',
-            top: 12,
-            right: 12,
-            zIndex: 1100,
-            background: 'rgba(30,41,59,0.85)',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '8px',
-            padding: '0.5rem 1.1rem',
-            fontWeight: 600,
-            fontSize: '0.95rem',
-            cursor: 'pointer',
-            boxShadow: '0 2px 12px -4px rgba(0,0,0,0.25)',
-            outline: 'none'
-          }}
-          aria-label={isFullscreen ? 'Close Fullscreen 360 View' : 'Expand 360 View'}
-        >
-          {isFullscreen ? 'Close' : 'Expand'}
-        </button>
-      </div>
-    );
+  // Handle orientation change for mobile
+  useEffect(() => {
+    const handleOrientationChange = () => {
+      // Re-render on orientation change
+      if (engineRef.current) {
+        setTimeout(() => {
+          engineRef.current.resize();
+        }, 300);
+      }
+    };
+
+    window.addEventListener('orientationchange', handleOrientationChange);
+    return () => {
+      window.removeEventListener('orientationchange', handleOrientationChange);
+    };
+  }, []);
+
+  // Mobile detection
+  const isMobile = () => {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  };
+
+  return (
+    <div 
+      ref={containerRef} 
+      style={{ 
+        position: 'relative', 
+        background: '#000', 
+        borderRadius: isFullscreen ? 0 : '12px', 
+        width: '100%', 
+        height: isFullscreen ? '100vh' : '400px', 
+        overflow: 'hidden',
+        transition: 'all 0.3s ease'
+      }}
+      className="photo-dome-container"
+    >
+      <canvas
+        ref={canvasRef}
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'block',
+          background: '#000',
+          outline: 'none',
+          touchAction: 'none' // Important for mobile touch controls
+        }}
+      />
+      
+      {/* Enhanced Expand Button - Mobile Friendly */}
+      <button
+        onClick={handleFullscreen}
+        style={{
+          position: 'absolute',
+          top: '12px',
+          right: '12px',
+          zIndex: 1000,
+          background: 'rgba(30, 41, 59, 0.9)',
+          color: '#fff',
+          border: 'none',
+          borderRadius: '8px',
+          padding: isMobile() ? '12px 16px' : '8px 16px', // Larger touch target on mobile
+          fontSize: isMobile() ? '16px' : '14px',
+          fontWeight: '600',
+          cursor: 'pointer',
+          backdropFilter: 'blur(10px)',
+          transition: 'all 0.2s ease',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+          minWidth: isMobile() ? '60px' : 'auto', // Better touch target
+          minHeight: isMobile() ? '44px' : 'auto'
+        }}
+        onMouseOver={(e) => {
+          if (!isMobile()) {
+            e.target.style.background = 'rgba(15, 23, 42, 0.95)';
+            e.target.style.transform = 'scale(1.05)';
+          }
+        }}
+        onMouseOut={(e) => {
+          if (!isMobile()) {
+            e.target.style.background = 'rgba(30, 41, 59, 0.9)';
+            e.target.style.transform = 'scale(1)';
+          }
+        }}
+        onTouchStart={(e) => {
+          // Visual feedback for mobile touch
+          e.target.style.background = 'rgba(15, 23, 42, 0.95)';
+        }}
+        onTouchEnd={(e) => {
+          e.target.style.background = 'rgba(30, 41, 59, 0.9)';
+        }}
+        aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+        className="expand-button"
+      >
+        {isFullscreen ? 'Exit' : 'Expand'}
+      </button>
+
+      {/* Mobile Instructions */}
+      {isMobile() && !isFullscreen && (
+        <div style={{
+          position: 'absolute',
+          bottom: '12px',
+          left: '12px',
+          right: '12px',
+          background: 'rgba(0, 0, 0, 0.7)',
+          color: '#fff',
+          padding: '8px 12px',
+          borderRadius: '6px',
+          fontSize: '12px',
+          textAlign: 'center',
+          backdropFilter: 'blur(10px)'
+        }}>
+          👆 Drag to look around • Tap Expand for fullscreen
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default PhotoDomeViewer;

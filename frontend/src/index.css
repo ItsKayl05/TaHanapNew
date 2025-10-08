@@ -12,6 +12,75 @@
 }
 
 html {
+
+/* Mobile Optimizations for PhotoDomeViewer */
+.photo-dome-container {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+@media (max-width: 768px) {
+    .expand-button {
+        min-width: 60px !important;
+        min-height: 44px !important;
+        font-size: 16px !important;
+    }
+}
+
+/* Fullscreen mobile optimizations */
+.photo-dome-container:fullscreen {
+    width: 100vw !important;
+    height: 100vh !important;
+}
+.photo-dome-container:-webkit-full-screen {
+    width: 100vw !important;
+    height: 100vh !important;
+}
+.photo-dome-container:-moz-full-screen {
+    width: 100vw !important;
+    height: 100vh !important;
+}
+.photo-dome-container:-ms-fullscreen {
+    width: 100vw !important;
+    height: 100vh !important;
+}
+
+/* Prevent body scroll when in fullscreen on mobile */
+body:fullscreen .photo-dome-container,
+body:-webkit-full-screen .photo-dome-container,
+body:-moz-full-screen .photo-dome-container,
+body:-ms-fullscreen .photo-dome-container {
+    overflow: hidden !important;
+}
+
+/* Mobile landscape optimizations */
+@media (max-width: 768px) and (orientation: landscape) {
+    .photo-dome-container:not(:fullscreen) {
+        height: 300px !important;
+    }
+}
+
+/* High DPI mobile devices */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+    .photo-dome-container canvas {
+        image-rendering: -webkit-optimize-contrast;
+        image-rendering: crisp-edges;
+    }
+}
+
+/* iOS specific fixes */
+@supports (-webkit-touch-callout: none) {
+    .photo-dome-container {
+        cursor: pointer;
+    }
+  
+    .expand-button {
+        -webkit-appearance: none;
+        appearance: none;
+    }
+}
     font-size: 16px;
     color: #f1f5f9;
     background:#0f172a;

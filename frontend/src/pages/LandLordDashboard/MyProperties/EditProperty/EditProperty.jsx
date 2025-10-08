@@ -12,30 +12,22 @@ import "./EditProperty.css";
 import Sidebar from "../../Sidebar/Sidebar";
 import { buildApi, buildUpload } from '../../../../services/apiConfig';
 
-// Fix for default markers in react-leaflet
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.3/dist/images/marker-shadow.png',
-});
-
 const categories = ["Apartment", "Dorm", "House", "Studio"];
 const barangays = [
     "Assumption", "Bagong Buhay I", "Bagong Buhay II", "Bagong Buhay III",
-    "Ciudad Real", "Citrus", "Dulong Bayan",
-    "Fatima I", "Fatima II", "Fatima III", "Fatima IV", "Fatima V",
-    "Francisco Homes – Guijo", "Francisco Homes – Mulawin", "Francisco Homes – Narra", "Francisco Homes – Yakal",
+    "Ciudad Real", "Citrus", "Dulong Bayan", "Fatima I", "Fatima II", 
+    "Fatima III", "Fatima IV", "Fatima V", "Francisco Homes – Guijo", 
+    "Francisco Homes – Mulawin", "Francisco Homes – Narra", "Francisco Homes – Yakal",
     "Gaya-gaya", "Graceville", "Gumaok Central", "Gumaok East", "Gumaok West",
-    "Kaybanban", "Kaypian", "Lawang Pare",
-    "Maharlika", "Minuyan I", "Minuyan II", "Minuyan III", "Minuyan IV", "Minuyan V", "Minuyan Proper",
-    "Muzon East", "Muzon Proper", "Muzon South", "Muzon West",
-    "Paradise III", "Poblacion", "Poblacion 1",
-    "San Isidro", "San Manuel", "San Martin De Porres", "San Martin I", "San Martin II", "San Martin III", "San Martin IV",
-    "San Pedro", "San Rafael I", "San Rafael II", "San Rafael III", "San Rafael IV", "San Rafael V",
-    "San Roque", "Sapang Palay Proper",
-    "Sta. Cruz I", "Sta. Cruz II", "Sta. Cruz III", "Sta. Cruz IV", "Sta. Cruz V",
-    "Sto. Cristo", "Sto. Nino I", "Sto. Nino II", "Tungkong Mangga"
+    "Kaybanban", "Kaypian", "Lawang Pare", "Maharlika", "Minuyan I", 
+    "Minuyan II", "Minuyan III", "Minuyan IV", "Minuyan V", "Minuyan Proper",
+    "Muzon East", "Muzon Proper", "Muzon South", "Muzon West", "Paradise III", 
+    "Poblacion", "Poblacion 1", "San Isidro", "San Manuel", "San Martin De Porres", 
+    "San Martin I", "San Martin II", "San Martin III", "San Martin IV", "San Pedro", 
+    "San Rafael I", "San Rafael II", "San Rafael III", "San Rafael IV", "San Rafael V",
+    "San Roque", "Sapang Palay Proper", "Sta. Cruz I", "Sta. Cruz II", "Sta. Cruz III", 
+    "Sta. Cruz IV", "Sta. Cruz V", "Sto. Cristo", "Sto. Nino I", "Sto. Nino II", 
+    "Tungkong Mangga"
 ];
 
 const LANDMARKS = [
@@ -51,8 +43,9 @@ const EditProperty = () => {
     const [property, setProperty] = useState(null);
     const [formData, setFormData] = useState({
         title: "", description: "", address: "", price: "", barangay: "", category: "",
-        petFriendly: false, allowedPets: "", occupancy: "", parking: false, rules: "", landmarks: "",
-        availabilityStatus: "Available", numberOfRooms: "", areaSqm: "", latitude: "", longitude: ""
+        petFriendly: false, allowedPets: "", occupancy: "", parking: false, rules: "",
+        landmarks: "", availabilityStatus: "Available", numberOfRooms: "", areaSqm: "",
+        latitude: "", longitude: "", totalUnits: 1, availableUnits: 1
     });
     const [manualPin, setManualPin] = useState(false);
     const [images, setImages] = useState([]);
@@ -113,7 +106,6 @@ const EditProperty = () => {
                 if (data.panorama360) {
                     setExistingPanorama(data.panorama360.startsWith('http') ? data.panorama360 : buildUpload(data.panorama360));
                 }
-                setFormData(f => ({ ...f, totalUnits: data.totalUnits ?? 1, availableUnits: data.availableUnits ?? (data.totalUnits ?? 1) }));
                 setLoading(false);
             } catch (error) {
                 toast.error(error.message || "Error fetching property.");
@@ -259,14 +251,9 @@ const EditProperty = () => {
                     </div>
                 ) : (
                     <form onSubmit={handleSubmit} className="ll-card edit-property-form" noValidate>
-                        <div className="form-header">
-                            <h2 className="form-title">Edit Property</h2>
-                            <p className="form-subtitle">Update your listing details and images. Changes go live immediately after saving.</p>
-                        </div>
-
                         <div className="map-preview-section">
                             <label>Property Location (drag marker to update)</label>
-                            <div className="map-container">
+                            <div style={{ height: "300px", width: "100%", marginBottom: "1rem", borderRadius: "8px", overflow: "hidden", boxShadow: "0 2px 8px #0001" }}>
                                 <MapContainer
                                     center={formData.latitude && formData.longitude ? [parseFloat(formData.latitude), parseFloat(formData.longitude)] : [14.813, 121.045]}
                                     zoom={15}
@@ -284,16 +271,24 @@ const EditProperty = () => {
                                                     setManualPin(true);
                                                 }
                                             }}
+                                            icon={L.icon({
+                                                iconUrl: "https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png",
+                                                iconSize: [25, 41],
+                                                iconAnchor: [12, 41],
+                                                popupAnchor: [1, -34],
+                                                shadowUrl: "https://unpkg.com/leaflet@1.9.3/dist/images/marker-shadow.png",
+                                                shadowSize: [41, 41]
+                                            })}
                                         >
                                             <Popup>Drag to update location</Popup>
                                         </Marker>
                                     )}
                                 </MapContainer>
                             </div>
-                            <div className="coordinates-controls">
-                                <input className="ll-field coordinate-input" type="text" name="latitude" value={formData.latitude} onChange={handleChange} placeholder="Latitude" />
-                                <input className="ll-field coordinate-input" type="text" name="longitude" value={formData.longitude} onChange={handleChange} placeholder="Longitude" />
-                                <button type="button" className="ll-btn tiny reset-pin-btn" onClick={() => {
+                            <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
+                                <input className="ll-field" type="text" name="latitude" value={formData.latitude} onChange={handleChange} placeholder="Latitude" style={{ width: "120px" }} />
+                                <input className="ll-field" type="text" name="longitude" value={formData.longitude} onChange={handleChange} placeholder="Longitude" style={{ width: "120px" }} />
+                                <button type="button" className="ll-btn tiny" onClick={() => {
                                     setFormData(f => ({
                                         ...f,
                                         latitude: originalLatLng.lat,
@@ -302,10 +297,13 @@ const EditProperty = () => {
                                     setManualPin(false);
                                     toast.info("Pin reset to original property location.");
                                 }}>Reset Pin</button>
-                                {manualPin && <span className="field-hint manual-pin-hint">Manual pin active</span>}
+                                {manualPin && <span className="field-hint" style={{ color: "#1976d2" }}>Manual pin active</span>}
                             </div>
                         </div>
-
+                        <div className="form-header">
+                            <h2 className="form-title">Edit Property</h2>
+                            <p className="form-subtitle">Update your listing details and images. Changes go live immediately after saving.</p>
+                        </div>
                         <div className="form-grid">
                             <div className="field-group">
                                 <label className="required">Title</label>
@@ -371,32 +369,20 @@ const EditProperty = () => {
                                 <input className="ll-field" type="number" min={1} name="occupancy" value={formData.occupancy} onChange={handleChange} required />
                             </div>
                             <div className="field-group toggle-field">
-                                <label className="checkbox-label">
-                                    <input type="checkbox" name="petFriendly" checked={formData.petFriendly} onChange={handleChange} /> 
-                                    Pet Friendly
-                                </label>
+                                <label className="checkbox-label"><input type="checkbox" name="petFriendly" checked={formData.petFriendly} onChange={handleChange} /> Pet Friendly</label>
                                 {formData.petFriendly && (
                                     <input className="ll-field mt-6" name="allowedPets" placeholder="Allowed pets (e.g. Cats, Dogs)" value={formData.allowedPets} onChange={handleChange} />
                                 )}
                             </div>
                             <div className="field-group toggle-field">
-                                <label className="checkbox-label">
-                                    <input type="checkbox" name="parking" checked={formData.parking} onChange={handleChange} /> 
-                                    Parking Available
-                                </label>
+                                <label className="checkbox-label"><input type="checkbox" name="parking" checked={formData.parking} onChange={handleChange} /> Parking Available</label>
                             </div>
                             <div className="field-group full">
                                 <label>Nearby Landmark</label>
-                                <select className="ll-field" name="landmarks" value={formData.landmarks} onChange={handleChange}>
+                                <select className="ll-field" name="landmarks" value={formData.landmarks} onChange={handleChange} required>
                                     <option value="">Select Landmark</option>
                                     {LANDMARKS.map(l => (
-                                        <option key={l} value={l}>
-                                            {l.split(' ').map(word => 
-                                                word.includes('/') ? 
-                                                word.split('/').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('/') : 
-                                                word.charAt(0).toUpperCase() + word.slice(1)
-                                            ).join(' ')}
-                                        </option>
+                                        <option key={l} value={l}>{l.split(' ').map(word => word.includes('/') ? word.split('/').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('/') : word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</option>
                                     ))}
                                 </select>
                             </div>
@@ -406,31 +392,38 @@ const EditProperty = () => {
                             </div>
                         </div>
 
-                        {/* 360° Panoramic Image Section */}
-                        <div className="panorama-section">
+                        {/* 360° Panoramic Image Section - FIXED */}
+                        <div className="panorama-section" style={{marginTop:'32px'}}>
                             <h3 className="section-title">360° Panoramic Image</h3>
                             <p className="field-hint">Optional: Add a panoramic 360° image (JPG/PNG/WebP, max 10MB, equirectangular projection).</p>
                             {(panoramaPreview || existingPanorama) ? (
-                                <div className="panorama-preview">
-                                    <div className="panorama-viewer-container">
-                                        <PhotoDomeViewer imageUrl={panoramaPreview || existingPanorama} mode="MONOSCOPIC" />
+                                <div style={{marginBottom:'12px'}}>
+                                    <div style={{
+                                        width: '100%',
+                                        height: '400px',
+                                        borderRadius: '12px',
+                                        overflow: 'hidden',
+                                        boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
+                                    }}>
+                                        <PhotoDomeViewer 
+                                            imageUrl={panoramaPreview || existingPanorama} 
+                                            mode="MONOSCOPIC"
+                                        />
                                     </div>
-                                    <div className="panorama-actions">
-                                        <button type="button" className="ll-btn tiny danger" onClick={removePanorama}>Remove Panorama</button>
+                                    <div style={{marginTop:'8px', display:'flex', gap:'8px'}}>
+                                        <button type="button" className="ll-btn tiny danger" onClick={removePanorama}>Remove</button>
                                     </div>
                                 </div>
                             ) : (
                                 <label className="file-drop-modern">
-                                    <input id="panorama-input" type="file" accept="image/*" onChange={handlePanoramaChange} />
-                                    <span>Add 360° Panoramic Image</span>
+                                    <input id="panorama-input" type="file" accept="image/*" style={{display:'none'}} onChange={handlePanoramaChange} />
+                                    <span onClick={()=>document.getElementById('panorama-input').click()}>Add 360° Panoramic Image</span>
                                 </label>
                             )}
                         </div>
 
                         <div className="images-section">
-                            <h3 className="section-title">
-                                Images <span className="image-count">({images.length + newImages.length}/8 total)</span>
-                            </h3>
+                            <h3 className="section-title">Images <span style={{fontWeight:400, fontSize:'0.7rem'}}>({images.length + newImages.length}/8 total)</span></h3>
                             <p className="field-hint">You can keep, remove, or add new images (max 8 total, JPG/PNG/WebP up to 10MB each).</p>
                             <div className="current-images-grid">
                                 {images.length ? images.map((img, i) => {
@@ -460,13 +453,8 @@ const EditProperty = () => {
                                 )}
                             </div>
                         </div>
-
                         <div className="video-section">
-                            <h3 className="section-title">
-                                Property Video <span className="video-status">
-                                    ({removeVideo ? 'will remove' : (videoFile ? 'new video selected' : (videoPreview ? 'existing' : 'none'))})
-                                </span>
-                            </h3>
+                            <h3 className="section-title">Property Video <span style={{fontWeight:400, fontSize:'0.7rem'}}>({removeVideo ? 'will remove' : (videoFile ? 'new video selected' : (videoPreview ? 'existing' : 'none'))})</span></h3>
                             <p className="field-hint">Optional walkthrough clip (MP4/WebM/OGG, up to 50MB). Uploading a new one replaces the existing video.</p>
                             {!videoPreview && !videoFile && !removeVideo && (
                                 <label className="file-drop-modern">
@@ -498,12 +486,9 @@ const EditProperty = () => {
                                 <div className="removed-note">Video will be removed. <button type="button" className="link-btn" onClick={()=>setRemoveVideo(false)}>Undo</button></div>
                             )}
                         </div>
-
                         <div className="form-actions">
                             <button type="button" className="ll-btn outline" onClick={() => navigate(-1)}>Cancel</button>
-                            <button type="submit" className="ll-btn primary" disabled={submitting}>
-                                {submitting ? 'Saving...' : 'Save Changes'}
-                            </button>
+                            <button type="submit" className="ll-btn primary" disabled={submitting}>{submitting ? 'Saving...' : 'Save Changes'}</button>
                         </div>
                     </form>
                 )}
