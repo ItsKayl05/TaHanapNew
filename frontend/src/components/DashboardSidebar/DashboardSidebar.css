@@ -34,5 +34,11 @@
   .dashboard-sidebar .logout { margin-top:0; }
   /* collapse-toggle removed */
   .mobile-toggle { display:flex; }
+  /* When closed, keep sidebar condensed and allow toggle to expand it */
+  .dashboard-sidebar.closed { height:56px; overflow:hidden; align-items:center; }
+  .dashboard-sidebar.open { height:auto; }
+  .dashboard-sidebar { transition:height .28s ease, transform .28s ease; }
+  .dashboard-sidebar.closed ul { display:none; }
+  .dashboard-sidebar.open ul { display:flex; flex-direction:row; gap:8px; width:100%; }
   .dashboard-sidebar.closed { width:100%; }
 }

@@ -190,7 +190,7 @@ img.responsive, .responsive-img { max-width:100%; height:auto; display:block; }
 /* Tight mobile (phones): hide non-essential decorative content and collapse secondary sidebars */
 @media (max-width: 420px) {
     .dashboard-container, .tenant-dashboard, .landlord-dashboard { padding:0.6rem 0.6rem; gap:0.7rem; }
-    .dashboard-sidebar, .ll-sidebar, .tenant-sidebar { display:none !important; }
+    /* Keep sidebars available on tiny screens; sidebar component handles mobile layout */
     .mobile-only { display:block; }
     .desktop-only { display:none !important; }
     /* Ensure lists/cards are comfortably spaced on tiny screens */

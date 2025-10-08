@@ -93,31 +93,7 @@
 }
 
 /* Hamburger toggle for mobile dashboard sidebar */
-.hamburger-toggle {
-  display:none;
-  position:absolute;
-  left:16px;
-  top:12px;
-  z-index:220;
-  width:40px;
-  height:40px;
-  border-radius:8px;
-  background:linear-gradient(135deg,#6366f1,#3b82f6);
-  color:#fff;
-  border:none;
-  font-size:1.1rem;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  cursor:pointer;
-}
-.hamburger-toggle:hover{ filter:brightness(1.08); }
-
-/* Show hamburger on small screens */
-@media (max-width: 768px) {
-  .hamburger-toggle { display:flex; }
-  .desktop-only { display:none !important; }
-}
+/* hamburger removed */
 
 /* Common styles for both Login/Register & Dashboard buttons */
 .navbar-login .login-register,

@@ -29,12 +29,7 @@ const DashboardSidebar = ({
 
   useEffect(() => { if (isMobile) setOpen(false); else setOpen(true); }, [isMobile]);
 
-  // Listen for navbar hamburger toggle to open/close sidebar on mobile
-  useEffect(() => {
-    const handler = () => { if (isMobile) setOpen(o => !o); };
-    window.addEventListener('toggle-dashboard-sidebar', handler);
-    return () => window.removeEventListener('toggle-dashboard-sidebar', handler);
-  }, [isMobile]);
+  // no external hamburger listeners — internal mobile toggle button controls sidebar visibility
 
   const brandTitle = variant === 'landlord' ? 'TaHanap Landlord' : 'TaHanap Tenant';
 
@@ -71,7 +66,9 @@ const DashboardSidebar = ({
       </ul>
   {/* Collapse toggle removed for landlord per request; retain none on desktop */}
       {isMobile && (
-        <button className="mobile-toggle" onClick={() => setOpen(o => !o)} aria-label={open ? 'Close menu' : 'Open menu'} aria-expanded={open} type="button">☰</button>
+        <button className="mobile-toggle" onClick={() => setOpen(o => !o)} aria-label={open ? 'Close menu' : 'Open menu'} aria-expanded={open} type="button">
+          {open ? '✕' : '☰'}
+        </button>
       )}
     </div>
   );
