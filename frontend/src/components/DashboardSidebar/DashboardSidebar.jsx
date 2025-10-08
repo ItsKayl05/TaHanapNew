@@ -7,25 +7,41 @@ const DashboardSidebar = ({
   onNavigate,
   onLogout,
   verification,
-  sidebarOpen,
+  sidebarOpen = false,
   setSidebarOpen
 }) => {
   const [isMobile, setIsMobile] = useState(false);
+  const [internalSidebarOpen, setInternalSidebarOpen] = useState(sidebarOpen);
+
+  // Use the external setter if provided, otherwise use internal state
+  const setSidebarState = setSidebarOpen || setInternalSidebarOpen;
+  const isSidebarOpen = setSidebarOpen ? sidebarOpen : internalSidebarOpen;
 
   useEffect(() => {
     const handleResize = () => {
       const mobile = window.innerWidth < 1024;
       setIsMobile(mobile);
-      // Desktop: keep sidebar open by default. Mobile: close by default.
-      if (mobile) {
-        setSidebarOpen(false);
+      
+      // Only auto-set sidebar state if we have the external setter
+      if (setSidebarOpen) {
+        if (mobile) {
+          setSidebarOpen(false);
+        } else {
+          setSidebarOpen(true);
+        }
       } else {
-        setSidebarOpen(true);
+        // Use internal state management
+        if (mobile) {
+          setInternalSidebarOpen(false);
+        } else {
+          setInternalSidebarOpen(true);
+        }
       }
     };
 
     handleResize();
     window.addEventListener('resize', handleResize);
+    
     return () => window.removeEventListener('resize', handleResize);
   }, [setSidebarOpen]);
 
@@ -45,21 +61,23 @@ const DashboardSidebar = ({
       onNavigate(to);
       // Close sidebar on mobile after navigation
       if (isMobile) {
-        setSidebarOpen(false);
+        setSidebarState(false);
       }
     }
   };
 
   const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen);
+    setSidebarState(!isSidebarOpen);
   };
 
   return (
     <>
       {/* BURGER TOGGLE - Shows on both mobile and desktop */}
       <button 
-        className={`burger-toggle ${sidebarOpen ? 'open' : ''} ${isMobile ? 'mobile' : 'desktop'}`}
+        className={`burger-toggle ${isSidebarOpen ? 'open' : ''} ${isMobile ? 'mobile' : 'desktop'}`}
         onClick={toggleSidebar}
+        aria-label="Toggle sidebar"
+        aria-expanded={isSidebarOpen}
       >
         <span></span>
         <span></span>
@@ -67,34 +85,48 @@ const DashboardSidebar = ({
       </button>
 
       {/* OVERLAY - Shows when sidebar is open on mobile */}
-      {isMobile && sidebarOpen && (
+      {isMobile && isSidebarOpen && (
         <div 
           className="sidebar-overlay"
-          onClick={() => setSidebarOpen(false)}
-        ></div>
+          onClick={() => setSidebarState(false)}
+          aria-hidden="true"
+        />
       )}
 
       {/* SIDEBAR - Works for both mobile and desktop */}
-      <div className={`sidebar ${sidebarOpen ? 'open' : ''} ${isMobile ? 'mobile' : 'desktop'}`}>
+      <div className={`sidebar ${isSidebarOpen ? 'open' : ''} ${isMobile ? 'mobile' : 'desktop'}`}>
         <div className="sidebar-header">
           <h2>{brandTitle}</h2>
           {verification && <div className="verification-pill">{statusPill}</div>}
         </div>
         
-        <nav className="sidebar-nav">
+        <nav className="sidebar-nav" aria-label="Main navigation">
           {links.map(link => (
             <div
               key={link.key}
               className={`nav-item ${link.active ? 'active' : ''} ${link.locked ? 'locked' : ''}`}
               onClick={() => handleLinkClick(link.to, link.locked)}
+              role="button"
+              tabIndex={0}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  handleLinkClick(link.to, link.locked);
+                }
+              }}
+              aria-current={link.active ? 'page' : undefined}
+              aria-disabled={link.locked ? 'true' : undefined}
             >
               <span>{link.label}</span>
-              {link.locked && <span className="lock">🔒</span>}
+              {link.locked && <span className="lock" aria-label="Locked">🔒</span>}
             </div>
           ))}
         </nav>
         
-        <button className="logout-btn" onClick={onLogout}>
+        <button 
+          className="logout-btn" 
+          onClick={onLogout}
+          aria-label="Logout"
+        >
           Logout
         </button>
       </div>
