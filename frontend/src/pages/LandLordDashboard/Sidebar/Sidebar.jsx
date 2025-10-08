@@ -9,6 +9,17 @@ import DashboardSidebar from '../../../components/DashboardSidebar/DashboardSide
 const Sidebar = ({ handleLogout }) => {
     const navigate = useNavigate();
     const location = useLocation();
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+    // Handle window resize
+    useEffect(() => {
+        const handleResize = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+        
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     const [showIdModal, setShowIdModal] = useState(false);
     const [uploading, setUploading] = useState(false);
@@ -117,7 +128,6 @@ const Sidebar = ({ handleLogout }) => {
         if (path.includes("add-properties")) return "add-properties";
         if (path.includes("my-properties")) return "my-properties";
         if (path.includes("properties") && !path.includes("my-properties")) return "properties";
-    // messages route removed
         return "";
     };
     const activeItem = getActiveItem();
@@ -149,11 +159,25 @@ const Sidebar = ({ handleLogout }) => {
                 }}
                 onLogout={handleLogout}
                 verification={verification}
+                isMobile={isMobile}
             />
             {(showIdModal || (hasRejected && !dismissedRejected)) && (
                 <div className="id-modal-overlay" onClick={() => { if (hasRejected) setDismissedRejected(true); else setShowIdModal(false); }}>
-                    <div className="id-modal" onClick={(e)=>e.stopPropagation()}>
-                        <div className="modal-header"><h3>Landlord Verification</h3></div>
+                    <div className={`id-modal ${isMobile ? 'mobile-modal' : ''}`} onClick={(e)=>e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h3>Landlord Verification</h3>
+                            {isMobile && (
+                                <button 
+                                    className="modal-close-btn"
+                                    onClick={() => { 
+                                        setDismissedRejected(true);
+                                        setShowIdModal(false);
+                                    }}
+                                >
+                                    ✕
+                                </button>
+                            )}
+                        </div>
                         <div className="modal-body">
                             <p className="id-intro"><strong>{hasRejected? 'Your previous submission was rejected.' : 'Why we need this:'}</strong> {hasRejected? 'Please review the reason(s) below and submit a new clear image of your ID.' : 'Provide valid government IDs to unlock property listing.'}</p>
                             {hasRejected && rejectedDocs.length>0 && (
@@ -183,7 +207,7 @@ const Sidebar = ({ handleLogout }) => {
                                 </label>
                                 <div className="id-file-list">
                                     {idEntries.map((entry, idx)=>(
-                                        <div className="id-file-row" key={idx}>
+                                        <div className={`id-file-row ${isMobile ? 'mobile-file-row' : ''}`} key={idx}>
                                             <div className="name">{entry.file.name}</div>
                                             <select value={entry.idType} onChange={(e)=>updateIdType(idx, e.target.value)} disabled={uploading}>
                                                 <option value="">Select ID Type</option>
@@ -195,9 +219,8 @@ const Sidebar = ({ handleLogout }) => {
                                     {idEntries.length === 0 && <div className="placeholder">No files added yet.</div>}
                                 </div>
                                 {error && <div className="id-modal-error">{error}</div>}
-                                <div className="id-modal-actions">
+                                <div className={`id-modal-actions ${isMobile ? 'mobile-actions' : ''}`}>
                                     <button type="button" onClick={()=>{
-                                        // Ensure Cancel closes overlay in both normal and rejected flows
                                         setDismissedRejected(true);
                                         setShowIdModal(false);
                                     }} disabled={uploading}>Cancel</button>
