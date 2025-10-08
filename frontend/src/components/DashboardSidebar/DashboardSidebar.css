@@ -1,8 +1,8 @@
 /* ========== BURGER TOGGLE ========== */
 .burger-toggle {
   position: fixed;
-  top: 20px;
-  left: 20px;
+  top: 12px;
+  left: 12px;
   width: 40px;
   height: 40px;
   background: #2563eb;
@@ -14,7 +14,7 @@
   justify-content: center;
   align-items: center;
   gap: 4px;
-  z-index: 1001;
+  z-index: 1102; /* above overlay */
   transition: all 0.3s ease;
 }
 
@@ -60,22 +60,20 @@
   position: fixed;
   left: 0;
   top: 0;
-  z-index: 1000;
+  z-index: 1100;
   overflow-y: auto;
-  transition: transform 0.3s ease;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+  transition: transform 0.28s cubic-bezier(.2,.9,.2,1);
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.06);
 }
 
 /* Desktop sidebar behavior */
 .sidebar.desktop {
-  transform: translateX(-100%);
-}
-
-.sidebar.desktop.open {
+  /* On desktop the sidebar should be visible by default */
   transform: translateX(0);
+  position: fixed;
 }
 
-/* Mobile sidebar behavior */
+/* Mobile sidebar behavior — hidden by default, slides in when open */
 .sidebar.mobile {
   transform: translateX(-100%);
 }
@@ -91,8 +89,8 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 999;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 1098;
   backdrop-filter: blur(2px);
 }
 
@@ -207,24 +205,16 @@
 
 /* ========== RESPONSIVE STYLES ========== */
 @media (max-width: 1023px) {
-  .burger-toggle {
-    top: 10px;
-    left: 10px;
-  }
-  
-  .sidebar.desktop.open,
-  .sidebar.desktop {
-    transform: translateX(-100%);
-  }
+  /* On smaller screens hide desktop sidebar and show mobile behavior */
+  .burger-toggle { display: flex; }
+  .sidebar.desktop { display: none; }
+  .sidebar.mobile { transform: translateX(-100%); }
 }
 
 @media (min-width: 1024px) {
-  .burger-toggle.desktop {
-    top: 20px;
-    left: 20px;
-  }
-  
-  .sidebar-overlay {
-    display: none;
-  }
+  /* On desktop, ensure burger is hidden and overlay doesn't show */
+  .burger-toggle { display: none; }
+  .sidebar-overlay { display: none; }
+  .sidebar.mobile { display: none; }
+  .sidebar.desktop { transform: translateX(0); }
 }

@@ -16,16 +16,18 @@ const DashboardSidebar = ({
     const handleResize = () => {
       const mobile = window.innerWidth < 1024;
       setIsMobile(mobile);
-      // Auto-close sidebar on mobile when resizing to desktop
-      if (!mobile && sidebarOpen) {
+      // Desktop: keep sidebar open by default. Mobile: close by default.
+      if (mobile) {
         setSidebarOpen(false);
+      } else {
+        setSidebarOpen(true);
       }
     };
-    
+
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [sidebarOpen, setSidebarOpen]);
+  }, [setSidebarOpen]);
 
   const brandTitle = variant === 'landlord' ? 'TaHanap Landlord' : 'TaHanap Tenant';
 
