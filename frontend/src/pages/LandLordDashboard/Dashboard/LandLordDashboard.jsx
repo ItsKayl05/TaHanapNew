@@ -206,7 +206,19 @@ const LandlordDashboard = () => {
                                     </div>
                                     <div className="field-group">
                                         <label htmlFor="contactNumber">Contact Number<span className="req">*</span></label>
-                                        <input id="contactNumber" value={userData.contactNumber} onChange={e=>setUserData(u=>({...u, contactNumber:e.target.value}))} required autoComplete="tel" />
+                                        <input
+                                            id="contactNumber"
+                                            type="tel"
+                                            inputMode="numeric"
+                                            pattern="[0-9]*"
+                                            value={userData.contactNumber}
+                                            onChange={e => {
+                                                const digits = (e.target.value || '').replace(/\D/g, '').slice(0, 12);
+                                                setUserData(u => ({ ...u, contactNumber: digits }));
+                                            }}
+                                            required
+                                            autoComplete="tel"
+                                        />
                                     </div>
                                 </div>
                                 <div className="field-row">

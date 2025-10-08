@@ -293,7 +293,20 @@ const TenantDashboard = () => {
                                         </div>
                                         <div className="ll-stack ll-gap-sm">
                                             <label className="ll-label" htmlFor="contactNumber">Contact Number</label>
-                                            <input className="ll-field" id="contactNumber" value={userData.contactNumber} onChange={e=>setUserData(u=>({...u, contactNumber:e.target.value}))} required />
+                                                <input
+                                                    className="ll-field"
+                                                    id="contactNumber"
+                                                    type="tel"
+                                                    inputMode="numeric"
+                                                    pattern="[0-9]*"
+                                                    value={userData.contactNumber}
+                                                    onChange={e => {
+                                                        // allow digits only, max 12 characters
+                                                        const digits = (e.target.value || '').replace(/\D/g, '').slice(0, 12);
+                                                        setUserData(u => ({ ...u, contactNumber: digits }));
+                                                    }}
+                                                    required
+                                                />
                                         </div>
                                     </div>
                                     <div className="ll-grid narrow-two">

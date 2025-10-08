@@ -154,7 +154,11 @@
   border: 1px solid #ccc;
   margin-right: 8px;
   font-size: 0.9375rem;
+  color: #000; /* Ensure typed text is black for readability */
 }
+
+.chatbox-input::placeholder { color: #666; }
+.chatbox-input:focus { caret-color: #000; color: #000; }
 
 .chatbox-send-button {
   padding: 10px 20px;

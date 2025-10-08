@@ -34,6 +34,13 @@ const RegisterPage = () => {
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
+        // If contactNumber, enforce digits only and max 12 chars
+        if (name === 'contactNumber') {
+            const digits = (value || '').replace(/\D/g, '').slice(0, 12);
+            setFormData((prev) => ({ ...prev, contactNumber: digits }));
+            return;
+        }
+
         setFormData((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
 
         if (name === "password") {

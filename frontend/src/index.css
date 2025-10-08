@@ -55,6 +55,19 @@ html {
    We rely on aspect-ratio + min-height to keep a predictable size across viewports
    and let the parent layout or explicit wrappers control the final size. */
 
+/* Reintroduce conservative heights for the non-fullscreen photo-dome container
+   so mobile layout matches the previous design. These apply only when the
+   container is not in fullscreen or the fullscreen fallback mode. */
+@media (max-width: 1024px) {
+    .photo-dome-container:not(.photo-dome-fullscreen-fallback):not(:fullscreen) { height: 360px; }
+}
+@media (max-width: 720px) {
+    .photo-dome-container:not(.photo-dome-fullscreen-fallback):not(:fullscreen) { height: 300px; }
+}
+@media (max-width: 420px) {
+    .photo-dome-container:not(.photo-dome-fullscreen-fallback):not(:fullscreen) { height: 260px; }
+}
+
 /* Fullscreen mobile optimizations */
 .photo-dome-container:fullscreen {
     width: 100vw !important;
