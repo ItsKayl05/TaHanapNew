@@ -9,4 +9,12 @@ export default defineConfig({
       '/api': 'http://localhost:4000'
     }
   }
+  ,
+  // Temporary debug build settings: produce sourcemaps and avoid minification
+  // so runtime stacks are easier to trace. Remove or revert these before final
+  // production releases if you prefer minified assets.
+  build: {
+    sourcemap: true,
+    minify: false
+  }
 })
