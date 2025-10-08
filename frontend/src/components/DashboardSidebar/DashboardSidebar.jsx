@@ -7,21 +7,25 @@ const DashboardSidebar = ({
   onNavigate,
   onLogout,
   verification,
+  sidebarOpen,
+  setSidebarOpen
 }) => {
   const [isMobile, setIsMobile] = useState(false);
-  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     const handleResize = () => {
-      const mobile = window.innerWidth < 768;
+      const mobile = window.innerWidth < 1024;
       setIsMobile(mobile);
-      if (!mobile) setOpen(false); // Close mobile menu on desktop
+      // Auto-close sidebar on mobile when resizing to desktop
+      if (!mobile && sidebarOpen) {
+        setSidebarOpen(false);
+      }
     };
     
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, [sidebarOpen, setSidebarOpen]);
 
   const brandTitle = variant === 'landlord' ? 'TaHanap Landlord' : 'TaHanap Tenant';
 
@@ -37,14 +41,39 @@ const DashboardSidebar = ({
   const handleLinkClick = (to, locked) => {
     if (!locked && onNavigate) {
       onNavigate(to);
-      setOpen(false);
+      // Close sidebar on mobile after navigation
+      if (isMobile) {
+        setSidebarOpen(false);
+      }
     }
+  };
+
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);
   };
 
   return (
     <>
-      {/* DESKTOP SIDEBAR - Only shows on desktop */}
-      <div className={`desktop-sidebar ${isMobile ? 'hidden' : ''}`}>
+      {/* BURGER TOGGLE - Shows on both mobile and desktop */}
+      <button 
+        className={`burger-toggle ${sidebarOpen ? 'open' : ''} ${isMobile ? 'mobile' : 'desktop'}`}
+        onClick={toggleSidebar}
+      >
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+
+      {/* OVERLAY - Shows when sidebar is open on mobile */}
+      {isMobile && sidebarOpen && (
+        <div 
+          className="sidebar-overlay"
+          onClick={() => setSidebarOpen(false)}
+        ></div>
+      )}
+
+      {/* SIDEBAR - Works for both mobile and desktop */}
+      <div className={`sidebar ${sidebarOpen ? 'open' : ''} ${isMobile ? 'mobile' : 'desktop'}`}>
         <div className="sidebar-header">
           <h2>{brandTitle}</h2>
           {verification && <div className="verification-pill">{statusPill}</div>}
@@ -67,46 +96,6 @@ const DashboardSidebar = ({
           Logout
         </button>
       </div>
-
-      {/* MOBILE HEADER - Only shows on mobile */}
-      {isMobile && (
-        <div className="mobile-header">
-          <div className="mobile-header-content">
-            <h3>{brandTitle}</h3>
-            {verification && <div className="verification-pill">{statusPill}</div>}
-            <button 
-              className="menu-toggle"
-              onClick={() => setOpen(!open)}
-            >
-              {open ? '✕' : '☰'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* MOBILE MENU - Only shows on mobile when open */}
-      {isMobile && open && (
-        <div className="mobile-menu">
-          <div className="mobile-menu-content">
-            {links.map(link => (
-              <div
-                key={link.key}
-                className={`mobile-nav-item ${link.active ? 'active' : ''} ${link.locked ? 'locked' : ''}`}
-                onClick={() => handleLinkClick(link.to, link.locked)}
-              >
-                <span>{link.label}</span>
-                {link.locked && <span className="lock">🔒</span>}
-              </div>
-            ))}
-            <button className="mobile-logout-btn" onClick={onLogout}>
-              Logout
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* SPACER - Only for mobile to push content below header */}
-      {isMobile && <div className="mobile-header-spacer"></div>}
     </>
   );
 };
