@@ -1,6 +1,5 @@
-/* Dashboard Container */
-.dashboard-container {
-  display: flex;
+/* Rental Requests Container */
+.rental-requests-container {
   min-height: 100vh;
   width: 100%;
   background: linear-gradient(120deg, rgba(59,130,246,0.04), rgba(99,102,241,0.03));
@@ -8,19 +7,12 @@
   padding: 0;
 }
 
-/* Main Content */
-.main-content {
-  flex: 1;
-  padding: 2rem;
-  box-sizing: border-box;
-  min-height: 100vh;
-  margin-left: 0;
-}
-
-.rental-requests {
+.rental-requests-content {
   max-width: 1200px;
   margin: 0 auto;
+  padding: 2rem;
   width: 100%;
+  box-sizing: border-box;
 }
 
 /* Back Button */
@@ -48,7 +40,7 @@
 }
 
 /* Headers */
-.rental-requests h2 {
+.rental-requests-content h2 {
   font-size: 2.2rem;
   margin-bottom: 2rem;
   font-weight: 800;
@@ -60,7 +52,7 @@
   text-align: center;
 }
 
-.rental-requests h3 {
+.rental-requests-content h3 {
   font-size: 1.5rem;
   margin: 0 0 1.5rem 0;
   color: #374151;
@@ -296,11 +288,11 @@
 
 /* Tablet */
 @media (max-width: 1024px) {
-  .main-content {
+  .rental-requests-content {
     padding: 1.5rem;
   }
 
-  .rental-requests h2 {
+  .rental-requests-content h2 {
     font-size: 2rem;
   }
 
@@ -315,23 +307,17 @@
 
 /* Mobile */
 @media (max-width: 768px) {
-  .dashboard-container {
-    flex-direction: column;
-  }
-
-  .main-content {
+  .rental-requests-content {
     padding: 1rem;
-    margin-left: 0;
-    margin-top: 0;
   }
 
-  .rental-requests h2 {
+  .rental-requests-content h2 {
     font-size: 1.8rem;
     text-align: left;
     margin-bottom: 1.5rem;
   }
 
-  .rental-requests h3 {
+  .rental-requests-content h3 {
     font-size: 1.3rem;
   }
 
@@ -391,15 +377,15 @@
 
 /* Small Mobile */
 @media (max-width: 480px) {
-  .main-content {
+  .rental-requests-content {
     padding: 0.75rem;
   }
 
-  .rental-requests h2 {
+  .rental-requests-content h2 {
     font-size: 1.6rem;
   }
 
-  .rental-requests h3 {
+  .rental-requests-content h3 {
     font-size: 1.2rem;
   }
 
@@ -437,9 +423,8 @@
 }
 
 /* Ensure no horizontal overflow */
-.dashboard-container,
-.main-content,
-.rental-requests {
+.rental-requests-container,
+.rental-requests-content {
   overflow-x: hidden;
 }
 

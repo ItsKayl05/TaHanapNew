@@ -6,7 +6,6 @@ import { normalizePayload, buildApi } from '../../../services/apiConfig';
 import { toast } from 'react-toastify';
 import { FaUserCircle, FaCheckCircle, FaTimesCircle, FaClock, FaArrowLeft } from 'react-icons/fa';
 
-
 const RentalRequests = () => {
   const { propertyId } = useParams();
   const [apps, setApps] = useState([]);
@@ -62,9 +61,8 @@ const RentalRequests = () => {
   const safeRejected = Array.isArray(apps) ? apps.filter(a => (a.status || '').toLowerCase() === 'rejected') : [];
 
   return (
-    <div className="dashboard-container">
-      <LandlordSidebar />
-      <div className="main-content rental-requests">
+    <div className="rental-requests-container">
+      <div className="rental-requests-content">
         <button 
           className="back-btn" 
           onClick={() => window.history.back()}
