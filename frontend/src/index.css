@@ -36,10 +36,11 @@ html {
     display: block;
 }
 
-/* Prefer an aspect-ratio so the container scales predictably; fallback to fixed heights via media queries. */
+/* Prefer an aspect-ratio so the container scales predictably; allow media queries to override when not fullscreen/fallback. */
 .photo-dome-container {
     aspect-ratio: 16 / 9;
     min-height: 220px; /* avoid collapsing too small on very narrow screens */
+    height: auto; /* prefer aspect-ratio unless overridden by media queries */
 }
 
 @media (max-width: 768px) {
@@ -50,16 +51,9 @@ html {
     }
 }
 
-/* Smaller devices get a shorter but still usable viewer height */
-@media (max-width: 1024px) {
-    .photo-dome-container { height: 360px; }
-}
-@media (max-width: 720px) {
-    .photo-dome-container { height: 300px; }
-}
-@media (max-width: 420px) {
-    .photo-dome-container { height: 260px; }
-}
+/* Note: Avoid forcing fixed heights on the photo-dome container via media queries.
+   We rely on aspect-ratio + min-height to keep a predictable size across viewports
+   and let the parent layout or explicit wrappers control the final size. */
 
 /* Fullscreen mobile optimizations */
 .photo-dome-container:fullscreen {
@@ -125,8 +119,9 @@ body:-ms-fullscreen .photo-dome-container {
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
+    /* Use svh when available to avoid mobile browser chrome resize issues */
     width: 100vw !important;
-    height: 100vh !important;
+    height: 100svh !important;
     z-index: 99999 !important;
     border-radius: 0 !important;
     background: #000 !important;
@@ -135,7 +130,20 @@ body:-ms-fullscreen .photo-dome-container {
 /* Prevent body scroll while in the fallback fullscreen mode */
 .no-scroll {
     overflow: hidden !important;
-    height: 100vh !important;
+    height: 100svh !important;
+}
+
+/* Ensure the canvas inside the fallback fullscreen uses the full viewport size */
+.photo-dome-fullscreen-fallback canvas {
+    width: 100% !important;
+    height: 100% !important;
+    display: block !important;
+}
+
+/* Additional helpers to force canvas to fill real viewport in some browsers */
+.photo-dome-fullscreen-fallback, .photo-dome-container:fullscreen {
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0); /* promote layer to fix rendering glitches */
 }
 
 :root {

@@ -115,13 +115,7 @@ const PropertyDetailPage = () => {
                     {property.panorama360 && (
                         <div className="panorama-section" style={{marginBottom:'2rem'}}>
                             <h3 className="section-title white">360° Panoramic View</h3>
-                            <div style={{
-                                width: '100%',
-                                height: '400px',
-                                borderRadius: '16px',
-                                overflow: 'hidden',
-                                boxShadow: '0 8px 32px rgba(0,0,0,0.3)'
-                            }}>
+                            <div style={{ width: '100%', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
                                 <PhotoDomeViewer 
                                     imageUrl={property.panorama360} 
                                     mode="MONOSCOPIC"
