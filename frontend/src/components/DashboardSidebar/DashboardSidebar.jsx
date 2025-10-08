@@ -102,6 +102,22 @@ const DashboardSidebar = ({
       >      
         <div className="sidebar-header">
           <h2 className="brand">{brandTitle}</h2>
+          
+          {/* Mobile Hamburger Toggle - MOVED INSIDE HEADER */}
+          {isMobile && (
+            <button 
+              className={`mobile-toggle ${mobileMenuOpen ? 'open' : ''}`} 
+              onClick={() => setMobileMenuOpen(o => !o)} 
+              aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'} 
+              aria-expanded={mobileMenuOpen} 
+              type="button"
+            >
+              <span className="hamburger-line"></span>
+              <span className="hamburger-line"></span>
+              <span className="hamburger-line"></span>
+            </button>
+          )}
+
           {verification && !isMobile && (
             <div className="verification-pill">
               {statusPill}
@@ -134,21 +150,6 @@ const DashboardSidebar = ({
             <li onClick={handleLogout} className="logout">Logout</li>
           </ul>
         </div>
-
-        {/* Mobile Hamburger Toggle */}
-        {isMobile && (
-          <button 
-            className={`mobile-toggle ${mobileMenuOpen ? 'open' : ''}`} 
-            onClick={() => setMobileMenuOpen(o => !o)} 
-            aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'} 
-            aria-expanded={mobileMenuOpen} 
-            type="button"
-          >
-            <span className="hamburger-line"></span>
-            <span className="hamburger-line"></span>
-            <span className="hamburger-line"></span>
-          </button>
-        )}
       </div>
     </>
   );
