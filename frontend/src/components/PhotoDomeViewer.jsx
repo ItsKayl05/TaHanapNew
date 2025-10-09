@@ -17,37 +17,39 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
     const scene = new BABYLON.Scene(engine);
     sceneRef.current = scene;
 
-    // Camera with proper configuration for full panoramic view
+    // Create camera with proper configuration for full panoramic view
     const camera = new BABYLON.ArcRotateCamera(
       "camera",
-      -Math.PI / 2,  // Start from front view
-      Math.PI / 2,   // Horizontal view
-      1,             // Reduced distance for better immersion
+      -Math.PI / 2,     // Alpha - start facing forward
+      Math.PI / 2,      // Beta - horizontal view
+      1,                // Radius - distance from center
       BABYLON.Vector3.Zero(),
       scene
     );
     
-    // Camera settings for full panoramic experience
-    camera.lowerBetaLimit = 0.01;    // Reduced to allow more vertical view
-    camera.upperBetaLimit = Math.PI - 0.01;
-    camera.lowerRadiusLimit = 0.1;   // Allows closer view
-    camera.upperRadiusLimit = 2;     // Limits zoom out to prevent black spaces
-    camera.wheelPrecision = 100;     // Smoother zooming
-    camera.panningSensibility = 100;  // Smoother panning
+    // Camera settings optimized for full panoramic coverage
+    camera.minZ = 0.1;
+    camera.fov = 1.2;                    // Wider field of view
+    camera.lowerBetaLimit = 0.1;         // Prevent looking straight up/down
+    camera.upperBetaLimit = Math.PI - 0.1;
+    camera.lowerRadiusLimit = 0.1;       // Prevent zooming too close
+    camera.upperRadiusLimit = 5;         // Allow some zoom out
+    camera.wheelPrecision = 80;          // Smoother zoom
+    camera.panningSensibility = 1000;    // Smoother panning
     
     camera.attachControl(canvasRef.current, true);
 
-    // Light
+    // Add ambient light
     new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
 
-    // PhotoDome with optimized settings
+    // Create PhotoDome with optimized settings for full coverage
     const dome = new BABYLON.PhotoDome(
       "property-dome",
       imageUrl,
       { 
-        resolution: 32,        // Higher resolution for better image quality
-        size: 500,            // Adjusted size for better viewing
-        useDirectMapping: true // Enable direct mapping for better texture display
+        resolution: 96,           // Higher resolution for better quality
+        size: 1000,              // Large size to ensure full coverage
+        useDirectMapping: false,  // Use spherical mapping for 360 images
       },
       scene
     );
@@ -64,8 +66,14 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
         dome.imageMode = BABYLON.PhotoDome.MODE_MONOSCOPIC;
     }
 
-    // Optimize FOV for full view
-    dome.fovMultiplier = 0.8;
+    // CRITICAL FIX: Adjust the FOV multiplier to show the entire image
+    dome.fovMultiplier = 1.0;  // Changed from 0.8 to 1.0 for full coverage
+
+    // Additional optimization: Ensure the dome material renders properly
+    if (dome.material) {
+      dome.material.sideOrientation = BABYLON.Material.ClockWiseSideOrientation;
+      dome.material.backFaceCulling = false;
+    }
 
     // Handle window resize
     const handleResize = () => {
@@ -73,7 +81,11 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
     };
 
     window.addEventListener("resize", handleResize);
-    engine.runRenderLoop(() => scene.render());
+    
+    // Run the render loop
+    engine.runRenderLoop(() => {
+      scene.render();
+    });
 
     return () => {
       window.removeEventListener("resize", handleResize);
@@ -127,7 +139,6 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
       setIsFullscreen(!!document.fullscreenElement);
     };
 
-    // Standard events
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
     document.addEventListener('msfullscreenchange', handleFullscreenChange);
@@ -142,7 +153,6 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
   // Handle orientation change for mobile
   useEffect(() => {
     const handleOrientationChange = () => {
-      // Re-render on orientation change
       if (engineRef.current) {
         setTimeout(() => {
           engineRef.current.resize();
@@ -183,11 +193,11 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
           display: 'block',
           background: '#000',
           outline: 'none',
-          touchAction: 'none' // Important for mobile touch controls
+          touchAction: 'none'
         }}
       />
       
-      {/* Enhanced Expand Button - Mobile Friendly */}
+      {/* Enhanced Expand Button */}
       <button
         onClick={handleFullscreen}
         style={{
@@ -199,14 +209,14 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
           color: '#fff',
           border: 'none',
           borderRadius: '8px',
-          padding: isMobile() ? '12px 16px' : '8px 16px', // Larger touch target on mobile
+          padding: isMobile() ? '12px 16px' : '8px 16px',
           fontSize: isMobile() ? '16px' : '14px',
           fontWeight: '600',
           cursor: 'pointer',
           backdropFilter: 'blur(10px)',
           transition: 'all 0.2s ease',
           boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-          minWidth: isMobile() ? '60px' : 'auto', // Better touch target
+          minWidth: isMobile() ? '60px' : 'auto',
           minHeight: isMobile() ? '44px' : 'auto'
         }}
         onMouseOver={(e) => {
@@ -222,7 +232,6 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
           }
         }}
         onTouchStart={(e) => {
-          // Visual feedback for mobile touch
           e.target.style.background = 'rgba(15, 23, 42, 0.95)';
         }}
         onTouchEnd={(e) => {
