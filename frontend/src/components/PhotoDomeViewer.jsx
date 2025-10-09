@@ -9,51 +9,43 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
   const sceneRef = useRef(null);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
 
-  useEffect(() => {
-    console.log('🚀 [4] useEffect started');
-    
-    if (!canvasRef.current) {
-      console.error('❌ [5] Canvas ref is null');
-      return;
-    }
-    
-    if (!imageUrl) {
-      console.error('❌ [6] No image URL provided');
-      return;
-    }
+  // Mobile detection with better accuracy
+  const isMobile = () => {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+           window.innerWidth <= 768;
+  };
 
-    console.log('📐 [7] Container size:', containerRef.current?.getBoundingClientRect());
-    console.log('🎨 [8] Canvas size:', canvasRef.current.getBoundingClientRect());
+  useEffect(() => {
+    if (!canvasRef.current || !imageUrl) return;
 
     // Declare event handlers at the top level of useEffect
     const handleResize = () => {
-      console.log('📱 [19] Window resized, resizing engine');
       if (engineRef.current) {
         engineRef.current.resize();
       }
     };
 
     const handleFullscreenChange = () => {
-      const fullscreen = !!document.fullscreenElement;
-      console.log('🖥️ [20] Fullscreen changed:', fullscreen);
+      const fullscreen = !!document.fullscreenElement || 
+                        !!document.webkitFullscreenElement ||
+                        !!document.mozFullScreenElement ||
+                        !!document.msFullscreenElement;
       setIsFullscreen(fullscreen);
+      
       // Resize engine when fullscreen changes
       setTimeout(() => {
-        console.log('📐 [21] Resizing engine after fullscreen change');
         if (engineRef.current) {
           engineRef.current.resize();
         }
-      }, 100);
+      }, 300);
     };
 
     try {
-      console.log('⚙️ [9] Creating Babylon engine...');
       const engine = new BABYLON.Engine(canvasRef.current, true);
       engineRef.current = engine;
       const scene = new BABYLON.Scene(engine);
       sceneRef.current = scene;
 
-      console.log('📷 [10] Creating camera...');
       // Camera with proper configuration for full panoramic view
       const camera = new BABYLON.ArcRotateCamera(
         "camera",
@@ -64,48 +56,34 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
         scene
       );
       
-      // Camera settings optimized for full panoramic coverage
+      // Camera settings optimized for mobile
       camera.minZ = 0.1;
-      camera.fov = 1.2;                    // Wider field of view
-      camera.lowerBetaLimit = 0.1;         // Prevent looking straight up/down
+      camera.fov = 1.2;
+      camera.lowerBetaLimit = 0.1;
       camera.upperBetaLimit = Math.PI - 0.1;
-      camera.lowerRadiusLimit = 0.5;       // Prevent zooming too close
-      camera.upperRadiusLimit = 10;        // Allow some zoom out
-      camera.wheelPrecision = 100;         // Smoother zoom
-      camera.panningSensibility = 2000;    // Smoother panning
+      camera.lowerRadiusLimit = 0.5;
+      camera.upperRadiusLimit = 10;
+      camera.wheelPrecision = isMobile() ? 150 : 100; // Smoother on mobile
+      camera.panningSensibility = isMobile() ? 3000 : 2000; // Better touch control
       
       camera.attachControl(canvasRef.current, true);
 
-      console.log('💡 [11] Adding light...');
       // Add ambient light
       new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
 
-      console.log('🌐 [12] Creating PhotoDome...');
-      // Create PhotoDome with optimized settings for full coverage
+      // Create PhotoDome with optimized settings
       const dome = new BABYLON.PhotoDome(
         "property-dome",
         imageUrl,
         { 
-          resolution: 96,           // Higher resolution for better quality
-          size: 1000,              // Large size to ensure full coverage
-          useDirectMapping: false,  // Use spherical mapping for 360 images
+          resolution: isMobile() ? 64 : 96, // Lower on mobile for performance
+          size: 1000,
+          useDirectMapping: false,
         },
         scene
       );
 
-      // Add dome event listeners for debugging
-      dome.onLoadError = (errorMsg) => {
-        console.error('❌ [13] PhotoDome load error:', errorMsg);
-      };
-
-      dome.onLoadObservable.add(() => {
-        console.log('✅ [14] PhotoDome loaded successfully!');
-        console.log('📏 [15] Dome fovMultiplier:', dome.fovMultiplier);
-        console.log('🔄 [16] Dome imageMode:', dome.imageMode);
-      });
-
       // Set image mode
-      console.log('🎭 [17] Setting image mode:', mode);
       switch (mode) {
         case "SIDEBYSIDE":
           dome.imageMode = BABYLON.PhotoDome.MODE_SIDEBYSIDE;
@@ -117,115 +95,194 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
           dome.imageMode = BABYLON.PhotoDome.MODE_MONOSCOPIC;
       }
 
-      // CRITICAL FIX: Show full image
-      console.log('🎛️ [18] Setting fovMultiplier to 1.0');
+      // Show full image
       dome.fovMultiplier = 1.0;
 
       // Add event listeners
       window.addEventListener("resize", handleResize);
       document.addEventListener('fullscreenchange', handleFullscreenChange);
       document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
-      document.addEventListener('msfullscreenchange', handleFullscreenChange);
+      document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+      document.addEventListener('MSFullscreenChange', handleFullscreenChange);
 
-      console.log('🔄 [22] Starting render loop...');
+      // Mobile-specific event listeners
+      if (isMobile()) {
+        document.addEventListener('touchstart', handleTouchPrevent, { passive: false });
+      }
+
       engine.runRenderLoop(() => {
         scene.render();
       });
 
-      console.log('✅ [23] PhotoDomeViewer setup complete');
-
     } catch (error) {
-      console.error('💥 [24] Setup error:', error);
+      console.error('PhotoDomeViewer setup error:', error);
     }
 
     return () => {
-      console.log('🧹 [25] Cleaning up PhotoDomeViewer...');
-      
       // Remove event listeners
       window.removeEventListener("resize", handleResize);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
       document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
-      document.removeEventListener('msfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+      
+      if (isMobile()) {
+        document.removeEventListener('touchstart', handleTouchPrevent);
+      }
       
       // Cleanup Babylon.js resources
       if (sceneRef.current) {
-        console.log('🗑️ [26] Disposing scene');
         sceneRef.current.dispose();
       }
       if (engineRef.current) {
-        console.log('🗑️ [27] Disposing engine');
         engineRef.current.dispose();
       }
       
-      // Clear refs
       engineRef.current = null;
       sceneRef.current = null;
     };
   }, [imageUrl, mode]);
 
-  // Enhanced mobile-friendly fullscreen
-  const handleExpand = async () => {
-    console.log('📱 [28] Expand button clicked, isFullscreen:', isFullscreen);
-    
-    if (!containerRef.current) {
-      console.error('❌ [29] Container ref is null');
-      return;
+  // Prevent default touch behavior that interferes with fullscreen
+  const handleTouchPrevent = (e) => {
+    if (e.target.tagName === 'CANVAS') {
+      e.preventDefault();
     }
+  };
+
+  // Enhanced mobile-friendly fullscreen with better error handling
+  const handleExpand = async () => {
+    if (!containerRef.current) return;
+
+    const element = containerRef.current;
 
     try {
-      if (document.fullscreenElement) {
-        console.log('🚪 [30] Exiting fullscreen...');
+      if (isFullscreen) {
+        // Exit fullscreen
         if (document.exitFullscreen) {
           await document.exitFullscreen();
         } else if (document.webkitExitFullscreen) {
           await document.webkitExitFullscreen();
+        } else if (document.mozCancelFullScreen) {
+          await document.mozCancelFullScreen();
         } else if (document.msExitFullscreen) {
           await document.msExitFullscreen();
         }
       } else {
-        console.log('🔄 [31] Entering fullscreen...');
-        const element = containerRef.current;
-        if (element.requestFullscreen) {
-          await element.requestFullscreen();
-        } else if (element.webkitRequestFullscreen) {
-          await element.webkitRequestFullscreen();
-        } else if (element.msRequestFullscreen) {
-          await element.msRequestFullscreen();
-        } else if (element.webkitEnterFullscreen) { // iOS Safari
-          element.webkitEnterFullscreen();
+        // Enter fullscreen - try all methods for maximum compatibility
+        const requestFullscreen = 
+          element.requestFullscreen ||
+          element.webkitRequestFullscreen ||
+          element.mozRequestFullScreen ||
+          element.msRequestFullscreen;
+
+        if (requestFullscreen) {
+          // For iOS Safari, we need to handle this differently
+          if (isMobile() && /iPhone|iPad|iPod/.test(navigator.userAgent)) {
+            // iOS specific fullscreen handling
+            const videoElement = document.createElement('video');
+            videoElement.style.display = 'none';
+            document.body.appendChild(videoElement);
+            
+            try {
+              await videoElement.requestFullscreen();
+            } catch (iosError) {
+              // Fallback for iOS
+              element.style.position = 'fixed';
+              element.style.top = '0';
+              element.style.left = '0';
+              element.style.width = '100vw';
+              element.style.height = '100vh';
+              element.style.zIndex = '9999';
+              setIsFullscreen(true);
+            } finally {
+              document.body.removeChild(videoElement);
+            }
+          } else {
+            await requestFullscreen.call(element);
+          }
+        } else {
+          // Fallback for browsers that don't support fullscreen API
+          element.style.position = 'fixed';
+          element.style.top = '0';
+          element.style.left = '0';
+          element.style.width = '100vw';
+          element.style.height = '100vh';
+          element.style.zIndex = '9999';
+          setIsFullscreen(true);
         }
       }
-      console.log('✅ [32] Fullscreen operation completed');
     } catch (err) {
-      console.error('❌ [33] Fullscreen error:', err);
-      // Fallback for browsers that don't support fullscreen API
-      setIsFullscreen(!isFullscreen);
+      console.log('Fullscreen error:', err);
+      // Enhanced fallback for mobile
+      if (isMobile()) {
+        const element = containerRef.current;
+        if (!isFullscreen) {
+          // Enter custom fullscreen
+          element.style.position = 'fixed';
+          element.style.top = '0';
+          element.style.left = '0';
+          element.style.width = '100vw';
+          element.style.height = '100vh';
+          element.style.zIndex = '9999';
+          element.style.background = '#000';
+          setIsFullscreen(true);
+          
+          // Add close button for custom fullscreen
+          const closeBtn = document.createElement('button');
+          closeBtn.innerHTML = '✕';
+          closeBtn.style.position = 'absolute';
+          closeBtn.style.top = '20px';
+          closeBtn.style.right = '20px';
+          closeBtn.style.zIndex = '10000';
+          closeBtn.style.background = 'rgba(0,0,0,0.7)';
+          closeBtn.style.color = 'white';
+          closeBtn.style.border = 'none';
+          closeBtn.style.borderRadius = '50%';
+          closeBtn.style.width = '44px';
+          closeBtn.style.height = '44px';
+          closeBtn.style.fontSize = '20px';
+          closeBtn.style.cursor = 'pointer';
+          closeBtn.onclick = () => {
+            element.style.position = '';
+            element.style.top = '';
+            element.style.left = '';
+            element.style.width = '';
+            element.style.height = '';
+            element.style.zIndex = '';
+            element.style.background = '';
+            closeBtn.remove();
+            setIsFullscreen(false);
+          };
+          element.appendChild(closeBtn);
+        } else {
+          // Exit custom fullscreen
+          element.style.position = '';
+          element.style.top = '';
+          element.style.left = '';
+          element.style.width = '';
+          element.style.height = '';
+          element.style.zIndex = '';
+          element.style.background = '';
+          setIsFullscreen(false);
+        }
+      }
     }
-  };
-
-  // Mobile detection
-  const isMobile = () => {
-    const mobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    return mobile;
   };
 
   // Handle orientation change for mobile
   useEffect(() => {
     const handleOrientationChange = () => {
-      console.log('🔄 [35] Orientation changed');
       if (engineRef.current) {
         setTimeout(() => {
-          console.log('📐 [36] Resizing engine after orientation change');
           engineRef.current.resize();
-        }, 300);
+        }, 500);
       }
     };
 
-    console.log('🎯 [37] Adding orientation change listener');
     window.addEventListener('orientationchange', handleOrientationChange);
     
     return () => {
-      console.log('🧹 [38] Removing orientation change listener');
       window.removeEventListener('orientationchange', handleOrientationChange);
     };
   }, []);
@@ -252,71 +309,64 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
           display: 'block',
           background: '#000',
           outline: 'none',
-          touchAction: 'none'
+          touchAction: isMobile() ? 'pan-x pan-y' : 'none'
         }}
       />
       
-      {/* Mobile-optimized Expand Button */}
+      {/* Enhanced Expand Button for Mobile */}
       <button
         onClick={handleExpand}
         style={{
           position: 'absolute',
-          top: '12px',
-          right: '12px',
+          top: isMobile() ? '16px' : '12px',
+          right: isMobile() ? '16px' : '12px',
           zIndex: 1000,
-          background: 'rgba(30, 41, 59, 0.9)',
+          background: 'rgba(30, 41, 59, 0.95)',
           color: '#fff',
           border: 'none',
-          borderRadius: '8px',
-          padding: isMobile() ? '12px 16px' : '8px 16px',
-          fontSize: isMobile() ? '16px' : '14px',
+          borderRadius: isMobile() ? '12px' : '8px',
+          padding: isMobile() ? '14px 18px' : '8px 16px',
+          fontSize: isMobile() ? '18px' : '14px',
           fontWeight: '600',
           cursor: 'pointer',
           backdropFilter: 'blur(10px)',
           transition: 'all 0.2s ease',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-          minWidth: isMobile() ? '60px' : 'auto',
-          minHeight: isMobile() ? '44px' : 'auto'
-        }}
-        onMouseOver={(e) => {
-          if (!isMobile()) {
-            e.target.style.background = 'rgba(15, 23, 42, 0.95)';
-            e.target.style.transform = 'scale(1.05)';
-          }
-        }}
-        onMouseOut={(e) => {
-          if (!isMobile()) {
-            e.target.style.background = 'rgba(30, 41, 59, 0.9)';
-            e.target.style.transform = 'scale(1)';
-          }
+          boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+          minWidth: isMobile() ? '70px' : 'auto',
+          minHeight: isMobile() ? '50px' : 'auto',
+          WebkitTapHighlightColor: 'transparent',
+          userSelect: 'none'
         }}
         onTouchStart={(e) => {
-          e.target.style.background = 'rgba(15, 23, 42, 0.95)';
+          e.currentTarget.style.background = 'rgba(15, 23, 42, 0.95)';
+          e.currentTarget.style.transform = 'scale(0.95)';
         }}
         onTouchEnd={(e) => {
-          e.target.style.background = 'rgba(30, 41, 59, 0.9)';
+          e.currentTarget.style.background = 'rgba(30, 41, 59, 0.95)';
+          e.currentTarget.style.transform = 'scale(1)';
         }}
         aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
       >
-        {isFullscreen ? 'Close' : 'Expand'}
+        {isFullscreen ? (isMobile() ? 'Close' : 'Close') : (isMobile() ? 'Full' : 'Expand')}
       </button>
 
-      {/* Mobile Instructions */}
+      {/* Enhanced Mobile Instructions */}
       {isMobile() && !isFullscreen && (
         <div style={{
           position: 'absolute',
-          bottom: '12px',
-          left: '12px',
-          right: '12px',
-          background: 'rgba(0, 0, 0, 0.7)',
+          bottom: '16px',
+          left: '16px',
+          right: '16px',
+          background: 'rgba(0, 0, 0, 0.8)',
           color: '#fff',
-          padding: '8px 12px',
-          borderRadius: '6px',
-          fontSize: '12px',
+          padding: '12px 16px',
+          borderRadius: '12px',
+          fontSize: '14px',
           textAlign: 'center',
-          backdropFilter: 'blur(10px)'
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(255,255,255,0.1)'
         }}>
-          👆 Drag to look around • Tap Expand for fullscreen
+          👆 Drag to look around • Tap <strong>Full</strong> for fullscreen
         </div>
       )}
     </div>
