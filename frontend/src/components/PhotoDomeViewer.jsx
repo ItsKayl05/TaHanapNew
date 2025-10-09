@@ -17,12 +17,12 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
     const scene = new BABYLON.Scene(engine);
     sceneRef.current = scene;
 
-    // Create camera with proper configuration for full panoramic view
+    // Camera with proper configuration for full panoramic view
     const camera = new BABYLON.ArcRotateCamera(
       "camera",
       -Math.PI / 2,     // Alpha - start facing forward
       Math.PI / 2,      // Beta - horizontal view
-      1,                // Radius - distance from center
+      2.5,              // Radius - natural distance
       BABYLON.Vector3.Zero(),
       scene
     );
@@ -32,10 +32,10 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
     camera.fov = 1.2;                    // Wider field of view
     camera.lowerBetaLimit = 0.1;         // Prevent looking straight up/down
     camera.upperBetaLimit = Math.PI - 0.1;
-    camera.lowerRadiusLimit = 0.1;       // Prevent zooming too close
-    camera.upperRadiusLimit = 5;         // Allow some zoom out
-    camera.wheelPrecision = 80;          // Smoother zoom
-    camera.panningSensibility = 1000;    // Smoother panning
+    camera.lowerRadiusLimit = 0.5;       // Prevent zooming too close
+    camera.upperRadiusLimit = 10;        // Allow some zoom out
+    camera.wheelPrecision = 100;         // Smoother zoom
+    camera.panningSensibility = 2000;    // Smoother panning
     
     camera.attachControl(canvasRef.current, true);
 
@@ -66,29 +66,36 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
         dome.imageMode = BABYLON.PhotoDome.MODE_MONOSCOPIC;
     }
 
-    // CRITICAL FIX: Adjust the FOV multiplier to show the entire image
-    dome.fovMultiplier = 1.0;  // Changed from 0.8 to 1.0 for full coverage
-
-    // Additional optimization: Ensure the dome material renders properly
-    if (dome.material) {
-      dome.material.sideOrientation = BABYLON.Material.ClockWiseSideOrientation;
-      dome.material.backFaceCulling = false;
-    }
+    // CRITICAL FIX: Show full image
+    dome.fovMultiplier = 1.0;
 
     // Handle window resize
     const handleResize = () => {
       engine.resize();
     };
 
+    // Listen for fullscreen changes
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+      // Resize engine when fullscreen changes
+      setTimeout(() => {
+        engine.resize();
+      }, 100);
+    };
+
     window.addEventListener("resize", handleResize);
-    
-    // Run the render loop
-    engine.runRenderLoop(() => {
-      scene.render();
-    });
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('msfullscreenchange', handleFullscreenChange);
+
+    engine.runRenderLoop(() => scene.render());
 
     return () => {
       window.removeEventListener("resize", handleResize);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('msfullscreenchange', handleFullscreenChange);
+      
       if (sceneRef.current) {
         sceneRef.current.dispose();
       }
@@ -98,8 +105,8 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
     };
   }, [imageUrl, mode]);
 
-  // Enhanced fullscreen functionality for mobile
-  const handleFullscreen = async () => {
+  // Enhanced mobile-friendly fullscreen
+  const handleExpand = async () => {
     if (!containerRef.current) return;
 
     try {
@@ -115,7 +122,6 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
       } else {
         // Enter fullscreen
         const element = containerRef.current;
-        
         if (element.requestFullscreen) {
           await element.requestFullscreen();
         } else if (element.webkitRequestFullscreen) {
@@ -127,28 +133,16 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
         }
       }
     } catch (err) {
-      console.log(`Fullscreen error: ${err.message}`);
-      // Fallback: Toggle mobile-friendly fullscreen mode
+      console.log('Fullscreen error:', err);
+      // Fallback for browsers that don't support fullscreen API
       setIsFullscreen(!isFullscreen);
     }
   };
 
-  // Listen for fullscreen changes
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
-    document.addEventListener('msfullscreenchange', handleFullscreenChange);
-
-    return () => {
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
-      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
-      document.removeEventListener('msfullscreenchange', handleFullscreenChange);
-    };
-  }, []);
+  // Mobile detection
+  const isMobile = () => {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  };
 
   // Handle orientation change for mobile
   useEffect(() => {
@@ -165,11 +159,6 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
       window.removeEventListener('orientationchange', handleOrientationChange);
     };
   }, []);
-
-  // Mobile detection
-  const isMobile = () => {
-    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  };
 
   return (
     <div 
@@ -197,9 +186,9 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
         }}
       />
       
-      {/* Enhanced Expand Button */}
+      {/* Mobile-optimized Expand Button */}
       <button
-        onClick={handleFullscreen}
+        onClick={handleExpand}
         style={{
           position: 'absolute',
           top: '12px',
@@ -238,9 +227,8 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
           e.target.style.background = 'rgba(30, 41, 59, 0.9)';
         }}
         aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-        className="expand-button"
       >
-        {isFullscreen ? 'Exit' : 'Expand'}
+        {isFullscreen ? 'Close' : 'Expand'}
       </button>
 
       {/* Mobile Instructions */}
