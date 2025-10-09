@@ -48,24 +48,29 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
       const scene = new BABYLON.Scene(engine);
       sceneRef.current = scene;
 
-      // Create camera
+      // Create camera with better rotation settings
       const camera = new BABYLON.ArcRotateCamera(
         "camera",
-        -Math.PI / 2,
-        Math.PI / 2,
+        -Math.PI / 2,  // Start facing forward
+        Math.PI / 2,   // Horizontal view
         2.5,
         BABYLON.Vector3.Zero(),
         scene
       );
       
+      // Optimized camera settings for smooth 360 rotation
       camera.minZ = 0.1;
       camera.fov = 1.2;
-      camera.lowerBetaLimit = 0.1;
-      camera.upperBetaLimit = Math.PI - 0.1;
+      camera.lowerBetaLimit = 0.01;        // Allow looking almost straight up/down
+      camera.upperBetaLimit = Math.PI - 0.01; // Allow looking almost straight down
+      camera.lowerAlphaLimit = null;       // Remove horizontal limits for full 360
+      camera.upperAlphaLimit = null;       // Remove horizontal limits for full 360
       camera.lowerRadiusLimit = 0.5;
       camera.upperRadiusLimit = 10;
       camera.wheelPrecision = 30;
-      camera.panningSensibility = 1500;
+      camera.panningSensibility = isMobile() ? 1000 : 800; // Smoother panning
+      camera.angularSensibilityX = isMobile() ? 2000 : 1500; // Better horizontal rotation
+      camera.angularSensibilityY = isMobile() ? 2000 : 1500; // Better vertical rotation
       
       camera.attachControl(canvasRef.current, true);
       cameraRef.current = camera;
@@ -482,7 +487,7 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
         {isFullscreen ? (isMobile() ? 'Close' : 'Close') : (isMobile() ? 'Full' : 'Expand')}
       </button>
 
-      {/* Mobile Instructions */}
+      {/* Mobile Instructions - UPDATED (removed pinch to zoom) */}
       {isMobile() && !isFullscreen && (
         <div style={{
           position: 'absolute',
