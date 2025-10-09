@@ -8,9 +8,12 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
   const engineRef = useRef(null);
   const sceneRef = useRef(null);
   const closeBtnRef = useRef(null);
+  const cameraRef = useRef(null);
+  const domeRef = useRef(null);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
+  const [fovLevel, setFovLevel] = React.useState(1.0); // 1.0 = normal, lower = zoom in
 
-  // Mobile detection with better accuracy
+  // Mobile detection
   const isMobile = () => {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
            window.innerWidth <= 768;
@@ -19,7 +22,6 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
   useEffect(() => {
     if (!canvasRef.current || !imageUrl) return;
 
-    // Declare event handlers at the top level of useEffect
     const handleResize = () => {
       if (engineRef.current) {
         engineRef.current.resize();
@@ -33,7 +35,6 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
                         !!document.msFullscreenElement;
       setIsFullscreen(fullscreen);
       
-      // Resize engine when fullscreen changes
       setTimeout(() => {
         if (engineRef.current) {
           engineRef.current.resize();
@@ -47,32 +48,32 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
       const scene = new BABYLON.Scene(engine);
       sceneRef.current = scene;
 
-      // Camera with proper configuration for full panoramic view
+      // Create camera
       const camera = new BABYLON.ArcRotateCamera(
         "camera",
-        -Math.PI / 2,     // Alpha - start facing forward
-        Math.PI / 2,      // Beta - horizontal view
-        2.5,              // Radius - natural distance
+        -Math.PI / 2,
+        Math.PI / 2,
+        2.5,
         BABYLON.Vector3.Zero(),
         scene
       );
       
-      // Camera settings optimized for mobile
       camera.minZ = 0.1;
       camera.fov = 1.2;
       camera.lowerBetaLimit = 0.1;
       camera.upperBetaLimit = Math.PI - 0.1;
       camera.lowerRadiusLimit = 0.5;
       camera.upperRadiusLimit = 10;
-      camera.wheelPrecision = isMobile() ? 150 : 100;
-      camera.panningSensibility = isMobile() ? 3000 : 2000;
+      camera.wheelPrecision = isMobile() ? 50 : 30;
+      camera.panningSensibility = isMobile() ? 2000 : 1500;
       
       camera.attachControl(canvasRef.current, true);
+      cameraRef.current = camera;
 
       // Add ambient light
       new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
 
-      // Create PhotoDome with optimized settings
+      // Create PhotoDome
       const dome = new BABYLON.PhotoDome(
         "property-dome",
         imageUrl,
@@ -83,6 +84,8 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
         },
         scene
       );
+
+      domeRef.current = dome;
 
       // Set image mode
       switch (mode) {
@@ -96,8 +99,36 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
           dome.imageMode = BABYLON.PhotoDome.MODE_MONOSCOPIC;
       }
 
-      // Show full image
-      dome.fovMultiplier = 1.0;
+      // Initial FOV
+      dome.fovMultiplier = fovLevel;
+
+      // ZOOM FUNCTIONALITY: Mouse wheel for PC
+      scene.onPointerObservable.add((pointerInfo) => {
+        if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERWHEEL) {
+          handleZoom(pointerInfo.event.deltaY);
+        }
+      });
+
+      // ZOOM FUNCTIONALITY: Pinch to zoom for mobile
+      let initialDistance = 0;
+      scene.onPointerObservable.add((pointerInfo) => {
+        if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERDOWN && pointerInfo.event.pointerType === "touch") {
+          if (pointerInfo.event.pointerId === 0) {
+            initialDistance = 0;
+          }
+        }
+
+        if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERMOVE && pointerInfo.event.pointerType === "touch") {
+          if (pointerInfo.event.pointerId === 1 && initialDistance > 0) {
+            const currentDistance = pointerInfo.event.spacing;
+            const delta = currentDistance - initialDistance;
+            handlePinchZoom(delta);
+            initialDistance = currentDistance;
+          } else if (pointerInfo.event.pointerId === 0) {
+            initialDistance = pointerInfo.event.spacing;
+          }
+        }
+      });
 
       // Add event listeners
       window.addEventListener("resize", handleResize);
@@ -115,14 +146,12 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
     }
 
     return () => {
-      // Remove event listeners
       window.removeEventListener("resize", handleResize);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
       document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
       document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
       document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
       
-      // Cleanup Babylon.js resources
       if (sceneRef.current) {
         sceneRef.current.dispose();
       }
@@ -132,10 +161,63 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
       
       engineRef.current = null;
       sceneRef.current = null;
+      cameraRef.current = null;
+      domeRef.current = null;
     };
   }, [imageUrl, mode]);
 
-  // Enhanced mobile-friendly fullscreen with better close button handling
+  // ZOOM FUNCTIONS
+  const handleZoom = (deltaY) => {
+    if (!domeRef.current) return;
+
+    const zoomSensitivity = 0.001;
+    const newFov = fovLevel - (deltaY * zoomSensitivity);
+    
+    // Clamp FOV between 0.3 (max zoom in) and 2.0 (max zoom out)
+    const clampedFov = Math.max(0.3, Math.min(2.0, newFov));
+    
+    setFovLevel(clampedFov);
+    domeRef.current.fovMultiplier = clampedFov;
+  };
+
+  const handlePinchZoom = (delta) => {
+    if (!domeRef.current) return;
+
+    const pinchSensitivity = 0.01;
+    const newFov = fovLevel - (delta * pinchSensitivity);
+    
+    // Clamp FOV between 0.3 (max zoom in) and 2.0 (max zoom out)
+    const clampedFov = Math.max(0.3, Math.min(2.0, newFov));
+    
+    setFovLevel(clampedFov);
+    domeRef.current.fovMultiplier = clampedFov;
+  };
+
+  // Manual zoom controls
+  const zoomIn = () => {
+    if (!domeRef.current) return;
+    
+    const newFov = Math.max(0.3, fovLevel - 0.2);
+    setFovLevel(newFov);
+    domeRef.current.fovMultiplier = newFov;
+  };
+
+  const zoomOut = () => {
+    if (!domeRef.current) return;
+    
+    const newFov = Math.min(2.0, fovLevel + 0.2);
+    setFovLevel(newFov);
+    domeRef.current.fovMultiplier = newFov;
+  };
+
+  const resetZoom = () => {
+    if (!domeRef.current) return;
+    
+    setFovLevel(1.0);
+    domeRef.current.fovMultiplier = 1.0;
+  };
+
+  // Enhanced mobile-friendly fullscreen
   const handleExpand = async () => {
     if (!containerRef.current) return;
 
@@ -143,15 +225,12 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
 
     try {
       if (isFullscreen) {
-        // Exit fullscreen
         await exitFullscreen();
       } else {
-        // Enter fullscreen
         await enterFullscreen(element);
       }
     } catch (err) {
       console.log('Fullscreen error:', err);
-      // Fallback for mobile
       handleMobileFallbackFullscreen();
     }
   };
@@ -188,7 +267,6 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
     if (!element) return;
 
     if (!isFullscreen) {
-      // Enter custom fullscreen
       element.style.position = 'fixed';
       element.style.top = '0';
       element.style.left = '0';
@@ -198,20 +276,18 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
       element.style.background = '#000';
       setIsFullscreen(true);
       
-      // Remove any existing close button first
       const existingCloseBtn = element.querySelector('.custom-close-btn');
       if (existingCloseBtn) {
         existingCloseBtn.remove();
       }
       
-      // Add close button for custom fullscreen - FIXED VERSION
       const closeBtn = document.createElement('button');
       closeBtn.className = 'custom-close-btn';
       closeBtn.innerHTML = '✕';
-      closeBtn.style.position = 'fixed'; // Changed to fixed
+      closeBtn.style.position = 'fixed';
       closeBtn.style.top = '20px';
       closeBtn.style.right = '20px';
-      closeBtn.style.zIndex = '10001'; // Higher z-index
+      closeBtn.style.zIndex = '10001';
       closeBtn.style.background = 'rgba(0,0,0,0.8)';
       closeBtn.style.color = 'white';
       closeBtn.style.border = '2px solid rgba(255,255,255,0.5)';
@@ -227,13 +303,9 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
       closeBtn.style.userSelect = 'none';
       closeBtn.style.pointerEvents = 'auto';
       
-      // Add to body instead of container to avoid z-index issues
       document.body.appendChild(closeBtn);
-      
-      // Store reference for cleanup
       closeBtnRef.current = closeBtn;
       
-      // Enhanced click handler
       const handleClose = () => {
         element.style.position = '';
         element.style.top = '';
@@ -249,24 +321,12 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
         }
         
         setIsFullscreen(false);
-        
-        // Remove event listeners
         closeBtn.removeEventListener('click', handleClose);
-        document.removeEventListener('touchstart', handleOutsideTouch);
-      };
-      
-      const handleOutsideTouch = (e) => {
-        // Close when tapping outside (optional)
-        if (!element.contains(e.target) && !closeBtn.contains(e.target)) {
-          handleClose();
-        }
       };
       
       closeBtn.addEventListener('click', handleClose, { once: true });
-      document.addEventListener('touchstart', handleOutsideTouch, { once: true });
       
     } else {
-      // Exit custom fullscreen
       element.style.position = '';
       element.style.top = '';
       element.style.left = '';
@@ -338,7 +398,85 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
         }}
       />
       
-      {/* Enhanced Expand Button for Mobile */}
+      {/* Zoom Controls */}
+      <div style={{
+        position: 'absolute',
+        bottom: isMobile() ? '80px' : '20px',
+        right: isMobile() ? '20px' : '20px',
+        zIndex: 1000,
+        display: 'flex',
+        flexDirection: isMobile() ? 'column' : 'row',
+        gap: '8px',
+        background: 'rgba(0,0,0,0.7)',
+        padding: isMobile() ? '12px' : '8px',
+        borderRadius: '12px',
+        backdropFilter: 'blur(10px)'
+      }}>
+        <button
+          onClick={zoomIn}
+          style={{
+            background: 'rgba(30, 41, 59, 0.9)',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '8px',
+            padding: isMobile() ? '12px' : '8px',
+            fontSize: isMobile() ? '18px' : '14px',
+            cursor: 'pointer',
+            minWidth: isMobile() ? '50px' : '40px',
+            minHeight: isMobile() ? '50px' : '40px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+          aria-label="Zoom In"
+        >
+          +
+        </button>
+        
+        <button
+          onClick={resetZoom}
+          style={{
+            background: 'rgba(59, 130, 246, 0.9)',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '8px',
+            padding: isMobile() ? '12px' : '8px',
+            fontSize: isMobile() ? '14px' : '12px',
+            cursor: 'pointer',
+            minWidth: isMobile() ? '50px' : '40px',
+            minHeight: isMobile() ? '50px' : '40px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+          aria-label="Reset Zoom"
+        >
+          {Math.round(fovLevel * 100)}%
+        </button>
+        
+        <button
+          onClick={zoomOut}
+          style={{
+            background: 'rgba(30, 41, 59, 0.9)',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '8px',
+            padding: isMobile() ? '12px' : '8px',
+            fontSize: isMobile() ? '18px' : '14px',
+            cursor: 'pointer',
+            minWidth: isMobile() ? '50px' : '40px',
+            minHeight: isMobile() ? '50px' : '40px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+          aria-label="Zoom Out"
+        >
+          −
+        </button>
+      </div>
+
+      {/* Expand Button */}
       <button
         onClick={handleExpand}
         style={{
@@ -376,7 +514,7 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
         {isFullscreen ? (isMobile() ? 'Close' : 'Close') : (isMobile() ? 'Full' : 'Expand')}
       </button>
 
-      {/* Enhanced Mobile Instructions */}
+      {/* Mobile Instructions */}
       {isMobile() && !isFullscreen && (
         <div style={{
           position: 'absolute',
@@ -393,7 +531,7 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
           border: '1px solid rgba(255,255,255,0.1)',
           pointerEvents: 'none'
         }}>
-          👆 Drag to look around • Tap <strong>Full</strong> for fullscreen
+          👆 Drag to look around • Pinch to zoom • Tap <strong>Full</strong> for fullscreen
         </div>
       )}
     </div>
