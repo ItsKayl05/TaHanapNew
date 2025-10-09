@@ -7,6 +7,7 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
   const containerRef = useRef(null);
   const engineRef = useRef(null);
   const sceneRef = useRef(null);
+  const closeBtnRef = useRef(null);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
 
   // Mobile detection with better accuracy
@@ -63,8 +64,8 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
       camera.upperBetaLimit = Math.PI - 0.1;
       camera.lowerRadiusLimit = 0.5;
       camera.upperRadiusLimit = 10;
-      camera.wheelPrecision = isMobile() ? 150 : 100; // Smoother on mobile
-      camera.panningSensibility = isMobile() ? 3000 : 2000; // Better touch control
+      camera.wheelPrecision = isMobile() ? 150 : 100;
+      camera.panningSensibility = isMobile() ? 3000 : 2000;
       
       camera.attachControl(canvasRef.current, true);
 
@@ -76,7 +77,7 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
         "property-dome",
         imageUrl,
         { 
-          resolution: isMobile() ? 64 : 96, // Lower on mobile for performance
+          resolution: isMobile() ? 64 : 96,
           size: 1000,
           useDirectMapping: false,
         },
@@ -105,11 +106,6 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
       document.addEventListener('mozfullscreenchange', handleFullscreenChange);
       document.addEventListener('MSFullscreenChange', handleFullscreenChange);
 
-      // Mobile-specific event listeners
-      if (isMobile()) {
-        document.addEventListener('touchstart', handleTouchPrevent, { passive: false });
-      }
-
       engine.runRenderLoop(() => {
         scene.render();
       });
@@ -126,10 +122,6 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
       document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
       document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
       
-      if (isMobile()) {
-        document.removeEventListener('touchstart', handleTouchPrevent);
-      }
-      
       // Cleanup Babylon.js resources
       if (sceneRef.current) {
         sceneRef.current.dispose();
@@ -143,14 +135,7 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
     };
   }, [imageUrl, mode]);
 
-  // Prevent default touch behavior that interferes with fullscreen
-  const handleTouchPrevent = (e) => {
-    if (e.target.tagName === 'CANVAS') {
-      e.preventDefault();
-    }
-  };
-
-  // Enhanced mobile-friendly fullscreen with better error handling
+  // Enhanced mobile-friendly fullscreen with better close button handling
   const handleExpand = async () => {
     if (!containerRef.current) return;
 
@@ -159,116 +144,155 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
     try {
       if (isFullscreen) {
         // Exit fullscreen
-        if (document.exitFullscreen) {
-          await document.exitFullscreen();
-        } else if (document.webkitExitFullscreen) {
-          await document.webkitExitFullscreen();
-        } else if (document.mozCancelFullScreen) {
-          await document.mozCancelFullScreen();
-        } else if (document.msExitFullscreen) {
-          await document.msExitFullscreen();
-        }
+        await exitFullscreen();
       } else {
-        // Enter fullscreen - try all methods for maximum compatibility
-        const requestFullscreen = 
-          element.requestFullscreen ||
-          element.webkitRequestFullscreen ||
-          element.mozRequestFullScreen ||
-          element.msRequestFullscreen;
-
-        if (requestFullscreen) {
-          // For iOS Safari, we need to handle this differently
-          if (isMobile() && /iPhone|iPad|iPod/.test(navigator.userAgent)) {
-            // iOS specific fullscreen handling
-            const videoElement = document.createElement('video');
-            videoElement.style.display = 'none';
-            document.body.appendChild(videoElement);
-            
-            try {
-              await videoElement.requestFullscreen();
-            } catch (iosError) {
-              // Fallback for iOS
-              element.style.position = 'fixed';
-              element.style.top = '0';
-              element.style.left = '0';
-              element.style.width = '100vw';
-              element.style.height = '100vh';
-              element.style.zIndex = '9999';
-              setIsFullscreen(true);
-            } finally {
-              document.body.removeChild(videoElement);
-            }
-          } else {
-            await requestFullscreen.call(element);
-          }
-        } else {
-          // Fallback for browsers that don't support fullscreen API
-          element.style.position = 'fixed';
-          element.style.top = '0';
-          element.style.left = '0';
-          element.style.width = '100vw';
-          element.style.height = '100vh';
-          element.style.zIndex = '9999';
-          setIsFullscreen(true);
-        }
+        // Enter fullscreen
+        await enterFullscreen(element);
       }
     } catch (err) {
       console.log('Fullscreen error:', err);
-      // Enhanced fallback for mobile
-      if (isMobile()) {
-        const element = containerRef.current;
-        if (!isFullscreen) {
-          // Enter custom fullscreen
-          element.style.position = 'fixed';
-          element.style.top = '0';
-          element.style.left = '0';
-          element.style.width = '100vw';
-          element.style.height = '100vh';
-          element.style.zIndex = '9999';
-          element.style.background = '#000';
-          setIsFullscreen(true);
-          
-          // Add close button for custom fullscreen
-          const closeBtn = document.createElement('button');
-          closeBtn.innerHTML = '✕';
-          closeBtn.style.position = 'absolute';
-          closeBtn.style.top = '20px';
-          closeBtn.style.right = '20px';
-          closeBtn.style.zIndex = '10000';
-          closeBtn.style.background = 'rgba(0,0,0,0.7)';
-          closeBtn.style.color = 'white';
-          closeBtn.style.border = 'none';
-          closeBtn.style.borderRadius = '50%';
-          closeBtn.style.width = '44px';
-          closeBtn.style.height = '44px';
-          closeBtn.style.fontSize = '20px';
-          closeBtn.style.cursor = 'pointer';
-          closeBtn.onclick = () => {
-            element.style.position = '';
-            element.style.top = '';
-            element.style.left = '';
-            element.style.width = '';
-            element.style.height = '';
-            element.style.zIndex = '';
-            element.style.background = '';
-            closeBtn.remove();
-            setIsFullscreen(false);
-          };
-          element.appendChild(closeBtn);
-        } else {
-          // Exit custom fullscreen
-          element.style.position = '';
-          element.style.top = '';
-          element.style.left = '';
-          element.style.width = '';
-          element.style.height = '';
-          element.style.zIndex = '';
-          element.style.background = '';
-          setIsFullscreen(false);
-        }
-      }
+      // Fallback for mobile
+      handleMobileFallbackFullscreen();
     }
   };
+
+  const exitFullscreen = async () => {
+    if (document.exitFullscreen) {
+      await document.exitFullscreen();
+    } else if (document.webkitExitFullscreen) {
+      await document.webkitExitFullscreen();
+    } else if (document.mozCancelFullScreen) {
+      await document.mozCancelFullScreen();
+    } else if (document.msExitFullscreen) {
+      await document.msExitFullscreen();
+    }
+    setIsFullscreen(false);
+  };
+
+  const enterFullscreen = async (element) => {
+    const requestFullscreen = 
+      element.requestFullscreen ||
+      element.webkitRequestFullscreen ||
+      element.mozRequestFullScreen ||
+      element.msRequestFullscreen;
+
+    if (requestFullscreen) {
+      await requestFullscreen.call(element);
+    } else {
+      throw new Error('Fullscreen not supported');
+    }
+  };
+
+  const handleMobileFallbackFullscreen = () => {
+    const element = containerRef.current;
+    if (!element) return;
+
+    if (!isFullscreen) {
+      // Enter custom fullscreen
+      element.style.position = 'fixed';
+      element.style.top = '0';
+      element.style.left = '0';
+      element.style.width = '100vw';
+      element.style.height = '100vh';
+      element.style.zIndex = '9999';
+      element.style.background = '#000';
+      setIsFullscreen(true);
+      
+      // Remove any existing close button first
+      const existingCloseBtn = element.querySelector('.custom-close-btn');
+      if (existingCloseBtn) {
+        existingCloseBtn.remove();
+      }
+      
+      // Add close button for custom fullscreen - FIXED VERSION
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'custom-close-btn';
+      closeBtn.innerHTML = '✕';
+      closeBtn.style.position = 'fixed'; // Changed to fixed
+      closeBtn.style.top = '20px';
+      closeBtn.style.right = '20px';
+      closeBtn.style.zIndex = '10001'; // Higher z-index
+      closeBtn.style.background = 'rgba(0,0,0,0.8)';
+      closeBtn.style.color = 'white';
+      closeBtn.style.border = '2px solid rgba(255,255,255,0.5)';
+      closeBtn.style.borderRadius = '50%';
+      closeBtn.style.width = '50px';
+      closeBtn.style.height = '50px';
+      closeBtn.style.fontSize = '24px';
+      closeBtn.style.cursor = 'pointer';
+      closeBtn.style.display = 'flex';
+      closeBtn.style.alignItems = 'center';
+      closeBtn.style.justifyContent = 'center';
+      closeBtn.style.WebkitTapHighlightColor = 'transparent';
+      closeBtn.style.userSelect = 'none';
+      closeBtn.style.pointerEvents = 'auto';
+      
+      // Add to body instead of container to avoid z-index issues
+      document.body.appendChild(closeBtn);
+      
+      // Store reference for cleanup
+      closeBtnRef.current = closeBtn;
+      
+      // Enhanced click handler
+      const handleClose = () => {
+        element.style.position = '';
+        element.style.top = '';
+        element.style.left = '';
+        element.style.width = '';
+        element.style.height = '';
+        element.style.zIndex = '';
+        element.style.background = '';
+        
+        if (closeBtnRef.current) {
+          closeBtnRef.current.remove();
+          closeBtnRef.current = null;
+        }
+        
+        setIsFullscreen(false);
+        
+        // Remove event listeners
+        closeBtn.removeEventListener('click', handleClose);
+        document.removeEventListener('touchstart', handleOutsideTouch);
+      };
+      
+      const handleOutsideTouch = (e) => {
+        // Close when tapping outside (optional)
+        if (!element.contains(e.target) && !closeBtn.contains(e.target)) {
+          handleClose();
+        }
+      };
+      
+      closeBtn.addEventListener('click', handleClose, { once: true });
+      document.addEventListener('touchstart', handleOutsideTouch, { once: true });
+      
+    } else {
+      // Exit custom fullscreen
+      element.style.position = '';
+      element.style.top = '';
+      element.style.left = '';
+      element.style.width = '';
+      element.style.height = '';
+      element.style.zIndex = '';
+      element.style.background = '';
+      
+      if (closeBtnRef.current) {
+        closeBtnRef.current.remove();
+        closeBtnRef.current = null;
+      }
+      
+      setIsFullscreen(false);
+    }
+  };
+
+  // Cleanup close button on unmount
+  useEffect(() => {
+    return () => {
+      if (closeBtnRef.current) {
+        closeBtnRef.current.remove();
+        closeBtnRef.current = null;
+      }
+    };
+  }, []);
 
   // Handle orientation change for mobile
   useEffect(() => {
@@ -309,7 +333,8 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
           display: 'block',
           background: '#000',
           outline: 'none',
-          touchAction: isMobile() ? 'pan-x pan-y' : 'none'
+          touchAction: isMobile() ? 'pan-x pan-y' : 'none',
+          pointerEvents: 'auto'
         }}
       />
       
@@ -335,7 +360,8 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
           minWidth: isMobile() ? '70px' : 'auto',
           minHeight: isMobile() ? '50px' : 'auto',
           WebkitTapHighlightColor: 'transparent',
-          userSelect: 'none'
+          userSelect: 'none',
+          pointerEvents: 'auto'
         }}
         onTouchStart={(e) => {
           e.currentTarget.style.background = 'rgba(15, 23, 42, 0.95)';
@@ -364,7 +390,8 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
           fontSize: '14px',
           textAlign: 'center',
           backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(255,255,255,0.1)'
+          border: '1px solid rgba(255,255,255,0.1)',
+          pointerEvents: 'none'
         }}>
           👆 Drag to look around • Tap <strong>Full</strong> for fullscreen
         </div>
