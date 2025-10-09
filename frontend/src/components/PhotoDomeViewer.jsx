@@ -9,11 +9,6 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
   const sceneRef = useRef(null);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
 
-  // Debug: Component lifecycle
-  console.log('🔧 [1] PhotoDomeViewer rendering...');
-  console.log('🖼️ [2] Image URL:', imageUrl);
-  console.log('🎯 [3] Mode:', mode);
-
   useEffect(() => {
     console.log('🚀 [4] useEffect started');
     
@@ -29,6 +24,27 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
 
     console.log('📐 [7] Container size:', containerRef.current?.getBoundingClientRect());
     console.log('🎨 [8] Canvas size:', canvasRef.current.getBoundingClientRect());
+
+    // Declare event handlers at the top level of useEffect
+    const handleResize = () => {
+      console.log('📱 [19] Window resized, resizing engine');
+      if (engineRef.current) {
+        engineRef.current.resize();
+      }
+    };
+
+    const handleFullscreenChange = () => {
+      const fullscreen = !!document.fullscreenElement;
+      console.log('🖥️ [20] Fullscreen changed:', fullscreen);
+      setIsFullscreen(fullscreen);
+      // Resize engine when fullscreen changes
+      setTimeout(() => {
+        console.log('📐 [21] Resizing engine after fullscreen change');
+        if (engineRef.current) {
+          engineRef.current.resize();
+        }
+      }, 100);
+    };
 
     try {
       console.log('⚙️ [9] Creating Babylon engine...');
@@ -105,24 +121,7 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
       console.log('🎛️ [18] Setting fovMultiplier to 1.0');
       dome.fovMultiplier = 1.0;
 
-      // Handle window resize
-      const handleResize = () => {
-        console.log('📱 [19] Window resized, resizing engine');
-        engine.resize();
-      };
-
-      // Listen for fullscreen changes
-      const handleFullscreenChange = () => {
-        const fullscreen = !!document.fullscreenElement;
-        console.log('🖥️ [20] Fullscreen changed:', fullscreen);
-        setIsFullscreen(fullscreen);
-        // Resize engine when fullscreen changes
-        setTimeout(() => {
-          console.log('📐 [21] Resizing engine after fullscreen change');
-          engine.resize();
-        }, 100);
-      };
-
+      // Add event listeners
       window.addEventListener("resize", handleResize);
       document.addEventListener('fullscreenchange', handleFullscreenChange);
       document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
@@ -141,11 +140,14 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
 
     return () => {
       console.log('🧹 [25] Cleaning up PhotoDomeViewer...');
+      
+      // Remove event listeners
       window.removeEventListener("resize", handleResize);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
       document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
       document.removeEventListener('msfullscreenchange', handleFullscreenChange);
       
+      // Cleanup Babylon.js resources
       if (sceneRef.current) {
         console.log('🗑️ [26] Disposing scene');
         sceneRef.current.dispose();
@@ -154,6 +156,10 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
         console.log('🗑️ [27] Disposing engine');
         engineRef.current.dispose();
       }
+      
+      // Clear refs
+      engineRef.current = null;
+      sceneRef.current = null;
     };
   }, [imageUrl, mode]);
 
@@ -200,7 +206,6 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
   // Mobile detection
   const isMobile = () => {
     const mobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    console.log('📱 [34] Mobile detection:', mobile);
     return mobile;
   };
 
@@ -218,13 +223,12 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
 
     console.log('🎯 [37] Adding orientation change listener');
     window.addEventListener('orientationchange', handleOrientationChange);
+    
     return () => {
       console.log('🧹 [38] Removing orientation change listener');
       window.removeEventListener('orientationchange', handleOrientationChange);
     };
   }, []);
-
-  console.log('🎨 [39] Rendering JSX, isFullscreen:', isFullscreen);
 
   return (
     <div 
