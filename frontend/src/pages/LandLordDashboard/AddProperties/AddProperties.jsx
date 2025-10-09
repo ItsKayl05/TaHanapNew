@@ -203,6 +203,10 @@ const AddProperties = () => {
       else if (k==='video') { if (v) formData.append('video', v); }
       else formData.append(k,v);
     });
+    // Add panorama if exists
+    if (panorama) {
+      formData.append('panorama360', panorama);
+    }
     try {
       const res = await fetch(buildApi('/properties/add'), { method:'POST', headers:{ Authorization:`Bearer ${token}` }, body:formData });
       const data = await res.json().catch(()=>({}));
@@ -376,13 +380,15 @@ const AddProperties = () => {
                 </div>
               </div>
 
-              {/* 360° Panoramic Image Section */}
+              {/* 360° Panoramic Image Section - FIXED */}
               <div className="panorama-section" style={{marginTop:'32px'}}>
                 <h3 className="section-title">360° Panoramic Image</h3>
                 <p className="field-hint">Optional: Add a panoramic 360° image (JPG/PNG/WebP, max 10MB, equirectangular projection).</p>
                 {panoramaPreview ? (
                   <div style={{marginBottom:'12px'}}>
-                    <PhotoDomeViewer imageUrl={panoramaPreview} mode="MONOSCOPIC" />
+                    <div className="panorama-preview-container">
+                      <PhotoDomeViewer imageUrl={panoramaPreview} mode="MONOSCOPIC" />
+                    </div>
                     <div style={{marginTop:'8px', display:'flex', gap:'8px'}}>
                       <button type="button" className="ll-btn tiny danger" onClick={removePanorama}>Remove</button>
                     </div>

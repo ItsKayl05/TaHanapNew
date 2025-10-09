@@ -1,38 +1,4 @@
-/* 360° Panoramic Section Design */
-.panorama-section {
-    border-top: 1px solid var(--color-border);
-    padding-top: 1.4rem;
-    margin-bottom: 1.5rem;
-}
-.panorama-section .section-title {
-    display: flex;
-    align-items: center;
-    gap: 0.5em;
-    font-size: 1.08rem;
-    color: #0a2540;
-}
-.panorama-section .field-hint {
-    color: #64748b;
-    font-size: 0.93em;
-    margin-bottom: 0.7em;
-}
-.panorama-section canvas {
-    box-shadow: 0 4px 18px -6px rgba(0,0,0,.13);
-    border: 1.5px solid #e0e7ef;
-    background: #f8fafc;
-    margin-bottom: 0.5em;
-    max-height: 180px;
-}
-.panorama-section .ll-btn.tiny {
-    font-size: 0.85em;
-    padding: 0.45rem 0.9rem 0.4rem;
-}
-.panorama-section .ll-btn.tiny.danger {
-    background: #dc2626;
-}
-.panorama-section .ll-btn.tiny.danger:hover {
-    filter: brightness(1.1);
-}
+/* AddProperties.css - UPDATED */
 
 /* Modern Add Property Styling leveraging landlord theme */
 .add-property-container { 
@@ -267,6 +233,47 @@
 
 .form-row .form-section {
     flex: 1;
+}
+
+/* 360° Panoramic Section Design - UPDATED */
+.panorama-section {
+    border-top: 1px solid var(--color-border);
+    padding-top: 1.4rem;
+    margin-bottom: 1.5rem;
+}
+.panorama-section .section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    font-size: 1.08rem;
+    color: #0a2540;
+}
+.panorama-section .field-hint {
+    color: #64748b;
+    font-size: 0.93em;
+    margin-bottom: 0.7em;
+}
+
+/* Panorama Preview Container - NEW */
+.panorama-preview-container {
+    width: 100%;
+    height: 300px;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    margin-bottom: 12px;
+    background: #000;
+}
+
+.panorama-section .ll-btn.tiny {
+    font-size: 0.85em;
+    padding: 0.45rem 0.9rem 0.4rem;
+}
+.panorama-section .ll-btn.tiny.danger {
+    background: #dc2626;
+}
+.panorama-section .ll-btn.tiny.danger:hover {
+    filter: brightness(1.1);
 }
 
 /* Form Elements */
@@ -758,8 +765,9 @@
         width: 100%;
     }
     
-    .panorama-section canvas {
-        max-height: 150px;
+    /* Mobile panorama adjustments */
+    .panorama-preview-container {
+        height: 250px;
     }
 }
 
@@ -805,6 +813,11 @@
     .map-preview-section > div {
         height: 200px !important;
     }
+    
+    /* Small mobile panorama */
+    .panorama-preview-container {
+        height: 200px;
+    }
 }
 
 /* Additional mobile tweaks for very small screens */
@@ -834,6 +847,10 @@
     .map-preview-section > div[style], 
     .map-preview-section > div {
         height: 180px !important;
+    }
+    
+    .panorama-preview-container {
+        height: 180px;
     }
 }
 

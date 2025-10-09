@@ -398,13 +398,7 @@ const EditProperty = () => {
                             <p className="field-hint">Optional: Add a panoramic 360° image (JPG/PNG/WebP, max 10MB, equirectangular projection).</p>
                             {(panoramaPreview || existingPanorama) ? (
                                 <div style={{marginBottom:'12px'}}>
-                                    <div style={{
-                                        width: '100%',
-                                        height: '400px',
-                                        borderRadius: '12px',
-                                        overflow: 'hidden',
-                                        boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
-                                    }}>
+                                    <div className="panorama-preview-container">
                                         <PhotoDomeViewer 
                                             imageUrl={panoramaPreview || existingPanorama} 
                                             mode="MONOSCOPIC"
