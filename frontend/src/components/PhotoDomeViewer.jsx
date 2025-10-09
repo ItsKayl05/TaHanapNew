@@ -12,7 +12,6 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
   const domeRef = useRef(null);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
   const [fovLevel, setFovLevel] = React.useState(1.0);
-  const [showZoomIndicator, setShowZoomIndicator] = React.useState(false);
 
   // Mobile detection
   const isMobile = () => {
@@ -65,8 +64,8 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
       camera.upperBetaLimit = Math.PI - 0.1;
       camera.lowerRadiusLimit = 0.5;
       camera.upperRadiusLimit = 10;
-      camera.wheelPrecision = isMobile() ? 50 : 30;
-      camera.panningSensibility = isMobile() ? 2000 : 1500;
+      camera.wheelPrecision = 30;
+      camera.panningSensibility = 1500;
       
       camera.attachControl(canvasRef.current, true);
       cameraRef.current = camera;
@@ -112,53 +111,6 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
         });
       }
 
-      // PINCH TO ZOOM for mobile (hidden but functional)
-      let initialDistance = 0;
-      let isPinching = false;
-
-      scene.onPointerObservable.add((pointerInfo) => {
-        if (isMobile()) {
-          if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERDOWN && pointerInfo.event.pointerType === "touch") {
-            if (pointerInfo.event.pointerId === 0) {
-              initialDistance = 0;
-              isPinching = false;
-            }
-          }
-
-          if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERMOVE && pointerInfo.event.pointerType === "touch") {
-            const touches = pointerInfo.event.activeTouches;
-            
-            if (touches.length === 2) {
-              // Two fingers detected - pinch gesture
-              const touch1 = touches[0];
-              const touch2 = touches[1];
-              
-              const currentDistance = Math.sqrt(
-                Math.pow(touch2.clientX - touch1.clientX, 2) + 
-                Math.pow(touch2.clientY - touch1.clientY, 2)
-              );
-
-              if (!isPinching) {
-                initialDistance = currentDistance;
-                isPinching = true;
-                setShowZoomIndicator(true);
-              } else {
-                const delta = currentDistance - initialDistance;
-                handlePinchZoom(delta);
-                initialDistance = currentDistance;
-              }
-            } else {
-              isPinching = false;
-            }
-          }
-
-          if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERUP && pointerInfo.event.pointerType === "touch") {
-            // Hide zoom indicator after pinch ends
-            setTimeout(() => setShowZoomIndicator(false), 1000);
-          }
-        }
-      });
-
       // Add event listeners
       window.addEventListener("resize", handleResize);
       document.addEventListener('fullscreenchange', handleFullscreenChange);
@@ -195,7 +147,7 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
     };
   }, [imageUrl, mode]);
 
-  // ZOOM FUNCTIONS
+  // ZOOM FUNCTIONS - PC ONLY
   const handleZoom = (deltaY) => {
     if (!domeRef.current) return;
 
@@ -208,19 +160,6 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
     domeRef.current.fovMultiplier = clampedFov;
   };
 
-  const handlePinchZoom = (delta) => {
-    if (!domeRef.current) return;
-
-    const pinchSensitivity = 0.005; // Adjusted for mobile
-    const newFov = fovLevel - (delta * pinchSensitivity);
-    
-    const clampedFov = Math.max(0.3, Math.min(2.0, newFov));
-    
-    setFovLevel(clampedFov);
-    domeRef.current.fovMultiplier = clampedFov;
-  };
-
-  // Manual zoom controls (PC ONLY)
   const zoomIn = () => {
     if (!domeRef.current || isMobile()) return;
     
@@ -242,7 +181,6 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
     
     setFovLevel(1.0);
     domeRef.current.fovMultiplier = 1.0;
-    setShowZoomIndicator(false);
   };
 
   // Enhanced mobile-friendly fullscreen
@@ -506,27 +444,6 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
         </div>
       )}
 
-      {/* Mobile Zoom Indicator (Temporary) */}
-      {isMobile() && showZoomIndicator && (
-        <div style={{
-          position: 'absolute',
-          top: '20px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 1000,
-          background: 'rgba(0,0,0,0.8)',
-          color: '#fff',
-          padding: '8px 16px',
-          borderRadius: '20px',
-          fontSize: '14px',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(255,255,255,0.2)',
-          pointerEvents: 'none'
-        }}>
-          Zoom: {Math.round(fovLevel * 100)}%
-        </div>
-      )}
-
       {/* Expand Button */}
       <button
         onClick={handleExpand}
@@ -582,7 +499,7 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
           border: '1px solid rgba(255,255,255,0.1)',
           pointerEvents: 'none'
         }}>
-          👆 Drag to look around • 🤏 Pinch to zoom • Tap <strong>Full</strong> for fullscreen
+          👆 Drag to look around • Tap <strong>Full</strong> for fullscreen
         </div>
       )}
     </div>
