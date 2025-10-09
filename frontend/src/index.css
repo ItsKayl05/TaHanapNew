@@ -21,51 +21,12 @@ html {
     user-select: none;
 }
 
-/* Ensure the photo dome container keeps a usable aspect ratio and scales on different screens */
-.photo-dome-container {
-    display: block;
-    width: 100%;
-    /* default height for desktop */
-    height: 400px;
-    max-height: 75vh;
-}
-
-.photo-dome-container canvas {
-    width: 100% !important;
-    height: 100% !important;
-    display: block;
-}
-
-/* Prefer an aspect-ratio so the container scales predictably; allow media queries to override when not fullscreen/fallback. */
-.photo-dome-container {
-    aspect-ratio: 16 / 9;
-    min-height: 220px; /* avoid collapsing too small on very narrow screens */
-    height: auto; /* prefer aspect-ratio unless overridden by media queries */
-}
-
 @media (max-width: 768px) {
     .expand-button {
         min-width: 60px !important;
         min-height: 44px !important;
         font-size: 16px !important;
     }
-}
-
-/* Note: Avoid forcing fixed heights on the photo-dome container via media queries.
-   We rely on aspect-ratio + min-height to keep a predictable size across viewports
-   and let the parent layout or explicit wrappers control the final size. */
-
-/* Reintroduce conservative heights for the non-fullscreen photo-dome container
-   so mobile layout matches the previous design. These apply only when the
-   container is not in fullscreen or the fullscreen fallback mode. */
-@media (max-width: 1024px) {
-    .photo-dome-container:not(.photo-dome-fullscreen-fallback):not(:fullscreen) { height: 360px; }
-}
-@media (max-width: 720px) {
-    .photo-dome-container:not(.photo-dome-fullscreen-fallback):not(:fullscreen) { height: 300px; }
-}
-@media (max-width: 420px) {
-    .photo-dome-container:not(.photo-dome-fullscreen-fallback):not(:fullscreen) { height: 260px; }
 }
 
 /* Fullscreen mobile optimizations */
@@ -125,38 +86,6 @@ body:-ms-fullscreen .photo-dome-container {
     background:#0f172a;
     background-image: radial-gradient(circle at 18% 22%, rgba(255,255,255,0.08), transparent 60%),
                       radial-gradient(circle at 82% 70%, rgba(255,255,255,0.05), transparent 65%);
-}
-
-/* Fullscreen fallback class for mobile when Fullscreen API is unavailable/denied */
-.photo-dome-fullscreen-fallback {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    /* Use svh when available to avoid mobile browser chrome resize issues */
-    width: 100vw !important;
-    height: 100svh !important;
-    z-index: 99999 !important;
-    border-radius: 0 !important;
-    background: #000 !important;
-}
-
-/* Prevent body scroll while in the fallback fullscreen mode */
-.no-scroll {
-    overflow: hidden !important;
-    height: 100svh !important;
-}
-
-/* Ensure the canvas inside the fallback fullscreen uses the full viewport size */
-.photo-dome-fullscreen-fallback canvas {
-    width: 100% !important;
-    height: 100% !important;
-    display: block !important;
-}
-
-/* Additional helpers to force canvas to fill real viewport in some browsers */
-.photo-dome-fullscreen-fallback, .photo-dome-container:fullscreen {
-    transform: translateZ(0);
-    -webkit-transform: translateZ(0); /* promote layer to fix rendering glitches */
 }
 
 :root {

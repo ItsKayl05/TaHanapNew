@@ -7,15 +7,12 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
   const containerRef = useRef(null);
   const engineRef = useRef(null);
   const sceneRef = useRef(null);
-  const resizeObserverRef = useRef(null);
-  const resizeCanvasRef = useRef(null); // exposed resize function for use by handlers
   const [isFullscreen, setIsFullscreen] = React.useState(false);
 
   useEffect(() => {
     if (!canvasRef.current || !imageUrl) return;
 
-    // Create engine using the canvas element
-    const engine = new BABYLON.Engine(canvasRef.current, true, { preserveDrawingBuffer: true, stencil: true });
+    const engine = new BABYLON.Engine(canvasRef.current, true);
     engineRef.current = engine;
     const scene = new BABYLON.Scene(engine);
     sceneRef.current = scene;
@@ -25,18 +22,18 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
       "camera",
       -Math.PI / 2,  // Start from front view
       Math.PI / 2,   // Horizontal view
-      3,             // Distance from center
+      1,             // Reduced distance for better immersion
       BABYLON.Vector3.Zero(),
       scene
     );
     
     // Camera settings for full panoramic experience
-    camera.lowerBetaLimit = 0.1;
-    camera.upperBetaLimit = Math.PI - 0.1;
-    camera.lowerRadiusLimit = 1;
-    camera.upperRadiusLimit = 10;
-    camera.wheelPrecision = 50;
-    camera.panningSensibility = 1000;
+    camera.lowerBetaLimit = 0.01;    // Reduced to allow more vertical view
+    camera.upperBetaLimit = Math.PI - 0.01;
+    camera.lowerRadiusLimit = 0.1;   // Allows closer view
+    camera.upperRadiusLimit = 2;     // Limits zoom out to prevent black spaces
+    camera.wheelPrecision = 100;     // Smoother zooming
+    camera.panningSensibility = 100;  // Smoother panning
     
     camera.attachControl(canvasRef.current, true);
 
@@ -48,9 +45,9 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
       "property-dome",
       imageUrl,
       { 
-        resolution: 64,
-        size: 1000,
-        useDirectMapping: false
+        resolution: 32,        // Higher resolution for better image quality
+        size: 500,            // Adjusted size for better viewing
+        useDirectMapping: true // Enable direct mapping for better texture display
       },
       scene
     );
@@ -70,119 +67,21 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
     // Optimize FOV for full view
     dome.fovMultiplier = 0.8;
 
-    // Utility: ensure canvas pixel buffer matches CSS size and DPR
-    const resizeCanvas = () => {
-      try {
-        const canvas = canvasRef.current;
-        const container = containerRef.current;
-        if (!canvas || !engine || !container) return;
-
-        // Prefer clientWidth/clientHeight which are more stable when the element
-        // is inside transformed/animated parents. Fall back to getBoundingClientRect.
-        const rect = container.getBoundingClientRect();
-        let cssWidth = Math.max(1, container.clientWidth || Math.round(rect.width));
-        let cssHeight = Math.max(1, container.clientHeight || Math.round(rect.height));
-
-        // If we're in the fullscreen fallback or actual fullscreen and the
-        // computed container height is unexpectedly small (some mobile browsers
-        // report 0 or small values briefly), use the viewport height as a fallback.
-        const inFallback = container.classList && container.classList.contains('photo-dome-fullscreen-fallback');
-        const inFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
-        const viewportHeight = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
-        if ((inFallback || inFullscreen) && cssHeight < Math.round(viewportHeight * 0.8)) {
-          cssHeight = Math.max(cssHeight, Math.round(viewportHeight));
-        }
-
-        // Apply explicit pixel CSS sizes to the canvas to avoid percentage rounding issues
-        canvas.style.width = cssWidth + 'px';
-        canvas.style.height = cssHeight + 'px';
-
-  const dpr = Math.max(1, window.devicePixelRatio || 1);
-  const w = Math.max(1, Math.round(cssWidth * dpr));
-  const h = Math.max(1, Math.round(cssHeight * dpr));
-
-        if (canvas.width !== w || canvas.height !== h) {
-          canvas.width = w;
-          canvas.height = h;
-        }
-
-        // Ensure CSS width/height remain in sync with computed values
-        canvas.style.width = cssWidth + 'px';
-        canvas.style.height = cssHeight + 'px';
-
-        // Make sure the engine sees the updated size (call multiple times briefly
-        // to handle weird mobile layout timing and delayed CSS transitions when
-        // toggling the fallback full-screen class).
-        try { engine.resize(); } catch (e) { /* ignore engine resize errors */ }
-        setTimeout(() => { try { engine.resize(); } catch (e) {} }, 60);
-        // Extra safeguard: schedule another resize a bit later for slow mobile
-        // layout passes (helps avoid the 'half-black' render in screenshots).
-        setTimeout(() => { try { engine.resize(); } catch (e) {} }, 300);
-      } catch (err) {
-        // swallow
-      }
+    // Handle window resize
+    const handleResize = () => {
+      engine.resize();
     };
-    // expose for use in fullscreen/orientation handlers outside this effect
-    resizeCanvasRef.current = resizeCanvas;
 
-    // Use ResizeObserver to detect container size changes (more reliable than window resize alone)
-    if (window.ResizeObserver && containerRef.current) {
-      try {
-        resizeObserverRef.current = new ResizeObserver(resizeCanvas);
-        resizeObserverRef.current.observe(containerRef.current);
-      } catch (err) {
-        // ignore if ResizeObserver not available or throws
-      }
-    }
-
-    // Preload image so we can force a resize after the image's natural dimensions are available
-    // This helps avoid cases where the renderer only draws into a portion of the canvas
-    try {
-      const preloadImg = new Image();
-      preloadImg.crossOrigin = 'anonymous';
-      preloadImg.onload = () => {
-        // ensure the canvas is sized to the final container size after image loads
-        resizeCanvas();
-        try { engine.resize(); } catch (e) { /* ignore */ }
-      };
-      preloadImg.src = imageUrl;
-    } catch (err) {
-      // ignore preload errors
-    }
-
-  // Handle window resize and other visual changes
-  window.addEventListener("resize", resizeCanvas);
-  window.addEventListener('orientationchange', resizeCanvas);
-  document.addEventListener('fullscreenchange', resizeCanvas);
-  document.addEventListener('webkitfullscreenchange', resizeCanvas);
-  document.addEventListener('msfullscreenchange', resizeCanvas);
-
-  // Run render loop and ensure correct initial sizing
-  resizeCanvas();
-  // slight delay to ensure layout stabilizes on some mobile browsers
-  setTimeout(() => { resizeCanvas(); }, 120);
-  engine.runRenderLoop(() => scene.render());
+    window.addEventListener("resize", handleResize);
+    engine.runRenderLoop(() => scene.render());
 
     return () => {
-      window.removeEventListener("resize", resizeCanvas);
-      window.removeEventListener('orientationchange', resizeCanvas);
-      document.removeEventListener('fullscreenchange', resizeCanvas);
-      document.removeEventListener('webkitfullscreenchange', resizeCanvas);
-      document.removeEventListener('msfullscreenchange', resizeCanvas);
-      if (resizeObserverRef.current) {
-        try { resizeObserverRef.current.disconnect(); } catch (e) {}
-        resizeObserverRef.current = null;
+      window.removeEventListener("resize", handleResize);
+      if (sceneRef.current) {
+        sceneRef.current.dispose();
       }
-      resizeCanvasRef.current = null;
-      try {
-        if (sceneRef.current) {
-          sceneRef.current.dispose();
-        }
-        if (engineRef.current) {
-          engineRef.current.dispose();
-        }
-      } catch (err) {
-        // ignore dispose errors
+      if (engineRef.current) {
+        engineRef.current.dispose();
       }
     };
   }, [imageUrl, mode]);
@@ -201,60 +100,24 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
         } else if (document.msExitFullscreen) {
           await document.msExitFullscreen();
         }
-        // ensure fallback classes are removed
-        try { document.body.classList.remove('no-scroll'); } catch(e){}
-        if (containerRef.current.classList.contains('photo-dome-fullscreen-fallback')) {
-          containerRef.current.classList.remove('photo-dome-fullscreen-fallback');
-        }
       } else {
         // Enter fullscreen
         const element = containerRef.current;
         
-          if (element.requestFullscreen) {
-            await element.requestFullscreen();
-          } else if (element.webkitRequestFullscreen) {
-            await element.webkitRequestFullscreen();
-          } else if (element.msRequestFullscreen) {
-            await element.msRequestFullscreen();
-          } else if (element.webkitEnterFullscreen) { // iOS Safari
-            element.webkitEnterFullscreen();
-          }
-
-          // Some mobile browsers don't actually enter Fullscreen even if the promise resolves.
-          // Check shortly after attempting to enter fullscreen; if not in fullscreen, apply fallback.
-          setTimeout(() => {
-            const isNowFullscreen = !!document.fullscreenElement || !!document.webkitFullscreenElement || !!document.msFullscreenElement;
-            if (!isNowFullscreen) {
-              // apply fallback
-              try { element.classList.add('photo-dome-fullscreen-fallback'); } catch(e){}
-              try { document.body.classList.add('no-scroll'); } catch(e){}
-              setIsFullscreen(true);
-              // force resize after layout changes
-              setTimeout(() => { try { if (resizeCanvasRef.current) resizeCanvasRef.current(); } catch(e){} }, 80);
-            }
-          }, 250);
+        if (element.requestFullscreen) {
+          await element.requestFullscreen();
+        } else if (element.webkitRequestFullscreen) {
+          await element.webkitRequestFullscreen();
+        } else if (element.msRequestFullscreen) {
+          await element.msRequestFullscreen();
+        } else if (element.webkitEnterFullscreen) { // iOS Safari
+          element.webkitEnterFullscreen();
+        }
       }
     } catch (err) {
       console.log(`Fullscreen error: ${err.message}`);
       // Fallback: Toggle mobile-friendly fullscreen mode
-      const fallbackEl = containerRef.current;
-      if (!fallbackEl) return;
-
-      // Toggle a class that applies fixed positioning to mimic fullscreen on mobile
-      const willEnter = !fallbackEl.classList.contains('photo-dome-fullscreen-fallback');
-      if (willEnter) {
-        fallbackEl.classList.add('photo-dome-fullscreen-fallback');
-        try { document.body.classList.add('no-scroll'); } catch(e){}
-      } else {
-        fallbackEl.classList.remove('photo-dome-fullscreen-fallback');
-        try { document.body.classList.remove('no-scroll'); } catch(e){}
-      }
-      setIsFullscreen(willEnter);
-
-      // After toggling, call the resize method (if available) to force the engine to fit
-      setTimeout(() => {
-        try { if (resizeCanvasRef.current) resizeCanvasRef.current(); } catch(e){}
-      }, 80);
+      setIsFullscreen(!isFullscreen);
     }
   };
 
@@ -306,10 +169,7 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
         background: '#000', 
         borderRadius: isFullscreen ? 0 : '12px', 
         width: '100%', 
-        // Only set an explicit height when we're in fullscreen mode.
-        // For the normal (non-fullscreen) state we rely on CSS (.photo-dome-container)
-        // and the parent wrapper so we don't force a fixed mobile layout.
-        ...(isFullscreen ? { height: '100vh' } : {}),
+        height: isFullscreen ? '100vh' : '400px', 
         overflow: 'hidden',
         transition: 'all 0.3s ease'
       }}
