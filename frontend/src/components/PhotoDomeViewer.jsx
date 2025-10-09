@@ -11,7 +11,8 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
   const cameraRef = useRef(null);
   const domeRef = useRef(null);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
-  const [fovLevel, setFovLevel] = React.useState(1.0); // 1.0 = normal, lower = zoom in
+  const [fovLevel, setFovLevel] = React.useState(1.0);
+  const [showZoomIndicator, setShowZoomIndicator] = React.useState(false);
 
   // Mobile detection
   const isMobile = () => {
@@ -102,30 +103,58 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
       // Initial FOV
       dome.fovMultiplier = fovLevel;
 
-      // ZOOM FUNCTIONALITY: Mouse wheel for PC
-      scene.onPointerObservable.add((pointerInfo) => {
-        if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERWHEEL) {
-          handleZoom(pointerInfo.event.deltaY);
-        }
-      });
-
-      // ZOOM FUNCTIONALITY: Pinch to zoom for mobile
-      let initialDistance = 0;
-      scene.onPointerObservable.add((pointerInfo) => {
-        if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERDOWN && pointerInfo.event.pointerType === "touch") {
-          if (pointerInfo.event.pointerId === 0) {
-            initialDistance = 0;
+      // ZOOM FUNCTIONALITY: Mouse wheel for PC ONLY
+      if (!isMobile()) {
+        scene.onPointerObservable.add((pointerInfo) => {
+          if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERWHEEL) {
+            handleZoom(pointerInfo.event.deltaY);
           }
-        }
+        });
+      }
 
-        if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERMOVE && pointerInfo.event.pointerType === "touch") {
-          if (pointerInfo.event.pointerId === 1 && initialDistance > 0) {
-            const currentDistance = pointerInfo.event.spacing;
-            const delta = currentDistance - initialDistance;
-            handlePinchZoom(delta);
-            initialDistance = currentDistance;
-          } else if (pointerInfo.event.pointerId === 0) {
-            initialDistance = pointerInfo.event.spacing;
+      // PINCH TO ZOOM for mobile (hidden but functional)
+      let initialDistance = 0;
+      let isPinching = false;
+
+      scene.onPointerObservable.add((pointerInfo) => {
+        if (isMobile()) {
+          if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERDOWN && pointerInfo.event.pointerType === "touch") {
+            if (pointerInfo.event.pointerId === 0) {
+              initialDistance = 0;
+              isPinching = false;
+            }
+          }
+
+          if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERMOVE && pointerInfo.event.pointerType === "touch") {
+            const touches = pointerInfo.event.activeTouches;
+            
+            if (touches.length === 2) {
+              // Two fingers detected - pinch gesture
+              const touch1 = touches[0];
+              const touch2 = touches[1];
+              
+              const currentDistance = Math.sqrt(
+                Math.pow(touch2.clientX - touch1.clientX, 2) + 
+                Math.pow(touch2.clientY - touch1.clientY, 2)
+              );
+
+              if (!isPinching) {
+                initialDistance = currentDistance;
+                isPinching = true;
+                setShowZoomIndicator(true);
+              } else {
+                const delta = currentDistance - initialDistance;
+                handlePinchZoom(delta);
+                initialDistance = currentDistance;
+              }
+            } else {
+              isPinching = false;
+            }
+          }
+
+          if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERUP && pointerInfo.event.pointerType === "touch") {
+            // Hide zoom indicator after pinch ends
+            setTimeout(() => setShowZoomIndicator(false), 1000);
           }
         }
       });
@@ -173,7 +202,6 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
     const zoomSensitivity = 0.001;
     const newFov = fovLevel - (deltaY * zoomSensitivity);
     
-    // Clamp FOV between 0.3 (max zoom in) and 2.0 (max zoom out)
     const clampedFov = Math.max(0.3, Math.min(2.0, newFov));
     
     setFovLevel(clampedFov);
@@ -183,19 +211,18 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
   const handlePinchZoom = (delta) => {
     if (!domeRef.current) return;
 
-    const pinchSensitivity = 0.01;
+    const pinchSensitivity = 0.005; // Adjusted for mobile
     const newFov = fovLevel - (delta * pinchSensitivity);
     
-    // Clamp FOV between 0.3 (max zoom in) and 2.0 (max zoom out)
     const clampedFov = Math.max(0.3, Math.min(2.0, newFov));
     
     setFovLevel(clampedFov);
     domeRef.current.fovMultiplier = clampedFov;
   };
 
-  // Manual zoom controls
+  // Manual zoom controls (PC ONLY)
   const zoomIn = () => {
-    if (!domeRef.current) return;
+    if (!domeRef.current || isMobile()) return;
     
     const newFov = Math.max(0.3, fovLevel - 0.2);
     setFovLevel(newFov);
@@ -203,7 +230,7 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
   };
 
   const zoomOut = () => {
-    if (!domeRef.current) return;
+    if (!domeRef.current || isMobile()) return;
     
     const newFov = Math.min(2.0, fovLevel + 0.2);
     setFovLevel(newFov);
@@ -215,6 +242,7 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
     
     setFovLevel(1.0);
     domeRef.current.fovMultiplier = 1.0;
+    setShowZoomIndicator(false);
   };
 
   // Enhanced mobile-friendly fullscreen
@@ -398,83 +426,106 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
         }}
       />
       
-      {/* Zoom Controls */}
-      <div style={{
-        position: 'absolute',
-        bottom: isMobile() ? '80px' : '20px',
-        right: isMobile() ? '20px' : '20px',
-        zIndex: 1000,
-        display: 'flex',
-        flexDirection: isMobile() ? 'column' : 'row',
-        gap: '8px',
-        background: 'rgba(0,0,0,0.7)',
-        padding: isMobile() ? '12px' : '8px',
-        borderRadius: '12px',
-        backdropFilter: 'blur(10px)'
-      }}>
-        <button
-          onClick={zoomIn}
-          style={{
-            background: 'rgba(30, 41, 59, 0.9)',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '8px',
-            padding: isMobile() ? '12px' : '8px',
-            fontSize: isMobile() ? '18px' : '14px',
-            cursor: 'pointer',
-            minWidth: isMobile() ? '50px' : '40px',
-            minHeight: isMobile() ? '50px' : '40px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}
-          aria-label="Zoom In"
-        >
-          +
-        </button>
-        
-        <button
-          onClick={resetZoom}
-          style={{
-            background: 'rgba(59, 130, 246, 0.9)',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '8px',
-            padding: isMobile() ? '12px' : '8px',
-            fontSize: isMobile() ? '14px' : '12px',
-            cursor: 'pointer',
-            minWidth: isMobile() ? '50px' : '40px',
-            minHeight: isMobile() ? '50px' : '40px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}
-          aria-label="Reset Zoom"
-        >
-          {Math.round(fovLevel * 100)}%
-        </button>
-        
-        <button
-          onClick={zoomOut}
-          style={{
-            background: 'rgba(30, 41, 59, 0.9)',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '8px',
-            padding: isMobile() ? '12px' : '8px',
-            fontSize: isMobile() ? '18px' : '14px',
-            cursor: 'pointer',
-            minWidth: isMobile() ? '50px' : '40px',
-            minHeight: isMobile() ? '50px' : '40px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}
-          aria-label="Zoom Out"
-        >
-          −
-        </button>
-      </div>
+      {/* Zoom Controls - PC ONLY */}
+      {!isMobile() && (
+        <div style={{
+          position: 'absolute',
+          bottom: '20px',
+          right: '20px',
+          zIndex: 1000,
+          display: 'flex',
+          flexDirection: 'row',
+          gap: '8px',
+          background: 'rgba(0,0,0,0.7)',
+          padding: '8px',
+          borderRadius: '12px',
+          backdropFilter: 'blur(10px)'
+        }}>
+          <button
+            onClick={zoomIn}
+            style={{
+              background: 'rgba(30, 41, 59, 0.9)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '8px',
+              fontSize: '14px',
+              cursor: 'pointer',
+              minWidth: '40px',
+              minHeight: '40px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+            aria-label="Zoom In"
+          >
+            +
+          </button>
+          
+          <button
+            onClick={resetZoom}
+            style={{
+              background: 'rgba(59, 130, 246, 0.9)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '8px',
+              fontSize: '12px',
+              cursor: 'pointer',
+              minWidth: '40px',
+              minHeight: '40px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+            aria-label="Reset Zoom"
+          >
+            {Math.round(fovLevel * 100)}%
+          </button>
+          
+          <button
+            onClick={zoomOut}
+            style={{
+              background: 'rgba(30, 41, 59, 0.9)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '8px',
+              fontSize: '14px',
+              cursor: 'pointer',
+              minWidth: '40px',
+              minHeight: '40px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+            aria-label="Zoom Out"
+          >
+            −
+          </button>
+        </div>
+      )}
+
+      {/* Mobile Zoom Indicator (Temporary) */}
+      {isMobile() && showZoomIndicator && (
+        <div style={{
+          position: 'absolute',
+          top: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 1000,
+          background: 'rgba(0,0,0,0.8)',
+          color: '#fff',
+          padding: '8px 16px',
+          borderRadius: '20px',
+          fontSize: '14px',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(255,255,255,0.2)',
+          pointerEvents: 'none'
+        }}>
+          Zoom: {Math.round(fovLevel * 100)}%
+        </div>
+      )}
 
       {/* Expand Button */}
       <button
@@ -531,7 +582,7 @@ const PhotoDomeViewer = ({ imageUrl, mode = "MONOSCOPIC" }) => {
           border: '1px solid rgba(255,255,255,0.1)',
           pointerEvents: 'none'
         }}>
-          👆 Drag to look around • Pinch to zoom • Tap <strong>Full</strong> for fullscreen
+          👆 Drag to look around • 🤏 Pinch to zoom • Tap <strong>Full</strong> for fullscreen
         </div>
       )}
     </div>
