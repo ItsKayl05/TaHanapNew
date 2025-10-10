@@ -79,9 +79,63 @@
   /* Info Panel */
   .property-info { flex:1; padding:1.4rem 1.5rem 1.75rem; display:flex; flex-direction:column; gap:1.15rem; }
   .property-info { flex:1; padding:1.4rem 1.5rem 1.75rem; display:flex; flex-direction:column; gap:1.15rem; background:transparent; box-shadow:none; border-radius:0; }
-  .price-section { display:flex; justify-content:space-between; align-items:center; gap:1rem; padding:0 0 1rem; border-bottom:1px solid rgba(255,255,255,.15); }
-  .price-section h2 { margin:0; font-size:1.9rem; font-weight:650; letter-spacing:.5px; background:linear-gradient(90deg,#6366f1,#3b82f6,#0ea5e9); -webkit-background-clip:text; background-clip:text; color:transparent; }
-  .property-badge { padding:.45rem .9rem .4rem; font-size:.6rem; font-weight:600; letter-spacing:.14em; text-transform:uppercase; background:linear-gradient(135deg,#6366f1,#3b82f6); color:#fff; border-radius:18px; box-shadow:0 4px 18px -6px rgba(99,102,241,.6); }
+  .price-section { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: flex-start; 
+    gap: 1rem; 
+    padding: 0 0 1rem; 
+    border-bottom: 1px solid rgba(255,255,255,.15); 
+  }
+  
+  .price-section h2 { 
+    margin: 0; 
+    font-size: 1.9rem; 
+    font-weight: 650; 
+    letter-spacing: .5px; 
+    background: linear-gradient(90deg,#6366f1,#3b82f6,#0ea5e9); 
+    -webkit-background-clip: text; 
+    background-clip: text; 
+    color: transparent; 
+  }
+
+  .property-badges {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-end;
+  }
+  
+  .property-badge { 
+    padding: .45rem .9rem .4rem; 
+    font-size: .6rem; 
+    font-weight: 600; 
+    letter-spacing: .14em; 
+    text-transform: uppercase; 
+    background: linear-gradient(135deg,#6366f1,#3b82f6); 
+    color: #fff; 
+    border-radius: 18px; 
+    box-shadow: 0 4px 18px -6px rgba(99,102,241,.6); 
+  }
+
+  .property-type-badge {
+    padding: .45rem .9rem .4rem;
+    font-size: .6rem;
+    font-weight: 600;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: #fff;
+    border-radius: 18px;
+    box-shadow: 0 4px 18px -6px rgba(99,102,241,.6);
+  }
+
+  .property-type-badge.for-rent {
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+  }
+
+  .property-type-badge.for-sale {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+  }
 
   /* Features */
   .property-features { display:flex; flex-wrap:wrap; gap:.55rem; }

@@ -77,7 +77,7 @@ const PropertyListingPage = () => {
     const updateFilter = (k,v)=> setFilters(p=>({...p,[k]:v}));
     const resetFilters = ()=> setFilters({ searchTerm:'', category:'', location:'', minPrice:'', maxPrice:'', petFriendly:false, occupancy:'', parking:false, landmarks:[], minRooms:'', maxRooms:'', minArea:'', maxArea:'', hasVideo:false, customLandmark:'' });
 
-    const matches = ({ title='', category='', barangay='', price=0, petFriendly, occupancy=0, parking, landmarks='', numberOfRooms=0, areaSqm=0, video='' }) => {
+    const matches = ({ title='', category='', barangay='', price=0, petFriendly, occupancy=0, parking, landmarks='', numberOfRooms=0, areaSqm=0, video='', propertyType='For Rent' }) => {
         const s = filters.searchTerm.toLowerCase().trim();
         // Only allow filtering by landmark values that are in the dropdown list (case-insensitive)
         const allowedLandmarks = landmarkOptions;
@@ -100,7 +100,8 @@ const PropertyListingPage = () => {
             (filters.maxRooms ? numberOfRooms <= Number(filters.maxRooms) : true) &&
             (filters.minArea ? areaSqm >= Number(filters.minArea) : true) &&
             (filters.maxArea ? areaSqm <= Number(filters.maxArea) : true) &&
-            (filters.hasVideo ? !!video : true)
+            (filters.hasVideo ? !!video : true) &&
+            (filters.propertyType ? propertyType === filters.propertyType : true)
         );
     };
 
@@ -272,18 +273,32 @@ const PropertyListingPage = () => {
                                         {filtered.length} {filtered.length===1?'property':'properties'} found
                                         {filtered.length>0 && <span className="results-metrics"> • Avg Size {avgArea.toFixed(1)} sqm {avgPricePerSqm>0 && `• Avg ₱${Math.round(avgPricePerSqm).toLocaleString()}/sqm`}</span>}
                                     </div>
-                                    <div className="sort-bar">
-                                        <label htmlFor="sortSelect">Sort:</label>
-                                        <select id="sortSelect" value={sortOption} onChange={e=>setSortOption(e.target.value)}>
-                                            <option value="newest">Newest</option>
-                                            <option value="oldest">Oldest</option>
-                                            <option value="priceDesc">Price High-Low</option>
-                                            <option value="priceAsc">Price Low-High</option>
-                                            <option value="roomsDesc">Rooms High-Low</option>
-                                            <option value="roomsAsc">Rooms Low-High</option>
-                                            <option value="areaDesc">Area High-Low</option>
-                                            <option value="areaAsc">Area Low-High</option>
-                                        </select>
+                                    <div className="filters-bar">
+                                        <div className="filter-item">
+                                            <label htmlFor="propertyTypeSelect">Type:</label>
+                                            <select 
+                                                id="propertyTypeSelect" 
+                                                value={filters.propertyType} 
+                                                onChange={e => setFilters(prev => ({...prev, propertyType: e.target.value}))}
+                                            >
+                                                <option value="">All Types</option>
+                                                <option value="For Rent">For Rent</option>
+                                                <option value="For Sale">For Sale</option>
+                                            </select>
+                                        </div>
+                                        <div className="filter-item">
+                                            <label htmlFor="sortSelect">Sort:</label>
+                                            <select id="sortSelect" value={sortOption} onChange={e=>setSortOption(e.target.value)}>
+                                                <option value="newest">Newest</option>
+                                                <option value="oldest">Oldest</option>
+                                                <option value="priceDesc">Price High-Low</option>
+                                                <option value="priceAsc">Price Low-High</option>
+                                                <option value="roomsDesc">Rooms High-Low</option>
+                                                <option value="roomsAsc">Rooms Low-High</option>
+                                                <option value="areaDesc">Area High-Low</option>
+                                                <option value="areaAsc">Area Low-High</option>
+                                            </select>
+                                        </div>
                                     </div>
                                 </div>
                     </div>{/* end controls-wrapper */}
