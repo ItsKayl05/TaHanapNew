@@ -17,7 +17,7 @@ const Sidebar = ({ onLogout }) => {
               to="/admin/dashboard" 
               className={location.pathname === "/admin/dashboard" ? "active" : ""}
             >
-              Dashboard
+              <span>Dashboard</span>
             </Link>
           </li>
           <li>
@@ -25,7 +25,7 @@ const Sidebar = ({ onLogout }) => {
               to="/admin/manage-users" 
               className={location.pathname === "/admin/manage-users" ? "active" : ""}
             >
-              Manage Users
+              <span>Manage Users</span>
             </Link>
           </li>
           <li>
@@ -33,16 +33,15 @@ const Sidebar = ({ onLogout }) => {
               to="/admin/manage-properties" 
               className={location.pathname === "/admin/manage-properties" ? "active" : ""}
             >
-              Manage Properties
+              <span>Manage Properties</span>
             </Link>
           </li>
- 
           <li>
             <Link 
               to="/admin/landlord-verification" 
               className={location.pathname === "/admin/landlord-verification" ? "active" : ""}
             >
-              Landlord Verification
+              <span>Landlord Verification</span>
             </Link>
           </li>
         </ul>

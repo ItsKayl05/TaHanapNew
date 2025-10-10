@@ -51,17 +51,6 @@
 .spinner { width:18px; height:18px; border:3px solid #ffffff55; border-top-color:#fff; border-radius:50%; animation:spin 1s linear infinite; display:inline-block; }
 @keyframes spin { to { transform:rotate(360deg); } }
 
-/* Password strength */
-.password-strength { margin-top:.45rem; }
-.password-strength progress { width:100%; height:8px; border-radius:6px; overflow:hidden; background:#e2e8f0; }
-.password-strength progress::-webkit-progress-bar { background:#e2e8f0; }
-.password-strength progress::-webkit-progress-value { background:linear-gradient(90deg,#ef4444,#6366f1,#16a34a); transition:.4s width; }
-.password-strength progress::-moz-progress-bar { background:linear-gradient(90deg,#ef4444,#6366f1,#16a34a); }
-.pwd-meta { margin-top:.3rem; font-size:.55rem; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:#475569; }
-.pwd-meta.weak { color:#b91c1c; }
-.pwd-meta.medium { color:#d97706; }
-.pwd-meta.strong { color:#059669; }
-
 /* Responsive */
 @media (max-width:1080px){ .with-illustration { flex-direction:column; gap:2rem; } .with-illustration .auth-illustration { min-height:360px; } }
 @media (max-width:900px){ .with-illustration { flex-direction:column; } .with-illustration .auth-illustration { order:2; } }
@@ -89,6 +78,4 @@
 	.auth-illustration { display:none !important; }
 	.login-page { padding:0.8rem 0.6rem 1.1rem; }
 	.login-form { padding:0.9rem 0.8rem; gap:0.9rem; }
-	.password-strength progress { height:10px; }
-	.pwd-meta { font-size:0.68rem; }
 }
