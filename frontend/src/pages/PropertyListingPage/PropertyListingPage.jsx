@@ -205,103 +205,99 @@ const PropertyListingPage = () => {
                                     </div>
                                 </div>
 
-                                                                <div className="filter-group">
-                                                                    <label>Nearby Landmarks</label>
-                                                                    <div className="landmarks-grid">
-                                                                        {[
-                                                                            "Park",
-                                                                            "Church",
-                                                                            "Public Market",
-                                                                            "Major Highway",
-                                                                            "Public Transportation Stops",
-                                                                            "Banks and ATMs",
-                                                                            "Restaurants/Food Centers",
-                                                                            "Convenience Store/ Supermarket",
-                                                                            "School / University",
-                                                                            "Hospital / Health Center"
-                                                                        ].map(l => (
-                                                                            <div key={l} className="amenity-checkbox landmark-option">
-                                                                                <input
-                                                                                    type="checkbox"
-                                                                                    id={l}
-                                                                                    checked={filters.landmarks.includes(l)}
-                                                                                    onChange={() => {
-                                                                                        if (filters.landmarks.includes(l)) {
-                                                                                            updateFilter("landmarks", filters.landmarks.filter(x => x !== l));
-                                                                                        } else {
-                                                                                            updateFilter("landmarks", [...filters.landmarks, l]);
-                                                                                        }
-                                                                                    }}
-                                                                                />
-                                                                                <label htmlFor={l}>{l}</label>
-                                                                            </div>
-                                                                        ))}
-                                                                    </div>
-                                                                    <div className="custom-landmark-input" style={{marginTop:'0.5em'}}>
-                                                                        <label htmlFor="customLandmark">Other Landmark</label>
-                                                                        <input
-                                                                            id="customLandmark"
-                                                                            type="text"
-                                                                            placeholder="Type a landmark..."
-                                                                            value={filters.customLandmark}
-                                                                            onChange={e => updateFilter('customLandmark', e.target.value)}
-                                                                            list="custom-landmark-list"
-                                                                            autoComplete="off"
-                                                                        />
-                                                                        <datalist id="custom-landmark-list">
-                                                                            {landmarkOptions.filter(l =>
-                                                                                filters.customLandmark.length === 0 ||
-                                                                                l.includes(filters.customLandmark.toLowerCase())
-                                                                            ).map(l => (
-                                                                                <option key={l} value={l}>
-                                                                                    {l.split(' ').map(word => word.includes('/') ? word.split('/').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('/') : word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-                                                                                </option>
-                                                                            ))}
-                                                                        </datalist>
-                                                                    </div>
-                                                                </div>
-
-
-
-
+                                <div className="filter-group">
+                                    <label>Nearby Landmarks</label>
+                                    <div className="landmarks-grid">
+                                        {[
+                                            "Park",
+                                            "Church",
+                                            "Public Market",
+                                            "Major Highway",
+                                            "Public Transportation Stops",
+                                            "Banks and ATMs",
+                                            "Restaurants/Food Centers",
+                                            "Convenience Store/ Supermarket",
+                                            "School / University",
+                                            "Hospital / Health Center"
+                                        ].map(l => (
+                                            <div key={l} className="amenity-checkbox landmark-option">
+                                                <input
+                                                    type="checkbox"
+                                                    id={l}
+                                                    checked={filters.landmarks.includes(l)}
+                                                    onChange={() => {
+                                                        if (filters.landmarks.includes(l)) {
+                                                            updateFilter("landmarks", filters.landmarks.filter(x => x !== l));
+                                                        } else {
+                                                            updateFilter("landmarks", [...filters.landmarks, l]);
+                                                        }
+                                                    }}
+                                                />
+                                                <label htmlFor={l}>{l}</label>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="custom-landmark-input" style={{marginTop:'0.5em'}}>
+                                        <label htmlFor="customLandmark">Other Landmark</label>
+                                        <input
+                                            id="customLandmark"
+                                            type="text"
+                                            placeholder="Type a landmark..."
+                                            value={filters.customLandmark}
+                                            onChange={e => updateFilter('customLandmark', e.target.value)}
+                                            list="custom-landmark-list"
+                                            autoComplete="off"
+                                        />
+                                        <datalist id="custom-landmark-list">
+                                            {landmarkOptions.filter(l =>
+                                                filters.customLandmark.length === 0 ||
+                                                l.includes(filters.customLandmark.toLowerCase())
+                                            ).map(l => (
+                                                <option key={l} value={l}>
+                                                    {l.split(' ').map(word => word.includes('/') ? word.split('/').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('/') : word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                                                </option>
+                                            ))}
+                                        </datalist>
+                                    </div>
+                                </div>
                             </div>
                             <button className="reset-filters" onClick={resetFilters}>Reset Filters</button>
                         </div>
                     )}
-                                <div className="results-row controls-align-left">
-                                    <div className="results-count">
-                                        {filtered.length} {filtered.length===1?'property':'properties'} found
-                                        {filtered.length>0 && <span className="results-metrics"> • Avg Size {avgArea.toFixed(1)} sqm {avgPricePerSqm>0 && `• Avg ₱${Math.round(avgPricePerSqm).toLocaleString()}/sqm`}</span>}
-                                    </div>
-                                    <div className="filters-bar">
-                                        <div className="filter-item">
-                                            <label htmlFor="propertyTypeSelect">Type:</label>
-                                            <select 
-                                                id="propertyTypeSelect" 
-                                                value={filters.propertyType} 
-                                                onChange={e => setFilters(prev => ({...prev, propertyType: e.target.value}))}
-                                            >
-                                                <option value="">All Types</option>
-                                                <option value="For Rent">For Rent</option>
-                                                <option value="For Sale">For Sale</option>
-                                            </select>
-                                        </div>
-                                        <div className="filter-item">
-                                            <label htmlFor="sortSelect">Sort:</label>
-                                            <select id="sortSelect" value={sortOption} onChange={e=>setSortOption(e.target.value)}>
-                                                <option value="newest">Newest</option>
-                                                <option value="oldest">Oldest</option>
-                                                <option value="priceDesc">Price High-Low</option>
-                                                <option value="priceAsc">Price Low-High</option>
-                                                <option value="roomsDesc">Rooms High-Low</option>
-                                                <option value="roomsAsc">Rooms Low-High</option>
-                                                <option value="areaDesc">Area High-Low</option>
-                                                <option value="areaAsc">Area Low-High</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
-                    </div>{/* end controls-wrapper */}
+                    <div className="results-row controls-align-left">
+                        <div className="results-count">
+                            {filtered.length} {filtered.length===1?'property':'properties'} found
+                            {filtered.length>0 && <span className="results-metrics"> • Avg Size {avgArea.toFixed(1)} sqm {avgPricePerSqm>0 && `• Avg ₱${Math.round(avgPricePerSqm).toLocaleString()}/sqm`}</span>}
+                        </div>
+                        <div className="filters-bar">
+                            <div className="filter-item">
+                                <label htmlFor="propertyTypeSelect">Type:</label>
+                                <select 
+                                    id="propertyTypeSelect" 
+                                    value={filters.propertyType} 
+                                    onChange={e => setFilters(prev => ({...prev, propertyType: e.target.value}))}
+                                >
+                                    <option value="">All Types</option>
+                                    <option value="For Rent">For Rent</option>
+                                    <option value="For Sale">For Sale</option>
+                                </select>
+                            </div>
+                            <div className="filter-item">
+                                <label htmlFor="sortSelect">Sort:</label>
+                                <select id="sortSelect" value={sortOption} onChange={e=>setSortOption(e.target.value)}>
+                                    <option value="newest">Newest</option>
+                                    <option value="oldest">Oldest</option>
+                                    <option value="priceDesc">Price High-Low</option>
+                                    <option value="priceAsc">Price Low-High</option>
+                                    <option value="roomsDesc">Rooms High-Low</option>
+                                    <option value="roomsAsc">Rooms Low-High</option>
+                                    <option value="areaDesc">Area High-Low</option>
+                                    <option value="areaAsc">Area Low-High</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    </div>
                 </div>
             </div>
             <div className="properties-grid">
@@ -310,10 +306,10 @@ const PropertyListingPage = () => {
                     return (
                         <div key={_id} className="property-card" onClick={()=>navigate(`/property/${_id}`)}>
                             <div className="property-badges">
-                                <div className="property-badge">{category}</div>
-                                <div className={`property-type-badge ${(p.propertyType || "For Rent")?.toLowerCase().replace(/\s+/g, '-')}`}>
-                                    {p.propertyType || "For Rent"}
-                                </div>
+                                <span className="property-badge">{category}</span>
+                                <span className={`property-type-badge ${(propertyType || "For Rent")?.toLowerCase().replace(/\s+/g, '-')}`}>
+                                    {propertyType || "For Rent"}
+                                </span>
                             </div>
                             {userRole==='tenant' && (
                                 <div className="favorite-icon" role="button" tabIndex={0} aria-label={favorites.includes(_id)?'Remove from favorites':'Add to favorites'} onClick={(e)=>{e.stopPropagation(); toggleFavorite(_id);}} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault(); e.stopPropagation(); toggleFavorite(_id);}}}>
@@ -324,28 +320,28 @@ const PropertyListingPage = () => {
                                 <img src={images?.[0] || '/default-property.jpg'} alt={title} className="property-image" loading="lazy" />
                                 {video && <span className="video-badge" aria-label="Video available">Video</span>}
                                 <div className="property-price-row">
-                                                                        <div className="property-price">₱{(price||0).toLocaleString()}</div>
-                                                                        {(() => {
-                                                                            const status = p.availabilityStatus ? p.availabilityStatus : (occupancy >= (numberOfRooms || 1) ? 'Fully Occupied' : (numberOfRooms>0 ? 'Available' : 'Not Yet Ready'));
-                                                                            let className = 'property-availability';
-                                                                            if (/unavail|full/i.test(status)) className += ' unavailable';
-                                                                            else if (/not yet ready/i.test(status)) className += ' not-ready';
-                                                                            return <div className={className}>{status}</div>;
-                                                                        })()}
+                                    <div className="property-price">₱{(price||0).toLocaleString()}</div>
+                                    {(() => {
+                                        const status = p.availabilityStatus ? p.availabilityStatus : (occupancy >= (numberOfRooms || 1) ? 'Fully Occupied' : (numberOfRooms>0 ? 'Available' : 'Not Yet Ready'));
+                                        let className = 'property-availability';
+                                        if (/unavail|full/i.test(status)) className += ' unavailable';
+                                        else if (/not yet ready/i.test(status)) className += ' not-ready';
+                                        return <div className={className}>{status}</div>;
+                                    })()}
                                 </div>
                             </div>
                             <div className="property-details">
                                 <h3>{title}</h3>
                                 {createdAt && <span className="property-date" title={new Date(createdAt).toLocaleString()}>{formatCreatedAt(createdAt)}</span>}
-                                                                {(typeof p.availableUnits !== 'undefined' || typeof p.totalUnits !== 'undefined') && (
-                                                                    <div className="card-units-pill-row">
-                                                                        <div className="card-units-pill">
-                                                                            <svg width="15" height="15" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style={{verticalAlign:'middle',marginRight:'5px'}}><rect x="3" y="7" width="14" height="8" rx="2.5" fill="#38bdf8"/><rect x="7" y="3" width="6" height="4" rx="2" fill="#60aaff"/></svg>
-                                                                            {p.availableUnits !== undefined ? p.availableUnits : '0'}{p.totalUnits ? ` / ${p.totalUnits}` : ''}
-                                                                        </div>
-                                                                        <span className="card-units-label">Available units</span>
-                                                                    </div>
-                                                                )}
+                                {(typeof p.availableUnits !== 'undefined' || typeof p.totalUnits !== 'undefined') && (
+                                    <div className="card-units-pill-row">
+                                        <div className="card-units-pill">
+                                            <svg width="15" height="15" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style={{verticalAlign:'middle',marginRight:'5px'}}><rect x="3" y="7" width="14" height="8" rx="2.5" fill="#38bdf8"/><rect x="7" y="3" width="6" height="4" rx="2" fill="#60aaff"/></svg>
+                                            {p.availableUnits !== undefined ? p.availableUnits : '0'}{p.totalUnits ? ` / ${p.totalUnits}` : ''}
+                                        </div>
+                                        <span className="card-units-label">Available units</span>
+                                    </div>
+                                )}
                                 {landlordProfile && (
                                     <div className="landlord-mini" onClick={(e)=>{e.stopPropagation(); navigate(`/landlord/${landlordProfile.id}`);}} role="button" tabIndex={0} onKeyDown={(e)=>{if(e.key==='Enter'){ e.preventDefault(); e.stopPropagation(); navigate(`/landlord/${landlordProfile.id}`);} }}>
                                         <img src={landlordProfile.profilePic || '/default-avatar.png'} alt={landlordProfile.fullName} className="landlord-avatar" loading="lazy" />
@@ -354,10 +350,10 @@ const PropertyListingPage = () => {
                                 )}
                                 <p className="property-location"><FaMapMarkerAlt/> {barangay}</p>
                                 <div className="property-features">
-                                        {petFriendly && <span className="feature-tag"><FaDog/> Pet Friendly</span>}
-                                        {parking && <span className="feature-tag"><FaParking/> Parking</span>}
-                                        {!!occupancy && <span className="feature-tag"><FaBed/> {occupancy} pax</span>}
-                                        {numberOfRooms>0 && <span className="feature-tag"><FaDoorOpen/> {numberOfRooms} {numberOfRooms===1?'room':'rooms'}</span>}
+                                    {petFriendly && <span className="feature-tag"><FaDog/> Pet Friendly</span>}
+                                    {parking && <span className="feature-tag"><FaParking/> Parking</span>}
+                                    {!!occupancy && <span className="feature-tag"><FaBed/> {occupancy} pax</span>}
+                                    {numberOfRooms>0 && <span className="feature-tag"><FaDoorOpen/> {numberOfRooms} {numberOfRooms===1?'room':'rooms'}</span>}
                                     {areaSqm>0 && <span className="feature-tag"><FaRulerCombined/> {areaSqm} sqm</span>}
                                 </div>
                                 { (landmarks || landmarkHints(p)) && <p className="property-landmarks"><strong>Near:</strong> {landmarks || landmarkHints(p)}</p>}

@@ -165,10 +165,12 @@ const PropertyDetailPage = () => {
                     <div className="price-section">
                         <h2>₱{property.price.toLocaleString()}</h2>
                         <div className="property-badges">
-                            <span className="property-badge">{property.category}</span>
-                            <span className={`property-type-badge ${property.propertyType?.toLowerCase().replace(/\s+/g, '-')}`}>
-                                {property.propertyType || "For Rent"}
-                            </span>
+                            <div className="badge-group">
+                                <span className="property-badge">{property.category}</span>
+                                <span className={`property-type-badge ${property.propertyType?.toLowerCase().replace(/\s+/g, '-')}`}>
+                                    {property.propertyType || "For Rent"}
+                                </span>
+                            </div>
                         </div>
                     </div>
 
