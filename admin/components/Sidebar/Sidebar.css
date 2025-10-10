@@ -7,11 +7,33 @@
 .sidebar nav { flex:1; display:flex; flex-direction:column; }
 .sidebar nav ul { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:6px; }
 .sidebar nav li { position:relative; }
-.sidebar nav a { --active:0; display:flex; align-items:center; gap:10px; padding:11px 14px 11px 16px; font-size:.83rem; font-weight:500; letter-spacing:.4px; color:#cbd5e1; text-decoration:none; border-radius:10px; position:relative; background:linear-gradient(90deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02)); border:1px solid rgba(255,255,255,0.05); backdrop-filter:blur(6px); transition:background .25s,border .25s,color .25s; }
-.sidebar nav a::before { content:""; position:absolute; inset:0; border-radius:inherit; background:linear-gradient(90deg,#38bdf8,#6366f1); opacity:var(--active); filter:brightness(1.15); transition:opacity .35s; }
+.sidebar nav a { display:flex; align-items:center; gap:10px; padding:11px 14px 11px 16px; font-size:.83rem; font-weight:500; letter-spacing:.4px; color:#cbd5e1; text-decoration:none; border-radius:10px; position:relative; background:linear-gradient(90deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02)); border:1px solid rgba(255,255,255,0.05); backdrop-filter:blur(6px); transition:all .25s ease; }
+.sidebar nav a::before { content:""; position:absolute; inset:0; border-radius:inherit; background:linear-gradient(90deg,#38bdf8,#6366f1); opacity:0; transition:opacity .35s; }
 .sidebar nav a:hover { color:#fff; background:linear-gradient(90deg, rgba(255,255,255,0.09), rgba(255,255,255,0.04)); }
-.sidebar nav a.active { --active:1; color:#fff; box-shadow:0 2px 10px -2px rgba(56,189,248,.4); border:1px solid rgba(255,255,255,0.15); }
-.sidebar nav a span { position:relative; z-index:2; }
+.sidebar nav a:hover::before { opacity:0.1; }
+
+/* Active state - much stronger styling */
+.sidebar nav a.active { 
+  color:#fff !important; 
+  background:linear-gradient(90deg, rgba(56,189,248,0.15), rgba(99,102,241,0.15)); 
+  border:1px solid rgba(56,189,248,0.3); 
+  box-shadow:0 2px 12px -2px rgba(56,189,248,0.4), 
+             0 0 0 1px rgba(56,189,248,0.1); 
+}
+.sidebar nav a.active::before { 
+  opacity:0.2; 
+}
+.sidebar nav a.active span { 
+  font-weight:600; 
+  text-shadow:0 1px 2px rgba(0,0,0,0.3); 
+}
+
+/* Ensure text stays on top with proper z-index */
+.sidebar nav a span { 
+  position:relative; 
+  z-index:2; 
+  transition:all .25s ease;
+}
 
 /* Footer */
 .sidebar-footer { padding-top:4px; }

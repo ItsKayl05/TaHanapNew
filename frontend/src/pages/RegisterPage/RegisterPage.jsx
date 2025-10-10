@@ -34,7 +34,17 @@ const RegisterPage = () => {
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
-        setFormData((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+        
+        // Special handling for contact number - only allow numbers and limit to 11 digits
+        if (name === "contactNumber") {
+            // Remove any non-digit characters
+            const numbersOnly = value.replace(/\D/g, '');
+            // Limit to 11 digits
+            const limitedValue = numbersOnly.slice(0, 11);
+            setFormData((prev) => ({ ...prev, [name]: limitedValue }));
+        } else {
+            setFormData((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+        }
 
         if (name === "password") {
             // keep legacy simple score for progress bar (0-4) for compatibility
@@ -69,33 +79,62 @@ const RegisterPage = () => {
         setError(null);
       
         if (!formData.termsAccepted) {
-          toast.error("You must accept the terms and agreement.");
-          setLoading(false);
-          return;
+            toast.error("You must accept the terms and agreement.");
+            setLoading(false);
+            return;
+        }
+
+        // Validate contact number - must be exactly 11 digits
+        if (formData.contactNumber.length !== 11) {
+            toast.error("Contact number must be exactly 11 digits.");
+            setLoading(false);
+            return;
+        }
+
+        // Validate other required fields
+        if (!formData.username || !formData.email || !formData.fullName || !formData.address || !formData.password) {
+            toast.error("Please fill in all required fields.");
+            setLoading(false);
+            return;
+        }
+
+        // Validate email format
+        const emailRegex = /\S+@\S+\.\S+/;
+        if (!emailRegex.test(formData.email)) {
+            toast.error("Please enter a valid email address.");
+            setLoading(false);
+            return;
+        }
+
+        // Validate password length
+        if (formData.password.length < 6) {
+            toast.error("Password must be at least 6 characters long.");
+            setLoading(false);
+            return;
         }
       
-                try {
-                    // Use shared apiRequest which handles HTML responses and attaches auth headers
-                    const data = await apiRequest('/auth/register', {
-                        method: 'POST',
-                        body: JSON.stringify(formData),
-                    });
+        try {
+            // Use shared apiRequest which handles HTML responses and attaches auth headers
+            const data = await apiRequest('/auth/register', {
+                method: 'POST',
+                body: JSON.stringify(formData),
+            });
 
-                    // apiRequest already throws on non-OK, so if we reach here it's success
-                                toast.success(data?.msg || 'OTP sent to your email. Please verify.');
-                                            // Do not expose OTP in responses. Rely on email delivery for verification.
-                    localStorage.setItem('user_email', formData.email);
-                    setTimeout(() => navigate('/verify-otp'), 1200);
-                } catch (error) {
-                    // apiRequest throws friendly errors (including when server returns HTML)
-                    console.error('Registration error:', error);
-                    const msg = error?.message || 'Registration failed. Please try again.';
-                    setError(msg);
-                    toast.error(msg);
-                } finally {
-                    setLoading(false);
-                }
-      };
+            // apiRequest already throws on non-OK, so if we reach here it's success
+            toast.success(data?.msg || 'OTP sent to your email. Please verify.');
+            // Do not expose OTP in responses. Rely on email delivery for verification.
+            localStorage.setItem('user_email', formData.email);
+            setTimeout(() => navigate('/verify-otp'), 1200);
+        } catch (error) {
+            // apiRequest throws friendly errors (including when server returns HTML)
+            console.error('Registration error:', error);
+            const msg = error?.message || 'Registration failed. Please try again.';
+            setError(msg);
+            toast.error(msg);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
         <div className="register-page with-illustration">
@@ -126,6 +165,7 @@ const RegisterPage = () => {
                             onChange={handleChange}
                             placeholder="Username"
                             autoComplete="username"
+                            required
                         />
                     </div>
                 </div>
@@ -142,6 +182,7 @@ const RegisterPage = () => {
                             onChange={handleChange}
                             placeholder="Full Name"
                             autoComplete="name"
+                            required
                         />
                     </div>
                 </div>
@@ -158,6 +199,7 @@ const RegisterPage = () => {
                             onChange={handleChange}
                             placeholder="Email"
                             autoComplete="email"
+                            required
                         />
                     </div>
                 </div>
@@ -174,6 +216,7 @@ const RegisterPage = () => {
                             onChange={handleChange}
                             placeholder="Address"
                             autoComplete="address"
+                            required
                         />
                     </div>
                 </div>
@@ -203,10 +246,20 @@ const RegisterPage = () => {
                             id="contactNumber"
                             value={formData.contactNumber}
                             onChange={handleChange}
-                            placeholder="Contact Number"
+                            placeholder="11-digit number"
                             autoComplete="tel"
+                            pattern="[0-9]{11}"
+                            maxLength="11"
+                            required
                         />
                     </div>
+                    {formData.contactNumber && (
+                        <div className="contact-number-info">
+                            <small className={formData.contactNumber.length === 11 ? "valid" : "invalid"}>
+                                {formData.contactNumber.length}/11 digits
+                            </small>
+                        </div>
+                    )}
                 </div>
 
                 <div className="input-group full">
@@ -221,6 +274,7 @@ const RegisterPage = () => {
                             onChange={handleChange}
                             placeholder="Password"
                             autoComplete="new-password"
+                            required
                         />
                         <div className="eye-icon" onClick={() => setPasswordVisible(!passwordVisible)}>
                             {passwordVisible ? <AiOutlineEyeInvisible size={20} color="#777" /> : <AiOutlineEye size={20} color="#777" />}
@@ -243,6 +297,7 @@ const RegisterPage = () => {
                             name="termsAccepted"
                             checked={formData.termsAccepted}
                             onChange={handleChange}
+                            required
                         />
                         ‎ I accept the <span className="terms-link" onClick={() => setIsPopupOpen(true)}>Terms & Agreement</span>
                     </label>

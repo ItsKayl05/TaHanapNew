@@ -11,8 +11,6 @@ const LoginPage = () => {
     const { login } = useContext(AuthContext); // Access login function from AuthContext
     const [formData, setFormData] = useState({ email: '', password: '' });
     const [passwordVisible, setPasswordVisible] = useState(false);
-    const [pwdScore, setPwdScore] = useState(0); // 0-100
-    const [pwdLabel, setPwdLabel] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [rememberMe, setRememberMe] = useState(false);
@@ -32,27 +30,6 @@ const LoginPage = () => {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
     };
-
-    // Simple password strength evaluation similar to register page concept
-    useEffect(()=>{
-        const pwd = formData.password || '';
-        if(!pwd){ setPwdScore(0); setPwdLabel(''); return; }
-        let score = 0;
-        const length = pwd.length;
-        if(length >= 6) score += 20;
-        if(length >= 10) score += 15;
-        if(length >= 14) score += 10;
-        if(/[a-z]/.test(pwd)) score += 10;
-        if(/[A-Z]/.test(pwd)) score += 15;
-        if(/[0-9]/.test(pwd)) score += 15;
-        if(/[^A-Za-z0-9]/.test(pwd)) score += 15;
-        if(length >= 18) score += 10;
-        if(score > 100) score = 100;
-        setPwdScore(score);
-        let label = 'Weak';
-        if(score >= 80) label = 'Strong'; else if(score >= 55) label = 'Medium';
-        setPwdLabel(label);
-    },[formData.password]);
 
     const isValidEmail = (email) => /\S+@\S+\.\S+/.test(email);
 
@@ -176,12 +153,6 @@ const LoginPage = () => {
                                 {passwordVisible ? <AiOutlineEyeInvisible size={20} color="#777" /> : <AiOutlineEye size={20} color="#777" />}
                             </div>
                         </div>
-                        {pwdLabel && (
-                            <div className="password-strength">
-                                <progress max="100" value={pwdScore} aria-label="Password strength" />
-                                <div className={`pwd-meta ${pwdLabel.toLowerCase()}`}>{pwdLabel}</div>
-                            </div>
-                        )}
                     </div>
                     <div className="remember-forgot">
                         <label>
