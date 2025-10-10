@@ -210,7 +210,15 @@ export const addProperty = async (req, res) => {
 // 🏡 Get All Properties
 export const getAllProperties = async (req, res) => {
     try {
-        const properties = await Property.find().populate('landlord', 'fullName username profilePic address contactNumber role landlordVerified');
+        const { propertyType } = req.query;
+        
+        // Build query object
+        const query = {};
+        if (propertyType && ["For Rent", "For Sale"].includes(propertyType)) {
+            query.propertyType = propertyType;
+        }
+        
+        const properties = await Property.find(query).populate('landlord', 'fullName username profilePic address contactNumber role landlordVerified');
         // Filter out properties whose landlord is null (deleted)
         const filtered = properties.filter(property => property.landlord !== null);
         

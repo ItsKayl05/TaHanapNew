@@ -35,6 +35,12 @@ const propertySchema = new mongoose.Schema({
     required: true,
     enum: ["Apartment", "Dorm", "House", "Condominium", "Studio"], // Optional: Restrict category options
   },
+  propertyType: {
+    type: String,
+    required: true,
+    enum: ["For Rent", "For Sale"],
+    default: "For Rent"
+  },
   numberOfRooms: {
     type: Number,
     min: 0,

@@ -281,6 +281,14 @@ const AddProperties = () => {
                   {categories.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
+
+              <div className="form-group">
+                <label className="required">Property Type</label>
+                <select className="ll-field" name="propertyType" value={propertyData.propertyType} onChange={handleInputChange} required>
+                  <option value="For Rent">For Rent</option>
+                  <option value="For Sale">For Sale</option>
+                </select>
+              </div>
               
               <div className="form-group">
                 <label className="required">Price (₱)</label>

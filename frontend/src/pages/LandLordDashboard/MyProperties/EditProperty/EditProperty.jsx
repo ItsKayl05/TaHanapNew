@@ -334,6 +334,13 @@ const EditProperty = () => {
                                 </select>
                             </div>
                             <div className="field-group">
+                                <label className="required">Property Type</label>
+                                <select className="ll-field" name="propertyType" value={formData.propertyType} onChange={handleChange} required>
+                                    <option value="For Rent">For Rent</option>
+                                    <option value="For Sale">For Sale</option>
+                                </select>
+                            </div>
+                            <div className="field-group">
                                 <label className="required">Price (₱)</label>
                                 <input className="ll-field" type="number" min={1} name="price" value={formData.price} onChange={handleChange} required />
                             </div>

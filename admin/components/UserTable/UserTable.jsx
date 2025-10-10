@@ -41,9 +41,9 @@ const UserTable = ({ users, onBan, onDelete, userType, loading }) => {
                         </tr>
                     </thead>
                     <tbody>
-                        {users.map((user) => (
+                        {users.map((user, index) => (
                             <tr key={user._id} className={user.status === 'banned' ? 'banned' : ''}>
-                                <td>{user._id}</td>
+                                <td>{index + 1}</td>
                                 <td>{user.fullName || user.username}</td>
                                 <td>{user.email}</td>
                                 <td>

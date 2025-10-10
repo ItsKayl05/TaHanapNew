@@ -32,7 +32,7 @@ const PropertyListingPage = () => {
     const [properties, setProperties] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filters, setFilters] = useState({
-        searchTerm:'', category:'', location:'', minPrice:'', maxPrice:'', petFriendly:false, occupancy:'', parking:false, landmarks:[], minRooms:'', maxRooms:'', minArea:'', maxArea:'', hasVideo:false, customLandmark:''
+        searchTerm:'', category:'', location:'', minPrice:'', maxPrice:'', petFriendly:false, occupancy:'', parking:false, landmarks:[], minRooms:'', maxRooms:'', minArea:'', maxArea:'', hasVideo:false, customLandmark:'', propertyType:''
     });
     const [sortOption, setSortOption] = useState('newest');
     const [showFilters, setShowFilters] = useState(false);
@@ -294,7 +294,12 @@ const PropertyListingPage = () => {
                     const {_id,title,category,barangay,price,images,petFriendly,parking,occupancy,landmarks,numberOfRooms,areaSqm,video, landlordProfile, createdAt}=p;
                     return (
                         <div key={_id} className="property-card" onClick={()=>navigate(`/property/${_id}`)}>
-                            <div className="property-badge">{category}</div>
+                            <div className="property-badges">
+                                <div className="property-badge">{category}</div>
+                                <div className={`property-type-badge ${propertyType?.toLowerCase().replace(/\s+/g, '-')}`}>
+                                    {propertyType || "For Rent"}
+                                </div>
+                            </div>
                             {userRole==='tenant' && (
                                 <div className="favorite-icon" role="button" tabIndex={0} aria-label={favorites.includes(_id)?'Remove from favorites':'Add to favorites'} onClick={(e)=>{e.stopPropagation(); toggleFavorite(_id);}} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault(); e.stopPropagation(); toggleFavorite(_id);}}}>
                                     {favorites.includes(_id)?<FaHeart/>:<FaRegHeart/>}
