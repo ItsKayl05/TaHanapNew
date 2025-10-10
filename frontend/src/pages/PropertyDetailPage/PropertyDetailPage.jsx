@@ -164,7 +164,7 @@ const PropertyDetailPage = () => {
                 <div className="property-info glass-panel">
                     <div className="price-section">
                         <h2>₱{property.price.toLocaleString()}</h2>
-                        <div className="property-badges">
+                        <div className="property-badges-container">
                             <div className="badge-group">
                                 <span className="property-badge">{property.category}</span>
                                 <span className={`property-type-badge ${property.propertyType?.toLowerCase().replace(/\s+/g, '-')}`}>
