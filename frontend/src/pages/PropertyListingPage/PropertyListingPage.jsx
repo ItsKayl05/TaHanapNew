@@ -291,13 +291,13 @@ const PropertyListingPage = () => {
             </div>
             <div className="properties-grid">
                 {sorted.length ? sorted.map(p=>{
-                    const {_id,title,category,barangay,price,images,petFriendly,parking,occupancy,landmarks,numberOfRooms,areaSqm,video, landlordProfile, createdAt}=p;
+                    const {_id,title,category,barangay,price,images,petFriendly,parking,occupancy,landmarks,numberOfRooms,areaSqm,video, landlordProfile, createdAt, propertyType}=p;
                     return (
                         <div key={_id} className="property-card" onClick={()=>navigate(`/property/${_id}`)}>
                             <div className="property-badges">
                                 <div className="property-badge">{category}</div>
-                                <div className={`property-type-badge ${propertyType?.toLowerCase().replace(/\s+/g, '-')}`}>
-                                    {propertyType || "For Rent"}
+                                <div className={`property-type-badge ${(p.propertyType || "For Rent")?.toLowerCase().replace(/\s+/g, '-')}`}>
+                                    {p.propertyType || "For Rent"}
                                 </div>
                             </div>
                             {userRole==='tenant' && (
