@@ -72,6 +72,9 @@ const AddProperties = () => {
   const [propertyData, setPropertyData] = useState({
     title:'', description:'', address:'', price:'', barangay:'', category:'', petFriendly:false, allowedPets:'', occupancy:'', parking:false, rules:'', landmarks:'', numberOfRooms:'', areaSqm:'', images:[], video:null, latitude:'', longitude:'', availabilityStatus: 'Available', totalUnits: 1, availableUnits: 1
   });
+  // Price input UI state
+  const [priceFocused, setPriceFocused] = useState(false);
+  const [priceError, setPriceError] = useState('');
   const [imagePreviews, setImagePreviews] = useState([]);
   const [videoPreview, setVideoPreview] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -105,6 +108,24 @@ const AddProperties = () => {
   const handleInputChange = async (e) => {
     const { name, value, type, checked } = e.target;
     let newValue = value;
+    // Special handling for price: allow decimals while typing, keep as string
+    if (name === 'price') {
+      // Determine locale group/decimal separators
+      const parts = new Intl.NumberFormat(navigator.language).formatToParts(12345.6);
+      const group = parts.find(p => p.type === 'group')?.value || ',';
+      const decimal = parts.find(p => p.type === 'decimal')?.value || '.';
+      // escape for regex
+      const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const allowedRegex = new RegExp(`[^0-9${esc(group)}${esc(decimal)}]`, 'g');
+      let sanitized = (value || '').replace(allowedRegex, '');
+      // If multiple decimals, keep first and remove others
+      const decCount = (sanitized.match(new RegExp(esc(decimal), 'g')) || []).length;
+      if (decCount > 1) {
+        const first = sanitized.indexOf(decimal);
+        sanitized = sanitized.slice(0, first + 1) + sanitized.slice(first + 1).replace(new RegExp(esc(decimal), 'g'), '');
+      }
+      newValue = sanitized;
+    }
     // Normalize landmark value to match filter (trim, exact string)
     if (name === 'landmarks') {
       const found = LANDMARKS.find(l => l === value);
@@ -196,6 +217,29 @@ const AddProperties = () => {
       toast.error('Map location not found. Please check the address and barangay, then wait for the map preview to update before submitting.');
       return;
     }
+    // Validate price before submit
+    const parseLocaleNumber = (str) => {
+      if (str === undefined || str === null || String(str).trim() === '') return NaN;
+      const nfParts = new Intl.NumberFormat(navigator.language).formatToParts(12345.6);
+      const group = nfParts.find(p => p.type === 'group')?.value || ',';
+      const decimal = nfParts.find(p => p.type === 'decimal')?.value || '.';
+      const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      let normalized = String(str).replace(new RegExp(esc(group), 'g'), '');
+      if (decimal !== '.') normalized = normalized.replace(new RegExp(esc(decimal)), '.');
+      normalized = normalized.replace(/\s/g, '');
+      normalized = normalized.replace(/[^0-9.\-]/g, '');
+      const num = Number(normalized);
+      return isNaN(num) ? NaN : num;
+    };
+
+    const priceNum = parseLocaleNumber(propertyData.price);
+    if (isNaN(priceNum) || priceNum < 0) {
+      setPriceError('Please enter a valid price');
+      return;
+    } else {
+      setPriceError('');
+    }
+
     setIsSubmitting(true);
     const formData = new FormData();
     Object.entries(propertyData).forEach(([k,v]) => {
@@ -208,6 +252,13 @@ const AddProperties = () => {
       formData.append('panorama360', panorama);
     }
     try {
+      // Convert price to a numeric value before sending (use locale-aware parser)
+      const parseForSend = (val) => {
+        const num = parseLocaleNumber(val);
+        return isNaN(num) ? '' : num;
+      };
+      formData.set('price', parseForSend(propertyData.price));
+
       const res = await fetch(buildApi('/properties/add'), { method:'POST', headers:{ Authorization:`Bearer ${token}` }, body:formData });
       const data = await res.json().catch(()=>({}));
       if (!res.ok) {
@@ -292,7 +343,48 @@ const AddProperties = () => {
               
               <div className="form-group">
                 <label className="required">Price (₱)</label>
-                <input className="ll-field" type="number" min={0} name="price" value={propertyData.price} onChange={handleInputChange} required />
+                <input
+                  className="ll-field"
+                  type="text"
+                  name="price"
+                  pattern="^\d+(\.\d{1,2})?$"
+                  value={propertyData.price}
+                  onChange={handleInputChange}
+                  onFocus={() => { setPriceFocused(true); setPriceError(''); }}
+                  onBlur={() => {
+                    setPriceFocused(false);
+                    // format value using locale
+                    const num = (function parseLocaleNumberLocal(str){
+                      if (str === undefined || str === null || String(str).trim() === '') return NaN;
+                      const nfParts = new Intl.NumberFormat(navigator.language).formatToParts(12345.6);
+                      const group = nfParts.find(p => p.type === 'group')?.value || ',';
+                      const decimal = nfParts.find(p => p.type === 'decimal')?.value || '.';
+                      const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                      let normalized = String(str).replace(new RegExp(esc(group), 'g'), '');
+                      if (decimal !== '.') normalized = normalized.replace(new RegExp(esc(decimal)), '.');
+                      normalized = normalized.replace(/\s/g, '');
+                      normalized = normalized.replace(/[^0-9.\-]/g, '');
+                      const num = Number(normalized);
+                      return isNaN(num) ? NaN : num;
+                    })(propertyData.price);
+                    if (isNaN(num)) {
+                      setPriceError('Please enter a valid price');
+                    } else {
+                      // format with locale, two decimals
+                      try {
+                        const formatted = new Intl.NumberFormat(navigator.language, { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(num);
+                        setPropertyData(prev => ({ ...prev, price: String(formatted) }));
+                        setPriceError('');
+                      } catch (e) {
+                        setPriceError('');
+                      }
+                    }
+                  }}
+                  required
+                  placeholder="E.g., 1500.00"
+                />
+                {priceError && <div className="field-error small" style={{color:'var(--danger)', marginTop:6}}>{priceError}</div>}
+                <div className="field-hint small">Use decimal format for price (e.g., 1500.00)</div>
               </div>
               
               <div className="form-group">

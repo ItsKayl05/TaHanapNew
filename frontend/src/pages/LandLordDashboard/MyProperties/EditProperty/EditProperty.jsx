@@ -59,6 +59,8 @@ const EditProperty = () => {
     const [existingPanorama, setExistingPanorama] = useState(null);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
+    const [priceFocused, setPriceFocused] = useState(false);
+    const [priceError, setPriceError] = useState('');
 
     useEffect(() => {
         const fetchProperty = async () => {
@@ -145,6 +147,22 @@ const EditProperty = () => {
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
         let newValue = value;
+        // Special handling for price: allow localized group/decimal while typing
+        if (name === 'price') {
+            const parts = new Intl.NumberFormat(navigator.language).formatToParts(12345.6);
+            const group = parts.find(p => p.type === 'group')?.value || ',';
+            const decimal = parts.find(p => p.type === 'decimal')?.value || '.';
+            const esc = s => s.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
+            const allowedRegex = new RegExp(`[^0-9${esc(group)}${esc(decimal)}]`, 'g');
+            let sanitized = (value || '').replace(allowedRegex, '');
+            const decCount = (sanitized.match(new RegExp(esc(decimal), 'g')) || []).length;
+            if (decCount > 1) {
+                const first = sanitized.indexOf(decimal);
+                sanitized = sanitized.slice(0, first + 1) + sanitized.slice(first + 1).replace(new RegExp(esc(decimal), 'g'), '');
+            }
+            newValue = sanitized;
+        }
+        // Normalize landmark value to match filter (trim, exact string)
         if (name === 'landmarks') {
             const found = LANDMARKS.find(l => l === value);
             newValue = found || value;
@@ -199,7 +217,28 @@ const EditProperty = () => {
                 toast.error('Title & description are required.');
                 return;
             }
+            // Validate and convert price (locale-aware)
+            const parseLocaleNumber = (str) => {
+                if (str === undefined || str === null || String(str).trim() === '') return NaN;
+                const nfParts = new Intl.NumberFormat(navigator.language).formatToParts(12345.6);
+                const group = nfParts.find(p => p.type === 'group')?.value || ',';
+                const decimal = nfParts.find(p => p.type === 'decimal')?.value || '.';
+                const esc = s => s.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
+                let normalized = String(str).replace(new RegExp(esc(group), 'g'), '');
+                if (decimal !== '.') normalized = normalized.replace(new RegExp(esc(decimal)), '.');
+                normalized = normalized.replace(/\s/g, '');
+                normalized = normalized.replace(/[^0-9.\-]/g, '');
+                const num = Number(normalized);
+                return isNaN(num) ? NaN : num;
+            };
+            const priceNum = parseLocaleNumber(formData.price);
+            if (isNaN(priceNum) || priceNum < 0) {
+                toast.error('Please enter a valid price');
+                return;
+            }
+
             setSubmitting(true);
+
             const formDataToSend = new FormData();
             Object.entries(formData).forEach(([key, value]) => {
                 if (key === 'landmarks') {
@@ -209,10 +248,14 @@ const EditProperty = () => {
                     } else {
                         formDataToSend.append('landmarks', '');
                     }
+                } else if (key === 'price') {
+                    // skip here; we'll append numeric price below
                 } else if (value !== undefined && value !== null && value !== "") {
                     formDataToSend.append(key, value);
                 }
             });
+            // append numeric price value
+            formDataToSend.append('price', priceNum);
             images.forEach(img => formDataToSend.append('existingImages', img));
             deletedImages.forEach(img => formDataToSend.append('deletedImages[]', img.split('/').pop()));
             newImages.forEach(file => formDataToSend.append('images', file));
@@ -342,7 +385,33 @@ const EditProperty = () => {
                             </div>
                             <div className="field-group">
                                 <label className="required">Price (₱)</label>
-                                <input className="ll-field" type="number" min={1} name="price" value={formData.price} onChange={handleChange} required />
+                                <input
+                                    className="ll-field"
+                                    type="text"
+                                    name="price"
+                                    pattern="^\d+(\.\d{1,2})?$"
+                                    value={formData.price}
+                                    onChange={handleChange}
+                                    onFocus={() => { setPriceFocused(true); setPriceError(''); }}
+                                    onBlur={() => {
+                                        setPriceFocused(false);
+                                        const num = parseLocaleNumber(formData.price);
+                                        if (isNaN(num)) {
+                                            setPriceError('Please enter a valid price');
+                                        } else {
+                                            try {
+                                                const formatted = new Intl.NumberFormat(navigator.language, { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(num);
+                                                setFormData(prev => ({ ...prev, price: String(formatted) }));
+                                                setPriceError('');
+                                            } catch (e) {
+                                                setPriceError('');
+                                            }
+                                        }
+                                    }}
+                                    required
+                                    placeholder="E.g., 1500.00"
+                                />
+                                {priceError && <div className="field-error small" style={{color:'var(--danger)', marginTop:6}}>{priceError}</div>}
                             </div>
                             <div className="field-group">
                                 <label>Number of Rooms</label>
