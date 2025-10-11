@@ -79,28 +79,34 @@ const deleteCloudinaryAssets = async (urls) => {
 
 // Helper function to upload files to Cloudinary
 const uploadToCloudinary = async (files, folder, resourceType = 'image') => {
-    const { uploadBuffer } = await import('../utils/cloudinary.js');
-    const urls = [];
-    
-    for (const file of files) {
-        try {
-            const result = await uploadBuffer(file.buffer, { 
-                folder: `tahanap/properties/${folder}`,
-                resource_type: resourceType
-            });
-            if (result.secure_url) {
-                urls.push(result.secure_url);
+    try {
+        const { uploadBuffer, default: cloudinary } = await import('../utils/cloudinary.js');
+        const urls = [];
+        
+        for (const file of files) {
+            try {
+                const result = await uploadBuffer(file.buffer, { 
+                    folder: `tahanap/properties/${folder}`,
+                    resource_type: resourceType
+                });
+                if (result.secure_url) {
+                    urls.push(result.secure_url);
+                }
+            } catch (e) {
+                console.error(`Cloudinary ${resourceType} upload failed:`, e);
+                throw e; // Re-throw to be caught by outer try-catch
             }
-        } catch (e) {
-            console.error(`Cloudinary ${resourceType} upload failed:`, e);
         }
+        
+        return resourceType === 'image' ? urls : urls[0] || '';
+    } catch (error) {
+        console.error('Error in uploadToCloudinary:', error);
+        throw error; // Re-throw to be handled by the calling function
     }
-    
-    return resourceType === 'image' ? urls : urls[0] || '';
 };
 
 // 🏡 Add Property
-export const createProperty = async (req, res) => {
+export const addProperty = async (req, res) => {
     uploadMemory(req, res, async (err) => {
         if (err) {
             let errorMsg = "Error uploading media";
@@ -148,44 +154,68 @@ export const createProperty = async (req, res) => {
 
             // Upload all media to Cloudinary
             // Handle media uploads
+            // Handle image uploads
             if (req.files?.images && req.files.images.length > 0) {
                 try {
                     // Check file sizes and types before uploading
-                    req.files.images.forEach(file => {
-                        if (file.size > 10 * 1024 * 1024) 
+                    for (const file of req.files.images) {
+                        if (file.size > 10 * 1024 * 1024) {
                             throw new Error(`Image "${file.originalname}" exceeds 10MB limit`);
-                        if (!file.mimetype.startsWith('image/')) 
+                        }
+                        if (!file.mimetype.startsWith('image/')) {
                             throw new Error(`File "${file.originalname}" is not a valid image format`);
-                    });
+                        }
+                    }
                     images = await uploadToCloudinary(req.files.images, 'images', 'image');
                 } catch (error) {
+                    // Clean up any uploaded files if there was an error
+                    if (images.length > 0) {
+                        await deleteCloudinaryAssets(images);
+                    }
                     return res.status(400).json({ error: error.message });
                 }
             }
             
+            // Handle video upload
             if (req.files?.video && req.files.video.length > 0) {
                 try {
                     const videoFile = req.files.video[0];
-                    if (videoFile.size > 50 * 1024 * 1024) 
+                    if (videoFile.size > 50 * 1024 * 1024) {
                         throw new Error('Video file exceeds 50MB size limit');
-                    if (!['video/mp4', 'video/webm', 'video/ogg'].includes(videoFile.mimetype)) 
+                    }
+                    if (!['video/mp4', 'video/webm', 'video/ogg'].includes(videoFile.mimetype)) {
                         throw new Error('Invalid video format. Only MP4, WebM, or OGG formats are allowed');
+                    }
                     video = await uploadToCloudinary(req.files.video, 'videos', 'video');
                 } catch (error) {
+                    // Clean up any uploaded files if there was an error
+                    if (images.length > 0) {
+                        await deleteCloudinaryAssets(images);
+                    }
                     return res.status(400).json({ error: error.message });
                 }
             }
             
+            // Handle panorama upload
             if (req.files?.panorama360 && req.files.panorama360.length > 0) {
                 try {
                     const panoramaFile = req.files.panorama360[0];
-                    if (panoramaFile.size > 10 * 1024 * 1024) 
+                    if (panoramaFile.size > 10 * 1024 * 1024) {
                         throw new Error('360° Panorama image exceeds 10MB size limit');
-                    if (!panoramaFile.mimetype.startsWith('image/'))
+                    }
+                    if (!panoramaFile.mimetype.startsWith('image/')) {
                         throw new Error('360° Panorama must be an image file (JPG, PNG, or WebP)');
+                    }
                     const panoramaResult = await uploadToCloudinary(req.files.panorama360, 'panorama', 'image');
                     panorama360 = panoramaResult[0] || '';
                 } catch (error) {
+                    // Clean up any uploaded files if there was an error
+                    if (images.length > 0) {
+                        await deleteCloudinaryAssets(images);
+                    }
+                    if (video) {
+                        await deleteCloudinaryAssets([video]);
+                    }
                     return res.status(400).json({ error: error.message });
                 }
             }
@@ -246,6 +276,21 @@ export const createProperty = async (req, res) => {
 
         } catch (error) {
             console.error("Add Property Error:", error);
+            // Clean up any uploaded files in case of error
+            const filesToDelete = [
+                ...(images || []),
+                ...(video ? [video] : []),
+                ...(panorama360 ? [panorama360] : [])
+            ].filter(Boolean);
+
+            if (filesToDelete.length > 0) {
+                try {
+                    await deleteCloudinaryAssets(filesToDelete);
+                } catch (cleanupError) {
+                    console.error("Error cleaning up files:", cleanupError);
+                }
+            }
+            
             res.status(500).json({ error: "Server error while adding property" });
         }
     });

@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import './ErrorBoundary.css';
 
-class ErrorBoundary extends React.Component {
+export default class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
     this.state = { 
