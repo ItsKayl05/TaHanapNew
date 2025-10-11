@@ -10,9 +10,9 @@ dotenv.config();
 
 // Sender configuration: allow a display name and an email address via env.
 // If RESEND_FROM_NAME is not provided we default to 'Tahanap'.
-// If RESEND_FROM_EMAIL is not provided we first try RESEND_FROM, then fallback to 'noreply@tahanap.xyz'.
+// If RESEND_FROM_EMAIL is not provided we first try RESEND_FROM, then fallback to 'mail@tahanap.xyz'.
 const RESEND_FROM_NAME = process.env.RESEND_FROM_NAME || 'Tahanap';
-const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || process.env.RESEND_FROM || 'noreply@tahanap.xyz';
+const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || process.env.RESEND_FROM || 'mail@tahanap.xyz';
 const FULL_RESEND_FROM = `${RESEND_FROM_NAME} <${RESEND_FROM_EMAIL}>`;
 
 // Default onboarding sender (used only as a last-resort fallback by the helper)
