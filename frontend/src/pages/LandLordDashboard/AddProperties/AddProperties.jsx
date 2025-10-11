@@ -214,11 +214,7 @@ const AddProperties = () => {
     if (isSubmitting) return;
     const token = localStorage.getItem('user_token');
     if (!token) { toast.error('No token found. Please log in.'); navigate('/login'); return; }
-    const required = ['title','description','address','price','barangay','category'];
-    if (required.some(f => !propertyData[f])) {
-      toast.error('Please fill in all required fields');
-      return;
-    }
+    // Only validate basic requirements client-side
     if (!propertyData.images.length) {
       toast.error('Please add at least one image');
       return;
@@ -277,8 +273,20 @@ const AddProperties = () => {
       const res = await fetch(buildApi('/properties/add'), { method:'POST', headers:{ Authorization:`Bearer ${token}` }, body:formData });
       const data = await res.json().catch(()=>({}));
       if (!res.ok) {
-        // Show backend error message, including landlord verification
-        toast.error(data.error || data.message || 'Failed to add property');
+        // Show detailed validation errors from backend
+        if (data.errors && Array.isArray(data.errors)) {
+          // Show each validation error as a separate toast
+          data.errors.forEach(error => toast.error(error));
+        } else if (data.error && typeof data.error === 'string') {
+          // Single error message
+          toast.error(data.error);
+        } else if (data.message) {
+          // Fallback to message field
+          toast.error(data.message);
+        } else {
+          // Generic error
+          toast.error('Failed to add property');
+        }
         setIsSubmitting(false);
         return;
       }
