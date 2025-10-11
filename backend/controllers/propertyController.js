@@ -221,8 +221,7 @@ export const addProperty = async (req, res) => {
             // Return if there are any validation errors
             if (errors.length > 0) {
                 return res.status(400).json({
-                    error: "Please fix the following issues:",
-                    validationErrors: errors,
+                    errors: errors, // Send just the array of error messages
                     suggestions: suggestions
                 });
             }
@@ -614,8 +613,7 @@ export const updateProperty = async (req, res) => {
             // Return if there are any validation errors
             if (errors.length > 0) {
                 return res.status(400).json({
-                    error: "Please fix the following issues:",
-                    validationErrors: errors,
+                    errors: errors, // Send just the array of error messages
                     suggestions: suggestions
                 });
             }
