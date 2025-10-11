@@ -52,8 +52,14 @@ const AddProperties = () => {
     if (!file) return;
     const validType = file.type.startsWith('image/');
     const sizeOk = file.size <= 10*1024*1024;
-    if (!validType) { toast.error('Panoramic image must be an image file.'); return; }
-    if (!sizeOk) { toast.error('Panoramic file too large (max 10MB).'); return; }
+    if (!validType) { 
+      toast.error('360° Panorama upload failed: Only image files (JPG, PNG, WebP) are allowed.'); 
+      return; 
+    }
+    if (!sizeOk) { 
+      toast.error('360° Panorama upload failed: Image size exceeds 10MB limit. Please reduce the image resolution or compress the file.'); 
+      return; 
+    }
     if (panoramaPreview) URL.revokeObjectURL(panoramaPreview);
     setPanorama(file);
     setPanoramaPreview(URL.createObjectURL(file));
@@ -147,15 +153,18 @@ const AddProperties = () => {
   };
 
   const handleImageChange = (e) => {
-    const selected = Array.from(e.target.files || []);
+    const selected = Array.from(e.target.files);
     if (!selected.length) return;
     const spaceLeft = MAX_IMAGES - propertyData.images.length;
-    if (spaceLeft <= 0) { toast.info(`Max ${MAX_IMAGES} images reached.`); return; }
+    if (spaceLeft <= 0) { 
+      toast.info(`Cannot add more images. Maximum limit of ${MAX_IMAGES} images has been reached.`); 
+      return; 
+    }
     const usable = selected.slice(0, spaceLeft).filter(f => {
       const validType = f.type.startsWith('image/');
       const sizeOk = f.size <= 10*1024*1024;
-      if (!validType) toast.warn(`${f.name} skipped (not image).`);
-      if (!sizeOk) toast.warn(`${f.name} skipped (image file too large, max 10MB).`);
+      if (!validType) toast.error(`${f.name} was not added: Only image files (JPG, PNG, WebP) are allowed.`);
+      if (!sizeOk) toast.error(`${f.name} was not added: Image size exceeds 10MB limit.`);
       return validType && sizeOk;
     });
     if (!usable.length) return;
@@ -181,8 +190,14 @@ const AddProperties = () => {
     const file = e.target.files?.[0];
     if (!file) return;
     const allowed = ['video/mp4','video/webm','video/ogg'];
-    if (!allowed.includes(file.type)) { toast.error('Invalid video format. Use MP4, WebM, or OGG.'); return; }
-    if (file.size > 50*1024*1024) { toast.error('Video file too large (max 50MB).'); return; }
+    if (!allowed.includes(file.type)) { 
+      toast.error('Video upload failed: Only MP4, WebM, or OGG video formats are allowed.'); 
+      return; 
+    }
+    if (file.size > 50*1024*1024) { 
+      toast.error('Video upload failed: File size exceeds 50MB limit. Please compress your video or choose a smaller file.'); 
+      return; 
+    }
     if (propertyData.video) URL.revokeObjectURL(videoPreview);
     setPropertyData(p => ({ ...p, video:file }));
     setVideoPreview(URL.createObjectURL(file));
@@ -291,7 +306,7 @@ const AddProperties = () => {
         <form onSubmit={handleSubmit} className="ll-card add-property-form" noValidate>
           <div className="form-header" style={{marginBottom:'32px'}}>
             <h2 className="form-title">Add New Property</h2>
-            <p className="form-subtitle">Create a new listing. All fields marked with <span style={{color:'var(--danger)',fontWeight:700}}>*</span> are required, including <b>Property Size (sqm)</b>, <b>Availability Status</b>, and <b>Images</b>.</p>
+            <p className="form-subtitle">Create a new listing. All fields marked with * are required.</p>
           </div>
           <div className="info-banner" style={{marginBottom:'32px', padding:'12px 18px', background:'#f7f7f7', borderRadius:'8px', fontSize:'15px'}}>
             <strong>Verification Reminder:</strong> Upload <strong>one clear government ID</strong> in the sidebar verification panel to unlock publishing. Review may take up to <strong>1 hour</strong>.
@@ -393,8 +408,8 @@ const AddProperties = () => {
               </div>
               
               <div className="form-group">
-                <label className="required">Availability Status <span style={{color:'var(--danger)'}}>*</span></label>
-                <select className="ll-field" name="availabilityStatus" value={propertyData.availabilityStatus} onChange={handleInputChange} required>
+                <label>Availability Status</label>
+                <select className="ll-field" name="availabilityStatus" value={propertyData.availabilityStatus} onChange={handleInputChange}>
                   <option value="Available">Available</option>
                   <option value="Fully Occupied">Fully Occupied</option>
                   <option value="Not Yet Ready">Not Yet Ready</option>
@@ -414,8 +429,8 @@ const AddProperties = () => {
               </div>
               
               <div className="form-group">
-                <label className="required">Property Size (sqm) <span style={{color:'var(--danger)'}}>*</span></label>
-                <input className="ll-field" type="number" min={0} step={0.1} name="areaSqm" value={propertyData.areaSqm} onChange={handleInputChange} placeholder="e.g. 45" required />
+                <label>Property Size (sqm)</label>
+                <input className="ll-field" type="number" min={0} step={0.1} name="areaSqm" value={propertyData.areaSqm} onChange={handleInputChange} placeholder="e.g. 45" />
               </div>
               
               <div className="form-group">
@@ -433,54 +448,13 @@ const AddProperties = () => {
               </div>
               
               <div className="form-group full">
-                <label>Nearby Landmarks</label>
-                <div style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: isMobile ? '10px' : '12px',
-                  alignItems: 'stretch',
-                  marginBottom: '8px'
-                }}>
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)',
-                    gap: '8px 16px',
-                  }}>
-                    {LANDMARKS.map(l => (
-                      <label key={l} style={{display:'flex',alignItems:'center',gap:'8px',fontWeight:400,fontSize:'0.98em'}}>
-                        <input
-                          type="checkbox"
-                          name="landmarks"
-                          value={l}
-                          checked={Array.isArray(propertyData.landmarks) ? propertyData.landmarks.includes(l) : false}
-                          onChange={e => {
-                            const checked = e.target.checked;
-                            setPropertyData(prev => {
-                              let landmarksArr = Array.isArray(prev.landmarks) ? [...prev.landmarks] : (prev.landmarks ? [prev.landmarks] : []);
-                              if (checked) {
-                                if (!landmarksArr.includes(l)) landmarksArr.push(l);
-                              } else {
-                                landmarksArr = landmarksArr.filter(x => x !== l);
-                              }
-                              return { ...prev, landmarks: landmarksArr };
-                            });
-                          }}
-                        />
-                        {l.split(' ').map(word => word.includes('/') ? word.split('/').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('/') : word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-                      </label>
-                    ))}
-                  </div>
-                  <input
-                    className="ll-field"
-                    type="text"
-                    name="customLandmark"
-                    placeholder="Other landmark (e.g. Mall, Plaza)"
-                    value={propertyData.customLandmark || ''}
-                    onChange={e => setPropertyData(prev => ({ ...prev, customLandmark: e.target.value }))}
-                    style={{marginTop:'8px'}}
-                  />
-                </div>
-                <div className="field-hint small">Check all that apply or enter your own landmark.</div>
+                <label>Nearby Landmark</label>
+                <select className="ll-field" name="landmarks" value={propertyData.landmarks} onChange={handleInputChange} required>
+                  <option value="">Select Landmark</option>
+                  {LANDMARKS.map(l => (
+                    <option key={l} value={l}>{l.split(' ').map(word => word.includes('/') ? word.split('/').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('/') : word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</option>
+                  ))}
+                </select>
               </div>
               
               <div className="form-group full">
@@ -503,8 +477,8 @@ const AddProperties = () => {
             <div className="ll-stack">
               {/* Images Section */}
               <div className="images-section" style={{marginTop:'0'}}>
-                <h3 className="section-title">Images <span style={{color:'var(--danger)'}}>*</span> <span style={{fontWeight:400, fontSize:'0.7rem'}}>({propertyData.images.length}/8 total)</span></h3>
-                <p className="field-hint">Add up to 8 images (JPG/PNG/WebP, max 10MB each). <span style={{color:'var(--danger)'}}>* Required</span></p>
+                <h3 className="section-title">Images <span style={{fontWeight:400, fontSize:'0.7rem'}}>({propertyData.images.length}/8 total)</span></h3>
+                <p className="field-hint">Add up to 8 images (JPG/PNG/WebP, max 10MB each).</p>
                 <div className="current-images-grid">
                   {imagePreviews.length ? imagePreviews.map((url, i) => (
                     <div key={i} className="image-chip">

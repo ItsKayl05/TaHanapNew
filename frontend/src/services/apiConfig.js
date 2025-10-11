@@ -55,6 +55,8 @@ export const buildUpload = (rel = '') => {
   return uploadUrl;
 };
 
+import { toast } from 'react-toastify';
+
 // Enhanced fetch function with better error handling
 export const apiRequest = async (endpoint, options = {}) => {
   const url = buildApi(endpoint);
@@ -70,32 +72,63 @@ export const apiRequest = async (endpoint, options = {}) => {
   };
 
   // Add auth token if available
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('user_token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
 
   try {
-    console.log(`[api] Making request to: ${config.method} ${url}`);
-    
     const response = await fetch(url, config);
-    console.log(`[api] Response status: ${response.status}`);
     
-    // Handle HTML responses (server errors)
+    // Handle authentication issues
+    if (response.status === 401) {
+      localStorage.removeItem('user_token');
+      localStorage.removeItem('user_role');
+      localStorage.removeItem('user_id');
+      toast.error('Session expired. Please log in again.');
+      window.location.href = '/login';
+      throw new Error('Session expired');
+    }
+
+    // Handle server maintenance and errors
     const contentType = response.headers.get('content-type') || '';
     if (contentType.includes('text/html')) {
-      const htmlText = await response.text();
-      console.error('[api] Server returned HTML error page');
-      throw new Error(`Server returned HTML error (Status: ${response.status}). Backend might be down.`);
+      if (response.status === 503 || response.status === 502) {
+        toast.error('Server is under maintenance. Please try again later.');
+        throw new Error('Server maintenance');
+      }
+      toast.error('Unexpected server error. Please try again.');
+      throw new Error('Server error');
     }
+
+    // Parse response and handle errors
+    const data = await response.json();
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`HTTP ${response.status}: ${errorText}`);
+      const errorMessage = data.message || data.msg || data.error || 'An error occurred';
+      
+      switch (response.status) {
+        case 403:
+          toast.error(`Access denied: ${errorMessage}`);
+          break;
+        case 404:
+          toast.error(`Not found: ${errorMessage}`);
+          break;
+        case 413:
+          toast.error('File too large. Please choose a smaller file.');
+          break;
+        case 429:
+          toast.error('Too many requests. Please wait a moment.');
+          break;
+        case 400:
+          toast.error(errorMessage);
+          break;
+        default:
+          toast.error(errorMessage);
+      }
+      throw new Error(errorMessage);
     }
 
-    const data = await response.json();
-    console.log(`[api] Request successful`);
     return data;
     
   } catch (error) {

@@ -1,10 +1,12 @@
 // AdminService.js
 import axios from 'axios';
 import { API_BASE, API_URL } from './apiConfig.js';
+import { toast } from 'react-toastify';
 
 const api = axios.create({
   baseURL: API_BASE,
-  withCredentials: true
+  withCredentials: true,
+  timeout: 10000, // 10 second timeout
 });
 
 api.interceptors.request.use(

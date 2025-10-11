@@ -3,8 +3,9 @@ import MapPage from "./pages/MapPage/MapPage";
 // frontend/src/App.jsx
 import React from "react";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
-import AuthProvider from "./context/AuthContext"; // Import AuthProvider
+import AuthProvider from "./context/AuthContext";
 import { SocketProvider } from './context/SocketContext';
+import ErrorBoundary from './components/ErrorBoundary/ErrorBoundary';
 
 // Pages
 import HomePage from "./pages/HomePage/HomePage";
@@ -51,7 +52,8 @@ const AppContent = () => {
             {/* ✅ Navbar is always visible */}
             <Navbar />
 
-            <Routes>
+            <ErrorBoundary>
+              <Routes>
                 <Route
                     path="/my-rental"
                     element={
@@ -148,6 +150,7 @@ const AppContent = () => {
                                     }
                                 />
                         </Routes>
+            </ErrorBoundary>
 
             <Footer />
             <ToastContainer />

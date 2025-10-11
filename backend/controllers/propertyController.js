@@ -100,9 +100,22 @@ const uploadToCloudinary = async (files, folder, resourceType = 'image') => {
 };
 
 // 🏡 Add Property
-export const addProperty = async (req, res) => {
+export const createProperty = async (req, res) => {
     uploadMemory(req, res, async (err) => {
-        if (err) return res.status(400).json({ error: err.message || "Error uploading media" });
+        if (err) {
+            let errorMsg = "Error uploading media";
+            if (err.message) {
+                if (err.message.includes('File too large')) {
+                    errorMsg = 'File size exceeds the allowed limit (Images/Panorama: 10MB, Video: 50MB)';
+                } else if (err.message.includes('Only image files allowed')) {
+                    errorMsg = 'Invalid file type for images. Only JPG, PNG, and WebP formats are allowed';
+                } else if (err.message.includes('Invalid video format')) {
+                    errorMsg = 'Invalid video format. Only MP4, WebM, and OGG formats are allowed';
+                } else {
+                    errorMsg = err.message;
+                }
+            }
+            return res.status(400).json({ error: errorMsg });
 
         try {
             const { title, description, address, price, barangay, category, petFriendly, allowedPets, occupancy, parking, rules, landmarks, numberOfRooms, areaSqm, latitude, longitude } = req.body;
@@ -133,17 +146,48 @@ export const addProperty = async (req, res) => {
             let panorama360 = '';
 
             // Upload all media to Cloudinary
+            // Handle media uploads
             if (req.files?.images && req.files.images.length > 0) {
-                images = await uploadToCloudinary(req.files.images, 'images', 'image');
+                try {
+                    // Check file sizes and types before uploading
+                    req.files.images.forEach(file => {
+                        if (file.size > 10 * 1024 * 1024) 
+                            throw new Error(`Image "${file.originalname}" exceeds 10MB limit`);
+                        if (!file.mimetype.startsWith('image/')) 
+                            throw new Error(`File "${file.originalname}" is not a valid image format`);
+                    });
+                    images = await uploadToCloudinary(req.files.images, 'images', 'image');
+                } catch (error) {
+                    return res.status(400).json({ error: error.message });
+                }
             }
             
             if (req.files?.video && req.files.video.length > 0) {
-                video = await uploadToCloudinary(req.files.video, 'videos', 'video');
+                try {
+                    const videoFile = req.files.video[0];
+                    if (videoFile.size > 50 * 1024 * 1024) 
+                        throw new Error('Video file exceeds 50MB size limit');
+                    if (!['video/mp4', 'video/webm', 'video/ogg'].includes(videoFile.mimetype)) 
+                        throw new Error('Invalid video format. Only MP4, WebM, or OGG formats are allowed');
+                    video = await uploadToCloudinary(req.files.video, 'videos', 'video');
+                } catch (error) {
+                    return res.status(400).json({ error: error.message });
+                }
             }
             
             if (req.files?.panorama360 && req.files.panorama360.length > 0) {
-                const panoramaResult = await uploadToCloudinary(req.files.panorama360, 'panorama', 'image');
-                panorama360 = panoramaResult[0] || '';
+                try {
+                    const panoramaFile = req.files.panorama360[0];
+                    if (panoramaFile.size > 10 * 1024 * 1024) 
+                        throw new Error('360° Panorama image exceeds 10MB size limit');
+                    if (!panoramaFile.mimetype.startsWith('image/'))
+                        throw new Error('360° Panorama must be an image file (JPG, PNG, or WebP)');
+                    const panoramaResult = await uploadToCloudinary(req.files.panorama360, 'panorama', 'image');
+                    panorama360 = panoramaResult[0] || '';
+                } catch (error) {
+                    return res.status(400).json({ error: error.message });
+                }
+            }
             }
 
             if (images.length > MAX_IMAGES) {
