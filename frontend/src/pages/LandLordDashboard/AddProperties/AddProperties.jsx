@@ -291,7 +291,7 @@ const AddProperties = () => {
         <form onSubmit={handleSubmit} className="ll-card add-property-form" noValidate>
           <div className="form-header" style={{marginBottom:'32px'}}>
             <h2 className="form-title">Add New Property</h2>
-            <p className="form-subtitle">Create a new listing. All fields marked with * are required.</p>
+            <p className="form-subtitle">Create a new listing. All fields marked with <span style={{color:'var(--danger)',fontWeight:700}}>*</span> are required, including <b>Property Size (sqm)</b>, <b>Availability Status</b>, and <b>Images</b>.</p>
           </div>
           <div className="info-banner" style={{marginBottom:'32px', padding:'12px 18px', background:'#f7f7f7', borderRadius:'8px', fontSize:'15px'}}>
             <strong>Verification Reminder:</strong> Upload <strong>one clear government ID</strong> in the sidebar verification panel to unlock publishing. Review may take up to <strong>1 hour</strong>.
@@ -393,8 +393,8 @@ const AddProperties = () => {
               </div>
               
               <div className="form-group">
-                <label>Availability Status</label>
-                <select className="ll-field" name="availabilityStatus" value={propertyData.availabilityStatus} onChange={handleInputChange}>
+                <label className="required">Availability Status <span style={{color:'var(--danger)'}}>*</span></label>
+                <select className="ll-field" name="availabilityStatus" value={propertyData.availabilityStatus} onChange={handleInputChange} required>
                   <option value="Available">Available</option>
                   <option value="Fully Occupied">Fully Occupied</option>
                   <option value="Not Yet Ready">Not Yet Ready</option>
@@ -414,8 +414,8 @@ const AddProperties = () => {
               </div>
               
               <div className="form-group">
-                <label>Property Size (sqm)</label>
-                <input className="ll-field" type="number" min={0} step={0.1} name="areaSqm" value={propertyData.areaSqm} onChange={handleInputChange} placeholder="e.g. 45" />
+                <label className="required">Property Size (sqm) <span style={{color:'var(--danger)'}}>*</span></label>
+                <input className="ll-field" type="number" min={0} step={0.1} name="areaSqm" value={propertyData.areaSqm} onChange={handleInputChange} placeholder="e.g. 45" required />
               </div>
               
               <div className="form-group">
@@ -433,25 +433,54 @@ const AddProperties = () => {
               </div>
               
               <div className="form-group full">
-                <label>Nearby Landmark</label>
-                <div style={{display:'flex',flexDirection:isMobile?'column':'row',gap:isMobile?'10px':'16px',alignItems:isMobile?'stretch':'center'}}>
-                  <select className="ll-field" name="landmarks" value={LANDMARKS.includes(propertyData.landmarks) ? propertyData.landmarks : ''} onChange={handleInputChange} style={{flex:1}} required>
-                    <option value="">Select Landmark</option>
+                <label>Nearby Landmarks</label>
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: isMobile ? '10px' : '12px',
+                  alignItems: 'stretch',
+                  marginBottom: '8px'
+                }}>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)',
+                    gap: '8px 16px',
+                  }}>
                     {LANDMARKS.map(l => (
-                      <option key={l} value={l}>{l.split(' ').map(word => word.includes('/') ? word.split('/').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('/') : word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</option>
+                      <label key={l} style={{display:'flex',alignItems:'center',gap:'8px',fontWeight:400,fontSize:'0.98em'}}>
+                        <input
+                          type="checkbox"
+                          name="landmarks"
+                          value={l}
+                          checked={Array.isArray(propertyData.landmarks) ? propertyData.landmarks.includes(l) : false}
+                          onChange={e => {
+                            const checked = e.target.checked;
+                            setPropertyData(prev => {
+                              let landmarksArr = Array.isArray(prev.landmarks) ? [...prev.landmarks] : (prev.landmarks ? [prev.landmarks] : []);
+                              if (checked) {
+                                if (!landmarksArr.includes(l)) landmarksArr.push(l);
+                              } else {
+                                landmarksArr = landmarksArr.filter(x => x !== l);
+                              }
+                              return { ...prev, landmarks: landmarksArr };
+                            });
+                          }}
+                        />
+                        {l.split(' ').map(word => word.includes('/') ? word.split('/').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('/') : word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                      </label>
                     ))}
-                  </select>
+                  </div>
                   <input
                     className="ll-field"
                     type="text"
                     name="customLandmark"
                     placeholder="Other landmark (e.g. Mall, Plaza)"
-                    value={!LANDMARKS.includes(propertyData.landmarks) ? propertyData.landmarks : ''}
-                    onChange={e => setPropertyData(prev => ({ ...prev, landmarks: e.target.value }))}
-                    style={{flex:1,minWidth:0}}
+                    value={propertyData.customLandmark || ''}
+                    onChange={e => setPropertyData(prev => ({ ...prev, customLandmark: e.target.value }))}
+                    style={{marginTop:'8px'}}
                   />
                 </div>
-                <div className="field-hint small">Select from the list or enter your own landmark.</div>
+                <div className="field-hint small">Check all that apply or enter your own landmark.</div>
               </div>
               
               <div className="form-group full">
@@ -474,8 +503,8 @@ const AddProperties = () => {
             <div className="ll-stack">
               {/* Images Section */}
               <div className="images-section" style={{marginTop:'0'}}>
-                <h3 className="section-title">Images <span style={{fontWeight:400, fontSize:'0.7rem'}}>({propertyData.images.length}/8 total)</span></h3>
-                <p className="field-hint">Add up to 8 images (JPG/PNG/WebP, max 10MB each).</p>
+                <h3 className="section-title">Images <span style={{color:'var(--danger)'}}>*</span> <span style={{fontWeight:400, fontSize:'0.7rem'}}>({propertyData.images.length}/8 total)</span></h3>
+                <p className="field-hint">Add up to 8 images (JPG/PNG/WebP, max 10MB each). <span style={{color:'var(--danger)'}}>* Required</span></p>
                 <div className="current-images-grid">
                   {imagePreviews.length ? imagePreviews.map((url, i) => (
                     <div key={i} className="image-chip">
