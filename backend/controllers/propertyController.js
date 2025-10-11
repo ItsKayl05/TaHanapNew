@@ -116,6 +116,7 @@ export const createProperty = async (req, res) => {
                 }
             }
             return res.status(400).json({ error: errorMsg });
+        }
 
         try {
             const { title, description, address, price, barangay, category, petFriendly, allowedPets, occupancy, parking, rules, landmarks, numberOfRooms, areaSqm, latitude, longitude } = req.body;
