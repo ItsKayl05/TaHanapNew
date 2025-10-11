@@ -188,7 +188,6 @@ export const createProperty = async (req, res) => {
                     return res.status(400).json({ error: error.message });
                 }
             }
-            }
 
             if (images.length > MAX_IMAGES) {
                 // Clean up uploaded images if we exceed the limit
