@@ -434,12 +434,24 @@ const AddProperties = () => {
               
               <div className="form-group full">
                 <label>Nearby Landmark</label>
-                <select className="ll-field" name="landmarks" value={propertyData.landmarks} onChange={handleInputChange} required>
-                  <option value="">Select Landmark</option>
-                  {LANDMARKS.map(l => (
-                    <option key={l} value={l}>{l.split(' ').map(word => word.includes('/') ? word.split('/').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('/') : word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</option>
-                  ))}
-                </select>
+                <div style={{display:'flex',flexDirection:isMobile?'column':'row',gap:isMobile?'10px':'16px',alignItems:isMobile?'stretch':'center'}}>
+                  <select className="ll-field" name="landmarks" value={LANDMARKS.includes(propertyData.landmarks) ? propertyData.landmarks : ''} onChange={handleInputChange} style={{flex:1}} required>
+                    <option value="">Select Landmark</option>
+                    {LANDMARKS.map(l => (
+                      <option key={l} value={l}>{l.split(' ').map(word => word.includes('/') ? word.split('/').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('/') : word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</option>
+                    ))}
+                  </select>
+                  <input
+                    className="ll-field"
+                    type="text"
+                    name="customLandmark"
+                    placeholder="Other landmark (e.g. Mall, Plaza)"
+                    value={!LANDMARKS.includes(propertyData.landmarks) ? propertyData.landmarks : ''}
+                    onChange={e => setPropertyData(prev => ({ ...prev, landmarks: e.target.value }))}
+                    style={{flex:1,minWidth:0}}
+                  />
+                </div>
+                <div className="field-hint small">Select from the list or enter your own landmark.</div>
               </div>
               
               <div className="form-group full">
