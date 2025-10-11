@@ -10,12 +10,14 @@ import ManageUsers from "../pages/ManageUsers/ManageUsers";
 import LandlordVerification from "../pages/LandlordVerification/LandlordVerification";
 import ProtectedRoute from "../components/ProtectedRoutes/ProtectedRoutes"; 
 import { AuthProvider } from "../context/AdminAuthContext"; 
+import ErrorBoundary from "../components/ErrorBoundary/ErrorBoundary";
 
 const App = () => {
   return (
   <AuthProvider>
       <Router>
-        <Routes>
+        <ErrorBoundary>
+          <Routes>
           <Route path="/" element={<Navigate to="/admin" replace />} />
           <Route path="/admin" element={<AdminLogin />} />
 
@@ -26,6 +28,7 @@ const App = () => {
 // ...existing code...
           <Route path="/admin/landlord-verification" element={<ProtectedRoute element={<LandlordVerification />} />} /> {/* ✅ Added Route */}
         </Routes>
+        </ErrorBoundary>
       </Router>
       <ToastContainer position="bottom-right" autoClose={3000} newestOnTop theme="light" pauseOnFocusLoss={false} closeOnClick />
     </AuthProvider>

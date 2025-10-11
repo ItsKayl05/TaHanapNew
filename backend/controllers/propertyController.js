@@ -79,36 +79,151 @@ const deleteCloudinaryAssets = async (urls) => {
 
 // Helper function to upload files to Cloudinary
 const uploadToCloudinary = async (files, folder, resourceType = 'image') => {
-    const { uploadBuffer } = await import('../utils/cloudinary.js');
-    const urls = [];
-    
-    for (const file of files) {
-        try {
-            const result = await uploadBuffer(file.buffer, { 
-                folder: `tahanap/properties/${folder}`,
-                resource_type: resourceType
-            });
-            if (result.secure_url) {
-                urls.push(result.secure_url);
+    try {
+        const { uploadBuffer, default: cloudinary } = await import('../utils/cloudinary.js');
+        const urls = [];
+        
+        for (const file of files) {
+            try {
+                const result = await uploadBuffer(file.buffer, { 
+                    folder: `tahanap/properties/${folder}`,
+                    resource_type: resourceType
+                });
+                if (result.secure_url) {
+                    urls.push(result.secure_url);
+                }
+            } catch (e) {
+                console.error(`Cloudinary ${resourceType} upload failed:`, e);
+                throw e; // Re-throw to be caught by outer try-catch
             }
-        } catch (e) {
-            console.error(`Cloudinary ${resourceType} upload failed:`, e);
         }
+        
+        return resourceType === 'image' ? urls : urls[0] || '';
+    } catch (error) {
+        console.error('Error in uploadToCloudinary:', error);
+        throw error; // Re-throw to be handled by the calling function
     }
-    
-    return resourceType === 'image' ? urls : urls[0] || '';
 };
 
 // 🏡 Add Property
 export const addProperty = async (req, res) => {
     uploadMemory(req, res, async (err) => {
-        if (err) return res.status(400).json({ error: err.message || "Error uploading media" });
+        if (err) {
+            let errorMsg = "Error uploading media";
+            if (err.message) {
+                if (err.message.includes('File too large')) {
+                    errorMsg = 'File size exceeds the allowed limit (Images/Panorama: 10MB, Video: 50MB)';
+                } else if (err.message.includes('Only image files allowed')) {
+                    errorMsg = 'Invalid file type for images. Only JPG, PNG, and WebP formats are allowed';
+                } else if (err.message.includes('Invalid video format')) {
+                    errorMsg = 'Invalid video format. Only MP4, WebM, and OGG formats are allowed';
+                } else {
+                    errorMsg = err.message;
+                }
+            }
+            return res.status(400).json({ error: errorMsg });
+        }
 
         try {
             const { title, description, address, price, barangay, category, petFriendly, allowedPets, occupancy, parking, rules, landmarks, numberOfRooms, areaSqm, latitude, longitude } = req.body;
 
-            if (!title || !description || !address || !price || !barangay || !category) {
-                return res.status(400).json({ error: "All required fields must be filled" });
+            // Define field validations with friendly messages
+            const validations = {
+                title: {
+                    required: true,
+                    message: "Don't forget to add a title for your property"
+                },
+                description: {
+                    required: true,
+                    message: "Please add a description to help people understand your property better"
+                },
+                address: {
+                    required: true,
+                    message: "Make sure to provide the complete address of your property"
+                },
+                price: {
+                    required: true,
+                    message: "Don't forget to set a price for your property",
+                    validate: value => !isNaN(Number(value)) && Number(value) > 0,
+                    errorMessage: "The price should be a valid number greater than 0"
+                },
+                barangay: {
+                    required: true,
+                    message: "Please select which barangay your property is located in"
+                },
+                category: {
+                    required: true,
+                    message: "Don't forget to specify what type of property you're listing"
+                },
+                numberOfRooms: {
+                    required: false,
+                    message: "You haven't specified how many rooms the property has",
+                    validate: value => !value || (!isNaN(Number(value)) && Number(value) >= 0),
+                    errorMessage: "Number of rooms should be 0 or more"
+                },
+                occupancy: {
+                    required: false,
+                    message: "Consider specifying the maximum number of occupants allowed",
+                    validate: value => !value || (!isNaN(Number(value)) && Number(value) > 0),
+                    errorMessage: "Maximum occupancy should be greater than 0"
+                },
+                areaSqm: {
+                    required: false,
+                    message: "Adding the floor area will help people better understand the property size",
+                    validate: value => !value || (!isNaN(Number(value)) && Number(value) > 0),
+                    errorMessage: "Floor area should be greater than 0 square meters"
+                },
+                landmarks: {
+                    required: false,
+                    message: "Consider adding nearby landmarks to help people locate your property"
+                },
+                rules: {
+                    required: false,
+                    message: "You might want to add some house rules for your property"
+                },
+                allowedPets: {
+                    required: false,
+                    dependsOn: 'petFriendly',
+                    message: "Since this is a pet-friendly property, you might want to specify which pets are allowed"
+                }
+            };
+
+            // Collect all validation errors
+            const errors = [];
+            const suggestions = [];
+
+            // Check required fields and validations
+            for (const [field, validation] of Object.entries(validations)) {
+                const value = req.body[field];
+                
+                // Check required fields
+                if (validation.required && (!value || value.toString().trim() === '')) {
+                    errors.push(validation.message);
+                    continue;
+                }
+
+                // Check dependent fields
+                if (validation.dependsOn && req.body[validation.dependsOn] === true && (!value || value.toString().trim() === '')) {
+                    suggestions.push(validation.message);
+                }
+
+                // Check validations if value is provided
+                if (value && validation.validate && !validation.validate(value)) {
+                    errors.push(validation.errorMessage || validation.message);
+                }
+
+                // Add suggestions for empty optional fields
+                if (!validation.required && !value && !validation.dependsOn) {
+                    suggestions.push(validation.message);
+                }
+            }
+
+            // Return if there are any validation errors
+            if (errors.length > 0) {
+                return res.status(400).json({
+                    errors: errors, // Send just the array of error messages
+                    suggestions: suggestions
+                });
             }
 
             const landlord = req.user.id;
@@ -133,17 +248,71 @@ export const addProperty = async (req, res) => {
             let panorama360 = '';
 
             // Upload all media to Cloudinary
+            // Handle media uploads
+            // Handle image uploads
             if (req.files?.images && req.files.images.length > 0) {
-                images = await uploadToCloudinary(req.files.images, 'images', 'image');
+                try {
+                    // Check file sizes and types before uploading
+                    for (const file of req.files.images) {
+                        if (file.size > 10 * 1024 * 1024) {
+                            throw new Error(`Image "${file.originalname}" exceeds 10MB limit`);
+                        }
+                        if (!file.mimetype.startsWith('image/')) {
+                            throw new Error(`File "${file.originalname}" is not a valid image format`);
+                        }
+                    }
+                    images = await uploadToCloudinary(req.files.images, 'images', 'image');
+                } catch (error) {
+                    // Clean up any uploaded files if there was an error
+                    if (images.length > 0) {
+                        await deleteCloudinaryAssets(images);
+                    }
+                    return res.status(400).json({ error: error.message });
+                }
             }
             
+            // Handle video upload
             if (req.files?.video && req.files.video.length > 0) {
-                video = await uploadToCloudinary(req.files.video, 'videos', 'video');
+                try {
+                    const videoFile = req.files.video[0];
+                    if (videoFile.size > 50 * 1024 * 1024) {
+                        throw new Error('Video file exceeds 50MB size limit');
+                    }
+                    if (!['video/mp4', 'video/webm', 'video/ogg'].includes(videoFile.mimetype)) {
+                        throw new Error('Invalid video format. Only MP4, WebM, or OGG formats are allowed');
+                    }
+                    video = await uploadToCloudinary(req.files.video, 'videos', 'video');
+                } catch (error) {
+                    // Clean up any uploaded files if there was an error
+                    if (images.length > 0) {
+                        await deleteCloudinaryAssets(images);
+                    }
+                    return res.status(400).json({ error: error.message });
+                }
             }
             
+            // Handle panorama upload
             if (req.files?.panorama360 && req.files.panorama360.length > 0) {
-                const panoramaResult = await uploadToCloudinary(req.files.panorama360, 'panorama', 'image');
-                panorama360 = panoramaResult[0] || '';
+                try {
+                    const panoramaFile = req.files.panorama360[0];
+                    if (panoramaFile.size > 10 * 1024 * 1024) {
+                        throw new Error('360° Panorama image exceeds 10MB size limit');
+                    }
+                    if (!panoramaFile.mimetype.startsWith('image/')) {
+                        throw new Error('360° Panorama must be an image file (JPG, PNG, or WebP)');
+                    }
+                    const panoramaResult = await uploadToCloudinary(req.files.panorama360, 'panorama', 'image');
+                    panorama360 = panoramaResult[0] || '';
+                } catch (error) {
+                    // Clean up any uploaded files if there was an error
+                    if (images.length > 0) {
+                        await deleteCloudinaryAssets(images);
+                    }
+                    if (video) {
+                        await deleteCloudinaryAssets([video]);
+                    }
+                    return res.status(400).json({ error: error.message });
+                }
             }
 
             if (images.length > MAX_IMAGES) {
@@ -202,6 +371,21 @@ export const addProperty = async (req, res) => {
 
         } catch (error) {
             console.error("Add Property Error:", error);
+            // Clean up any uploaded files in case of error
+            const filesToDelete = [
+                ...(images || []),
+                ...(video ? [video] : []),
+                ...(panorama360 ? [panorama360] : [])
+            ].filter(Boolean);
+
+            if (filesToDelete.length > 0) {
+                try {
+                    await deleteCloudinaryAssets(filesToDelete);
+                } catch (cleanupError) {
+                    console.error("Error cleaning up files:", cleanupError);
+                }
+            }
+            
             res.status(500).json({ error: "Server error while adding property" });
         }
     });
@@ -320,6 +504,118 @@ export const updateProperty = async (req, res) => {
 
             if (property.landlord.toString() !== req.user.id) {
                 return res.status(403).json({ error: "Unauthorized" });
+            }
+
+            const updates = { ...req.body };
+            
+            // Remove protected fields
+            delete updates.landlord;
+            delete updates.status;
+
+            // Define validations with friendly messages for update
+            const validations = {
+                title: {
+                    required: true,
+                    message: "The property title cannot be empty"
+                },
+                description: {
+                    required: true,
+                    message: "Please provide a description for your property"
+                },
+                address: {
+                    required: true,
+                    message: "The property address cannot be empty"
+                },
+                price: {
+                    required: true,
+                    message: "Don't forget to set a price",
+                    validate: value => !isNaN(Number(value)) && Number(value) > 0,
+                    errorMessage: "The price should be a valid number greater than 0"
+                },
+                barangay: {
+                    required: true,
+                    message: "Please select a barangay for your property"
+                },
+                category: {
+                    required: true,
+                    message: "The property type cannot be empty"
+                },
+                numberOfRooms: {
+                    required: false,
+                    message: "You might want to specify the number of rooms",
+                    validate: value => !value || (!isNaN(Number(value)) && Number(value) >= 0),
+                    errorMessage: "Number of rooms should be 0 or more"
+                },
+                occupancy: {
+                    required: false,
+                    message: "Consider adding the maximum occupancy allowed",
+                    validate: value => !value || (!isNaN(Number(value)) && Number(value) > 0),
+                    errorMessage: "Maximum occupancy should be greater than 0"
+                },
+                areaSqm: {
+                    required: false,
+                    message: "Adding the floor area helps people understand the property size",
+                    validate: value => !value || (!isNaN(Number(value)) && Number(value) > 0),
+                    errorMessage: "Floor area should be greater than 0 square meters"
+                },
+                landmarks: {
+                    required: false,
+                    message: "You might want to add nearby landmarks"
+                },
+                rules: {
+                    required: false,
+                    message: "Consider adding some property rules"
+                },
+                allowedPets: {
+                    required: false,
+                    dependsOn: 'petFriendly',
+                    message: "Since this is pet-friendly, you might want to specify which pets are allowed"
+                }
+            };
+
+            // Collect validation errors and suggestions
+            const errors = [];
+            const suggestions = [];
+
+            // Handle boolean conversions first
+            if (typeof updates.petFriendly === 'string') {
+                updates.petFriendly = updates.petFriendly === 'true';
+            }
+            if (typeof updates.parking === 'string') {
+                updates.parking = updates.parking === 'true';
+            }
+
+            // Validate fields that are being updated
+            for (const [field, validation] of Object.entries(validations)) {
+                if (field in updates) {
+                    const value = updates[field];
+
+                    // Check required fields
+                    if (validation.required && (!value || value.toString().trim() === '')) {
+                        errors.push(validation.message);
+                        continue;
+                    }
+
+                    // Check validations if value is provided
+                    if (value && validation.validate && !validation.validate(value)) {
+                        errors.push(validation.errorMessage || validation.message);
+                    }
+                }
+
+                // Check dependent fields
+                if (validation.dependsOn && 
+                    updates[validation.dependsOn] === true && 
+                    (!updates[field] || updates[field].toString().trim() === '')) {
+                    suggestions.push(validation.message);
+                }
+            }
+
+            // Return if there are any validation errors
+            if (errors.length > 0) {
+                return res.status(400).json({
+                    errors: errors, // Send just the array of error messages
+                    suggestions: suggestions
+                });
             }
 
             let updatedImages = [...property.images];
