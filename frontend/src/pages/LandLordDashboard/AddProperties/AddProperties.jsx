@@ -467,6 +467,7 @@ const AddProperties = () => {
                     <option key={l} value={l}>{l.split(' ').map(word => word.includes('/') ? word.split('/').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('/') : word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</option>
                   ))}
                 </select>
+                <input className="ll-field" type="text" name="customLandmark" value={propertyData.customLandmark || ''} onChange={handleInputChange} placeholder="Other landmark (e.g. Mall, Plaza)" style={{marginTop:'8px'}} />
               </div>
               
               <div className="form-group full">
@@ -489,8 +490,8 @@ const AddProperties = () => {
             <div className="ll-stack">
               {/* Images Section */}
               <div className="images-section" style={{marginTop:'0'}}>
-                <h3 className="section-title">Images <span style={{fontWeight:400, fontSize:'0.7rem'}}>({propertyData.images.length}/8 total)</span></h3>
-                <p className="field-hint">Add up to 8 images (JPG/PNG/WebP, max 10MB each).</p>
+                <h3 className="section-title">Images<span style={{color:'var(--danger)'}}>*</span> <span style={{fontWeight:400, fontSize:'0.7rem'}}>({propertyData.images.length}/8 total)</span></h3>
+                <p className="field-hint">Add up to 8 images (JPG/PNG/WebP, max 10MB each). <span style={{color:'var(--danger)'}}>* Required</span></p>
                 <div className="current-images-grid">
                   {imagePreviews.length ? imagePreviews.map((url, i) => (
                     <div key={i} className="image-chip">

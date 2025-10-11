@@ -478,6 +478,7 @@ const EditProperty = () => {
                                         <option key={l} value={l}>{l.split(' ').map(word => word.includes('/') ? word.split('/').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('/') : word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</option>
                                     ))}
                                 </select>
+                                <input className="ll-field" type="text" name="customLandmark" value={formData.customLandmark || ''} onChange={handleChange} placeholder="Other landmark (e.g. Mall, Plaza)" style={{marginTop:'8px'}} />
                             </div>
                             <div className="field-group full">
                                 <label>House Rules</label>
@@ -510,8 +511,8 @@ const EditProperty = () => {
                         </div>
 
                         <div className="images-section">
-                            <h3 className="section-title">Images <span style={{fontWeight:400, fontSize:'0.7rem'}}>({images.length + newImages.length}/8 total)</span></h3>
-                            <p className="field-hint">You can keep, remove, or add new images (max 8 total, JPG/PNG/WebP up to 10MB each).</p>
+                            <h3 className="section-title">Images<span style={{color:'var(--danger)'}}>*</span> <span style={{fontWeight:400, fontSize:'0.7rem'}}>({images.length + newImages.length}/8 total)</span></h3>
+                            <p className="field-hint">You can keep, remove, or add new images (max 8 total, JPG/PNG/WebP up to 10MB each). <span style={{color:'var(--danger)'}}>* Required</span></p>
                             <div className="current-images-grid">
                                 {images.length ? images.map((img, i) => {
                                     const url = img.startsWith('http') ? img : buildUpload(img);
