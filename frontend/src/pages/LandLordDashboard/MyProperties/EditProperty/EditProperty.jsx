@@ -213,8 +213,8 @@ const EditProperty = () => {
         try {
             const userToken = localStorage.getItem("user_token");
             if (!userToken) throw new Error("Unauthorized access. Please log in.");
-            if (!formData.title || !formData.description) {
-                toast.error('Title & description are required.');
+            if (!formData.title || !formData.description || !formData.areaSqm || Number(formData.areaSqm) <= 0 || !formData.availabilityStatus) {
+                toast.error('Please fill in all required fields, including Property Size (sqm) and Availability Status.');
                 return;
             }
             // Validate and convert price (locale-aware)
@@ -418,7 +418,7 @@ const EditProperty = () => {
                                 <input className="ll-field" type="number" min={0} name="numberOfRooms" value={formData.numberOfRooms} onChange={handleChange} placeholder="e.g. 2" />
                             </div>
                             <div className="field-group">
-                                <label className="required">Availability</label>
+                                <label className="required">Availability Status<span style={{color:'var(--danger)'}}>*</span></label>
                                 <select className="ll-field" name="availabilityStatus" value={formData.availabilityStatus} onChange={handleChange} required>
                                     <option value="Available">Available</option>
                                     <option value="Fully Occupied">Fully Occupied</option>
@@ -437,8 +437,8 @@ const EditProperty = () => {
                                 <div className="field-hint small">Current available units (will be clamped to Total Units).</div>
                             </div>
                             <div className="field-group">
-                                <label>Property Size (sqm)</label>
-                                <input className="ll-field" type="number" min={0} step={0.1} name="areaSqm" value={formData.areaSqm} onChange={handleChange} placeholder="e.g. 45" />
+                                <label className="required">Property Size (sqm)<span style={{color:'var(--danger)'}}>*</span></label>
+                                <input className="ll-field" type="number" min={0.1} step={0.1} name="areaSqm" value={formData.areaSqm} onChange={handleChange} placeholder="e.g. 45" required />
                             </div>
                             <div className="field-group">
                                 <label className="required">Max Occupancy</label>

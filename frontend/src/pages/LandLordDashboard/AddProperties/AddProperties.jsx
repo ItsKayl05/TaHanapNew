@@ -199,11 +199,11 @@ const AddProperties = () => {
     if (isSubmitting) return;
     const token = localStorage.getItem('user_token');
     if (!token) { toast.error('No token found. Please log in.'); navigate('/login'); return; }
-    const required = ['title','description','address','price','barangay','category'];
-    if (required.some(f => !propertyData[f])) {
-      toast.error('Please fill in all required fields');
-      return;
-    }
+        const required = ['title','description','address','price','barangay','category','areaSqm','availabilityStatus'];
+        if (required.some(f => !propertyData[f] || (f==='areaSqm' && (!propertyData[f] || Number(propertyData[f])<=0)))) {
+          toast.error('Please fill in all required fields, including Property Size (sqm) and Availability Status.');
+          return;
+        }
     if (!propertyData.images.length) {
       toast.error('Please add at least one image');
       return;
@@ -393,7 +393,7 @@ const AddProperties = () => {
               </div>
               
               <div className="form-group">
-                <label className="required">Availability Status <span style={{color:'var(--danger)'}}>*</span></label>
+                <label className="required">Availability Status<span style={{color:'var(--danger)'}}>*</span></label>
                 <select className="ll-field" name="availabilityStatus" value={propertyData.availabilityStatus} onChange={handleInputChange} required>
                   <option value="Available">Available</option>
                   <option value="Fully Occupied">Fully Occupied</option>
@@ -414,8 +414,8 @@ const AddProperties = () => {
               </div>
               
               <div className="form-group">
-                <label className="required">Property Size (sqm) <span style={{color:'var(--danger)'}}>*</span></label>
-                <input className="ll-field" type="number" min={0} step={0.1} name="areaSqm" value={propertyData.areaSqm} onChange={handleInputChange} placeholder="e.g. 45" required />
+                <label className="required">Property Size (sqm)<span style={{color:'var(--danger)'}}>*</span></label>
+                <input className="ll-field" type="number" min={0.1} step={0.1} name="areaSqm" value={propertyData.areaSqm} onChange={handleInputChange} placeholder="e.g. 45" required />
               </div>
               
               <div className="form-group">
