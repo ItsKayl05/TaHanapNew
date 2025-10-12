@@ -423,7 +423,7 @@ const AddProperties = () => {
               </div>
               
               <div className="form-group">
-                <label className="required">Availability Status<span style={{color:'var(--danger)'}}>*</span></label>
+                <label className="required">Availability Status</label>
                 <select className="ll-field" name="availabilityStatus" value={propertyData.availabilityStatus} onChange={handleInputChange} required>
                   <option value="Available">Available</option>
                   <option value="Fully Occupied">Fully Occupied</option>
@@ -444,7 +444,7 @@ const AddProperties = () => {
               </div>
               
               <div className="form-group">
-                <label className="required">Property Size (sqm)<span style={{color:'var(--danger)'}}>*</span></label>
+                <label className="required">Property Size (sqm)</label>
                 <input className="ll-field" type="number" min={0.1} step={0.1} name="areaSqm" value={propertyData.areaSqm} onChange={handleInputChange} placeholder="e.g. 45" required />
                 {areaSqmError && <div className="field-error small" style={{color:'var(--danger)', marginTop:4}}>{areaSqmError}</div>}
               </div>

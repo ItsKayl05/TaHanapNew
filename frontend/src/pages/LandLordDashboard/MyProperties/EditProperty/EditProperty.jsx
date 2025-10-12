@@ -435,7 +435,7 @@ const EditProperty = () => {
                                 <input className="ll-field" type="number" min={0} name="numberOfRooms" value={formData.numberOfRooms} onChange={handleChange} placeholder="e.g. 2" />
                             </div>
                             <div className="field-group">
-                                <label className="required">Availability Status <span style={{color:'var(--danger)'}}>*</span></label>
+                                <label className="required">Availability Status</label>
                                 <select className="ll-field" name="availabilityStatus" value={formData.availabilityStatus} onChange={handleChange} required>
                                     <option value="Available">Available</option>
                                     <option value="Fully Occupied">Fully Occupied</option>
@@ -454,7 +454,7 @@ const EditProperty = () => {
                                 <div className="field-hint small">Current available units (will be clamped to Total Units).</div>
                             </div>
                             <div className="field-group">
-                                <label className="required">Property Size (sqm) <span style={{color:'var(--danger)'}}>*</span></label>
+                                <label className="required">Property Size (sqm)</label>
                                 <input className="ll-field" type="number" min={0.1} step={0.1} name="areaSqm" value={formData.areaSqm} onChange={handleChange} placeholder="e.g. 45" required />
                             </div>
                             <div className="field-group">
