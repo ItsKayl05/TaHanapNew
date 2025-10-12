@@ -214,7 +214,20 @@ const AddProperties = () => {
     if (isSubmitting) return;
     const token = localStorage.getItem('user_token');
     if (!token) { toast.error('No token found. Please log in.'); navigate('/login'); return; }
-    // Only validate basic requirements client-side
+    // Specific client-side required field checks to provide friendly messages
+    const requiredChecks = [
+      { key: 'title', ok: propertyData.title && propertyData.title.toString().trim() !== '', msg: "Don't forget to add a title for your property" },
+      { key: 'description', ok: propertyData.description && propertyData.description.toString().trim() !== '', msg: "Please add a description to help people understand your property better" },
+      { key: 'address', ok: propertyData.address && propertyData.address.toString().trim() !== '', msg: "Make sure to provide the complete address of your property" },
+      { key: 'price', ok: propertyData.price && propertyData.price.toString().trim() !== '', msg: "Don't forget to set a price for your property" },
+      { key: 'barangay', ok: propertyData.barangay && propertyData.barangay.toString().trim() !== '', msg: "Please select which barangay your property is located in" },
+      { key: 'category', ok: propertyData.category && propertyData.category.toString().trim() !== '', msg: "Don't forget to specify what type of property you're listing" },
+      { key: 'areaSqm', ok: propertyData.areaSqm !== undefined && propertyData.areaSqm !== '' && !isNaN(Number(propertyData.areaSqm)) && Number(propertyData.areaSqm) > 0, msg: "Please provide the floor area (in square meters)" }
+    ];
+    for (const chk of requiredChecks) {
+      if (!chk.ok) { toast.error(chk.msg); return; }
+    }
+
     if (!propertyData.images.length) {
       toast.error('Please add at least one image');
       return;
@@ -437,8 +450,9 @@ const AddProperties = () => {
               </div>
               
               <div className="form-group">
-                <label>Property Size (sqm)</label>
-                <input className="ll-field" type="number" min={0} step={0.1} name="areaSqm" value={propertyData.areaSqm} onChange={handleInputChange} placeholder="e.g. 45" />
+                <label className="required">Property Size (sqm)</label>
+                <input className="ll-field" type="number" min={0} step={0.1} name="areaSqm" value={propertyData.areaSqm} onChange={handleInputChange} placeholder="e.g. 45" required />
+                <div className="field-hint small">Enter the floor area in square meters (must be greater than 0)</div>
               </div>
               
               <div className="form-group">

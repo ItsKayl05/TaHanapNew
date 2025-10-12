@@ -217,6 +217,15 @@ const EditProperty = () => {
                 toast.error('Title & description are required.');
                 return;
             }
+            // Ensure required numeric fields are provided
+            if (formData.price === undefined || formData.price === '' ) {
+                toast.error("Don't forget to set a price");
+                return;
+            }
+            if (formData.areaSqm === undefined || formData.areaSqm === '' || isNaN(Number(formData.areaSqm)) || Number(formData.areaSqm) <= 0) {
+                toast.error('Please provide the floor area (in square meters)');
+                return;
+            }
             // Validate and convert price (locale-aware)
             const parseLocaleNumber = (str) => {
                 if (str === undefined || str === null || String(str).trim() === '') return NaN;
@@ -454,8 +463,8 @@ const EditProperty = () => {
                                 <div className="field-hint small">Current available units (will be clamped to Total Units).</div>
                             </div>
                             <div className="field-group">
-                                <label>Property Size (sqm)</label>
-                                <input className="ll-field" type="number" min={0} step={0.1} name="areaSqm" value={formData.areaSqm} onChange={handleChange} placeholder="e.g. 45" />
+                                <label className="required">Property Size (sqm)</label>
+                                <input className="ll-field" type="number" min={0} step={0.1} name="areaSqm" value={formData.areaSqm} onChange={handleChange} placeholder="e.g. 45" required />
                             </div>
                             <div className="field-group">
                                 <label className="required">Max Occupancy</label>

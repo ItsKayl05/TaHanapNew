@@ -168,10 +168,10 @@ export const addProperty = async (req, res) => {
                     errorMessage: "Maximum occupancy should be greater than 0"
                 },
                 areaSqm: {
-                    required: false,
-                    message: "Adding the floor area will help people better understand the property size",
-                    validate: value => !value || (!isNaN(Number(value)) && Number(value) > 0),
-                    errorMessage: "Floor area should be greater than 0 square meters"
+                    required: true,
+                    message: "Please provide the floor area (in square meters)",
+                    validate: value => !isNaN(Number(value)) && Number(value) > 0,
+                    errorMessage: "Floor area should be a number greater than 0"
                 },
                 landmarks: {
                     required: false,
@@ -553,10 +553,10 @@ export const updateProperty = async (req, res) => {
                     errorMessage: "Maximum occupancy should be greater than 0"
                 },
                 areaSqm: {
-                    required: false,
-                    message: "Adding the floor area helps people understand the property size",
-                    validate: value => !value || (!isNaN(Number(value)) && Number(value) > 0),
-                    errorMessage: "Floor area should be greater than 0 square meters"
+                    required: true,
+                    message: "Please provide the floor area (in square meters)",
+                    validate: value => !isNaN(Number(value)) && Number(value) > 0,
+                    errorMessage: "Floor area should be a number greater than 0"
                 },
                 landmarks: {
                     required: false,
