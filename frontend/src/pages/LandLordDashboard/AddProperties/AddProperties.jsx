@@ -539,24 +539,24 @@ const AddProperties = () => {
             
             <div className="ll-stack">
               {/* Images Section */}
-              <div className="images-section" style={{marginTop:'0'}}>
-                <h3 className="section-title">Images <span style={{fontWeight:400, fontSize:'0.7rem'}}>({propertyData.images.length}/8 total)</span></h3>
-                <p className="field-hint">Add up to 8 images (JPG/PNG/WebP, max 10MB each).</p>
-                <div className="current-images-grid">
-                  {imagePreviews.length ? imagePreviews.map((url, i) => (
-                    <div key={i} className="image-chip">
-                      <img src={url} alt={`Property ${i}`} />
-                      <button type="button" aria-label="Remove image" onClick={() => removeImage(i)}>&times;</button>
-                    </div>
-                  )) : <div className="placeholder">No images</div>}
-                </div>
-                <div className="new-upload-block">
-                  <label className="file-drop-modern">
-                    <input type="file" multiple accept="image/*" onChange={handleImageChange} />
-                    <span>Add Images</span>
-                  </label>
-                </div>
-              </div>
+<div className="images-section" style={{marginTop:'0'}}>
+  <h3 className="section-title">Images <span className="required" style={{marginLeft:'4px'}}>*</span> <span style={{fontWeight:400, fontSize:'0.7rem'}}>({propertyData.images.length}/8 total)</span></h3>
+  <p className="field-hint">Add up to 8 images (JPG/PNG/WebP, max 10MB each).</p>
+  <div className="current-images-grid">
+    {imagePreviews.length ? imagePreviews.map((url, i) => (
+      <div key={i} className="image-chip">
+        <img src={url} alt={`Property ${i}`} />
+        <button type="button" aria-label="Remove image" onClick={() => removeImage(i)}>&times;</button>
+      </div>
+    )) : <div className="placeholder">No images</div>}
+  </div>
+  <div className="new-upload-block">
+    <label className="file-drop-modern">
+      <input type="file" multiple accept="image/*" onChange={handleImageChange} />
+      <span>Add Images</span>
+    </label>
+  </div>
+</div>
 
               {/* 360° Panoramic Image Section - FIXED */}
               <div className="panorama-section" style={{marginTop:'32px'}}>

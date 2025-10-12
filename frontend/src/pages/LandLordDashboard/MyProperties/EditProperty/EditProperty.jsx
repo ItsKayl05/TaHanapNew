@@ -560,36 +560,36 @@ const EditProperty = () => {
                         </div>
 
                         <div className="images-section">
-                            <h3 className="section-title">Images <span style={{fontWeight:400, fontSize:'0.7rem'}}>({images.length + newImages.length}/8 total)</span></h3>
-                            <p className="field-hint">You can keep, remove, or add new images (max 8 total, JPG/PNG/WebP up to 10MB each).</p>
-                            <div className="current-images-grid">
-                                {images.length ? images.map((img, i) => {
-                                    const url = img.startsWith('http') ? img : buildUpload(img);
-                                    return (
-                                        <div key={i} className="image-chip">
-                                            <img src={url} alt={`Property ${i}`} />
-                                            <button type="button" aria-label="Remove image" onClick={() => handleDeleteImage(i, true)}>&times;</button>
-                                        </div>
-                                    );
-                                }) : <div className="placeholder">No images</div>}
-                            </div>
-                            <div className="new-upload-block">
-                                <label className="file-drop-modern">
-                                    <input type="file" multiple accept="image/*" onChange={handleImageChange} />
-                                    <span>Add Images</span>
-                                </label>
-                                {newImages.length > 0 && (
-                                    <div className="new-images-grid">
-                                        {newImages.map((file, i) => (
-                                            <div key={i} className="image-chip pending">
-                                                <img src={URL.createObjectURL(file)} alt={`New ${i}`} />
-                                                <button type="button" aria-label="Remove pending image" onClick={() => handleDeleteImage(i, false)}>&times;</button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
+    <h3 className="section-title">Images <span className="required" style={{marginLeft:'4px'}}>*</span> <span style={{fontWeight:400, fontSize:'0.7rem'}}>({images.length + newImages.length}/8 total)</span></h3>
+    <p className="field-hint">You can keep, remove, or add new images (max 8 total, JPG/PNG/WebP up to 10MB each).</p>
+    <div className="current-images-grid">
+        {images.length ? images.map((img, i) => {
+            const url = img.startsWith('http') ? img : buildUpload(img);
+            return (
+                <div key={i} className="image-chip">
+                    <img src={url} alt={`Property ${i}`} />
+                    <button type="button" aria-label="Remove image" onClick={() => handleDeleteImage(i, true)}>&times;</button>
+                </div>
+            );
+        }) : <div className="placeholder">No images</div>}
+    </div>
+    <div className="new-upload-block">
+        <label className="file-drop-modern">
+            <input type="file" multiple accept="image/*" onChange={handleImageChange} />
+            <span>Add Images</span>
+        </label>
+        {newImages.length > 0 && (
+            <div className="new-images-grid">
+                {newImages.map((file, i) => (
+                    <div key={i} className="image-chip pending">
+                        <img src={URL.createObjectURL(file)} alt={`New ${i}`} />
+                        <button type="button" aria-label="Remove pending image" onClick={() => handleDeleteImage(i, false)}>&times;</button>
+                    </div>
+                ))}
+            </div>
+        )}
+    </div>
+</div>
                         <div className="video-section">
                             <h3 className="section-title">Property Video <span style={{fontWeight:400, fontSize:'0.7rem'}}>({removeVideo ? 'will remove' : (videoFile ? 'new video selected' : (videoPreview ? 'existing' : 'none'))})</span></h3>
                             <p className="field-hint">Optional walkthrough clip (MP4/WebM/OGG, up to 50MB). Uploading a new one replaces the existing video.</p>
