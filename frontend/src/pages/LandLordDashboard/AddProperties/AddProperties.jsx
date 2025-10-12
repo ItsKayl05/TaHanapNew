@@ -210,107 +210,108 @@ const AddProperties = () => {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (isSubmitting) return;
-    const token = localStorage.getItem('user_token');
-    if (!token) { toast.error('No token found. Please log in.'); navigate('/login'); return; }
-    // Specific client-side required field checks to provide friendly messages
-    const requiredChecks = [
-      { key: 'title', ok: propertyData.title && propertyData.title.toString().trim() !== '', msg: "Don't forget to add a title for your property" },
-      { key: 'description', ok: propertyData.description && propertyData.description.toString().trim() !== '', msg: "Please add a description to help people understand your property better" },
-      { key: 'address', ok: propertyData.address && propertyData.address.toString().trim() !== '', msg: "Make sure to provide the complete address of your property" },
-      { key: 'price', ok: propertyData.price && propertyData.price.toString().trim() !== '', msg: "Don't forget to set a price for your property" },
-      { key: 'barangay', ok: propertyData.barangay && propertyData.barangay.toString().trim() !== '', msg: "Please select which barangay your property is located in" },
-      { key: 'category', ok: propertyData.category && propertyData.category.toString().trim() !== '', msg: "Don't forget to specify what type of property you're listing" },
-      { key: 'areaSqm', ok: propertyData.areaSqm !== undefined && propertyData.areaSqm !== '' && !isNaN(Number(propertyData.areaSqm)) && Number(propertyData.areaSqm) > 0, msg: "Please provide the floor area (in square meters)" }
-    ];
-    for (const chk of requiredChecks) {
-      if (!chk.ok) { toast.error(chk.msg); return; }
-    }
-
-    if (!propertyData.images.length) {
-      toast.error('Please add at least one image');
-      return;
-    }
-    if (propertyData.images.length > MAX_IMAGES) {
-      toast.error(`Maximum of ${MAX_IMAGES} images allowed.`);
-      return;
-    }
-    // Validate geocoding
-    if (!propertyData.latitude || !propertyData.longitude || isNaN(Number(propertyData.latitude)) || isNaN(Number(propertyData.longitude))) {
-      toast.error('Map location not found. Please check the address and barangay, then wait for the map preview to update before submitting.');
-      return;
-    }
-    // Validate price before submit
-    const parseLocaleNumber = (str) => {
-      if (str === undefined || str === null || String(str).trim() === '') return NaN;
-      const nfParts = new Intl.NumberFormat(navigator.language).formatToParts(12345.6);
-      const group = nfParts.find(p => p.type === 'group')?.value || ',';
-      const decimal = nfParts.find(p => p.type === 'decimal')?.value || '.';
-      const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      let normalized = String(str).replace(new RegExp(esc(group), 'g'), '');
-      if (decimal !== '.') normalized = normalized.replace(new RegExp(esc(decimal)), '.');
-      normalized = normalized.replace(/\s/g, '');
-      normalized = normalized.replace(/[^0-9.\-]/g, '');
-      const num = Number(normalized);
-      return isNaN(num) ? NaN : num;
-    };
-
-    const priceNum = parseLocaleNumber(propertyData.price);
-    if (isNaN(priceNum) || priceNum < 0) {
-      setPriceError('Please enter a valid price');
-      return;
-    } else {
-      setPriceError('');
-    }
-
-    setIsSubmitting(true);
-    const formData = new FormData();
-    Object.entries(propertyData).forEach(([k,v]) => {
-      if (k==='images') v.forEach(img => formData.append('images', img));
-      else if (k==='video') { if (v) formData.append('video', v); }
-      else formData.append(k,v);
-    });
-    // Add panorama if exists
-    if (panorama) {
-      formData.append('panorama360', panorama);
-    }
-    try {
-      // Convert price to a numeric value before sending (use locale-aware parser)
-      const parseForSend = (val) => {
-        const num = parseLocaleNumber(val);
-        return isNaN(num) ? '' : num;
-      };
-      formData.set('price', parseForSend(propertyData.price));
-
-      const res = await fetch(buildApi('/properties/add'), { method:'POST', headers:{ Authorization:`Bearer ${token}` }, body:formData });
-      const data = await res.json().catch(()=>({}));
-      if (!res.ok) {
-        // Show detailed validation errors from backend
-        if (data.errors && Array.isArray(data.errors)) {
-          // Show each validation error as a separate toast
-          data.errors.forEach(error => toast.error(error));
-        } else if (data.error && typeof data.error === 'string') {
-          // Single error message
-          toast.error(data.error);
-        } else if (data.message) {
-          // Fallback to message field
-          toast.error(data.message);
-        } else {
-          // Generic error
-          toast.error('Failed to add property');
-        }
-        setIsSubmitting(false);
-        return;
-      }
-      toast.success('Property added successfully');
-      navigate('/my-properties');
-    } catch (err) {
-      toast.error(err.message || 'Error adding property');
-    } finally {
-      setIsSubmitting(false);
-    }
+  e.preventDefault();
+  if (isSubmitting) return;
+  const token = localStorage.getItem('user_token');
+  if (!token) { toast.error('No token found. Please log in.'); navigate('/login'); return; }
+  // Specific client-side required field checks to provide friendly messages
+  const requiredChecks = [
+    { key: 'title', ok: propertyData.title && propertyData.title.toString().trim() !== '', msg: "Don't forget to add a title for your property" },
+    { key: 'description', ok: propertyData.description && propertyData.description.toString().trim() !== '', msg: "Please add a description to help people understand your property better" },
+    { key: 'address', ok: propertyData.address && propertyData.address.toString().trim() !== '', msg: "Make sure to provide the complete address of your property" },
+    { key: 'price', ok: propertyData.price && propertyData.price.toString().trim() !== '', msg: "Don't forget to set a price for your property" },
+    { key: 'barangay', ok: propertyData.barangay && propertyData.barangay.toString().trim() !== '', msg: "Please select which barangay your property is located in" },
+    { key: 'category', ok: propertyData.category && propertyData.category.toString().trim() !== '', msg: "Don't forget to specify what type of property you're listing" },
+    { key: 'areaSqm', ok: propertyData.areaSqm !== undefined && propertyData.areaSqm !== '' && !isNaN(Number(propertyData.areaSqm)) && Number(propertyData.areaSqm) > 0, msg: "Please provide the floor area (in square meters)" },
+    { key: 'occupancy', ok: propertyData.occupancy && propertyData.occupancy.toString().trim() !== '', msg: "Please specify maximum occupancy" }
+  ];
+  for (const chk of requiredChecks) {
+    if (!chk.ok) { toast.error(chk.msg); return; }
   }
+
+  if (!propertyData.images.length) {
+    toast.error('Please add at least one image');
+    return;
+  }
+  if (propertyData.images.length > MAX_IMAGES) {
+    toast.error(`Maximum of ${MAX_IMAGES} images allowed.`);
+    return;
+  }
+  // Validate geocoding
+  if (!propertyData.latitude || !propertyData.longitude || isNaN(Number(propertyData.latitude)) || isNaN(Number(propertyData.longitude))) {
+    toast.error('Map location not found. Please check the address and barangay, then wait for the map preview to update before submitting.');
+    return;
+  }
+  // Validate price before submit
+  const parseLocaleNumber = (str) => {
+    if (str === undefined || str === null || String(str).trim() === '') return NaN;
+    const nfParts = new Intl.NumberFormat(navigator.language).formatToParts(12345.6);
+    const group = nfParts.find(p => p.type === 'group')?.value || ',';
+    const decimal = nfParts.find(p => p.type === 'decimal')?.value || '.';
+    const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    let normalized = String(str).replace(new RegExp(esc(group), 'g'), '');
+    if (decimal !== '.') normalized = normalized.replace(new RegExp(esc(decimal)), '.');
+    normalized = normalized.replace(/\s/g, '');
+    normalized = normalized.replace(/[^0-9.\-]/g, '');
+    const num = Number(normalized);
+    return isNaN(num) ? NaN : num;
+  };
+
+  const priceNum = parseLocaleNumber(propertyData.price);
+  if (isNaN(priceNum) || priceNum < 0) {
+    setPriceError('Please enter a valid price');
+    return;
+  } else {
+    setPriceError('');
+  }
+
+  setIsSubmitting(true);
+  const formData = new FormData();
+  Object.entries(propertyData).forEach(([k,v]) => {
+    if (k==='images') v.forEach(img => formData.append('images', img));
+    else if (k==='video') { if (v) formData.append('video', v); }
+    else formData.append(k,v);
+  });
+  // Add panorama if exists
+  if (panorama) {
+    formData.append('panorama360', panorama);
+  }
+  try {
+    // Convert price to a numeric value before sending (use locale-aware parser)
+    const parseForSend = (val) => {
+      const num = parseLocaleNumber(val);
+      return isNaN(num) ? '' : num;
+    };
+    formData.set('price', parseForSend(propertyData.price));
+
+    const res = await fetch(buildApi('/properties/add'), { method:'POST', headers:{ Authorization:`Bearer ${token}` }, body:formData });
+    const data = await res.json().catch(()=>({}));
+    if (!res.ok) {
+      // Show detailed validation errors from backend
+      if (data.errors && Array.isArray(data.errors)) {
+        // Show each validation error as a separate toast
+        data.errors.forEach(error => toast.error(error));
+      } else if (data.error && typeof data.error === 'string') {
+        // Single error message
+        toast.error(data.error);
+      } else if (data.message) {
+        // Fallback to message field
+        toast.error(data.message);
+      } else {
+        // Generic error
+        toast.error('Failed to add property');
+      }
+      setIsSubmitting(false);
+      return;
+    }
+    toast.success('Property added successfully');
+    navigate('/my-properties');
+  } catch (err) {
+    toast.error(err.message || 'Error adding property');
+  } finally {
+    setIsSubmitting(false);
+  }
+}
 
   const handleLogout = () => {
     logout();

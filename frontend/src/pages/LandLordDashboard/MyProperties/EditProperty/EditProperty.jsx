@@ -208,24 +208,29 @@ const EditProperty = () => {
     };
 
     const handleSubmit = async (e) => {
-        e.preventDefault();
-        if (submitting) return;
-        try {
-            const userToken = localStorage.getItem("user_token");
-            if (!userToken) throw new Error("Unauthorized access. Please log in.");
-            if (!formData.title || !formData.description) {
-                toast.error('Title & description are required.');
-                return;
-            }
-            // Ensure required numeric fields are provided
-            if (formData.price === undefined || formData.price === '' ) {
-                toast.error("Don't forget to set a price");
-                return;
-            }
-            if (formData.areaSqm === undefined || formData.areaSqm === '' || isNaN(Number(formData.areaSqm)) || Number(formData.areaSqm) <= 0) {
-                toast.error('Please provide the floor area (in square meters)');
-                return;
-            }
+  e.preventDefault();
+  if (submitting) return;
+  try {
+    const userToken = localStorage.getItem("user_token");
+    if (!userToken) throw new Error("Unauthorized access. Please log in.");
+    if (!formData.title || !formData.description) {
+      toast.error('Title & description are required.');
+      return;
+    }
+    // Ensure required numeric fields are provided
+    if (formData.price === undefined || formData.price === '' ) {
+      toast.error("Don't forget to set a price");
+      return;
+    }
+    if (formData.areaSqm === undefined || formData.areaSqm === '' || isNaN(Number(formData.areaSqm)) || Number(formData.areaSqm) <= 0) {
+      toast.error('Please provide the floor area (in square meters)');
+      return;
+    }
+    // ADD THIS VALIDATION FOR OCCUPANCY
+    if (formData.occupancy === undefined || formData.occupancy === '') {
+      toast.error('Please specify maximum occupancy');
+      return;
+    }
             // Validate and convert price (locale-aware)
             const parseLocaleNumber = (str) => {
                 if (str === undefined || str === null || String(str).trim() === '') return NaN;
