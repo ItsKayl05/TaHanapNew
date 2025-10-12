@@ -126,8 +126,8 @@ const MyProperties = () => {
                         <select className="ll-field sort-select" value={sortOption} onChange={e=>setSortOption(e.target.value)} aria-label="Sort">
                             <option value="newest">Newest</option>
                             <option value="oldest">Oldest</option>
-                            <option value="priceDesc">Price ↓</option>
-                            <option value="priceAsc">Price ↑</option>
+                            <option value="priceDesc">Price ↑</option>
+                            <option value="priceAsc">Price ↓</option>
                             <option value="title">Title A-Z</option>
                         </select>
                         <button className="ll-btn primary" type="button" onClick={()=>navigate('/add-properties')}>Add Property</button>

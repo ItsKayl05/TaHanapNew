@@ -471,7 +471,7 @@ const AddProperties = () => {
               
               <div className="form-group full">
                 <label>Nearby Landmark</label>
-                <select className="ll-field" name="landmarks" value={propertyData.landmarks} onChange={handleInputChange} required>
+                <select className="ll-field" name="landmarks" value={propertyData.landmarks} onChange={handleInputChange}>
                   <option value="">Select Landmark</option>
                   {LANDMARKS.map(l => (
                     <option key={l} value={l}>{l.split(' ').map(word => word.includes('/') ? word.split('/').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('/') : word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</option>
