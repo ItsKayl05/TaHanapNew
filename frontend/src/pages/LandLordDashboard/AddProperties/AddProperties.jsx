@@ -76,10 +76,8 @@ const AddProperties = () => {
   const { logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const [propertyData, setPropertyData] = useState({
-    title:'', description:'', address:'', price:'', barangay:'', category:'', petFriendly:false, allowedPets:'', occupancy:'', parking:false, rules:'', landmarks:[], customLandmark:'', numberOfRooms:'', areaSqm:'', images:[], video:null, latitude:'', longitude:'', availabilityStatus: 'Available', totalUnits: 1, availableUnits: 1
+    title:'', description:'', address:'', price:'', barangay:'', category:'', petFriendly:false, allowedPets:'', occupancy:'', parking:false, rules:'', landmarks:'', numberOfRooms:'', areaSqm:'', images:[], video:null, latitude:'', longitude:'', availabilityStatus: 'Available', totalUnits: 1, availableUnits: 1
   });
-  const [landmarkError, setLandmarkError] = useState('');
-  const [areaSqmError, setAreaSqmError] = useState('');
   // Price input UI state
   const [priceFocused, setPriceFocused] = useState(false);
   const [priceError, setPriceError] = useState('');
@@ -116,13 +114,17 @@ const AddProperties = () => {
   const handleInputChange = async (e) => {
     const { name, value, type, checked } = e.target;
     let newValue = value;
+    // Special handling for price: allow decimals while typing, keep as string
     if (name === 'price') {
+      // Determine locale group/decimal separators
       const parts = new Intl.NumberFormat(navigator.language).formatToParts(12345.6);
       const group = parts.find(p => p.type === 'group')?.value || ',';
       const decimal = parts.find(p => p.type === 'decimal')?.value || '.';
+      // escape for regex
       const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const allowedRegex = new RegExp(`[^0-9${esc(group)}${esc(decimal)}]`, 'g');
       let sanitized = (value || '').replace(allowedRegex, '');
+      // If multiple decimals, keep first and remove others
       const decCount = (sanitized.match(new RegExp(esc(decimal), 'g')) || []).length;
       if (decCount > 1) {
         const first = sanitized.indexOf(decimal);
@@ -130,19 +132,14 @@ const AddProperties = () => {
       }
       newValue = sanitized;
     }
+    // Normalize landmark value to match filter (trim, exact string)
     if (name === 'landmarks') {
-      // Handle checkbox group for landmarks
-      let updated = [...propertyData.landmarks];
-      if (checked) {
-        if (!updated.includes(value)) updated.push(value);
-      } else {
-        updated = updated.filter(l => l !== value);
-      }
-      setPropertyData(prev => ({ ...prev, landmarks: updated }));
-      setLandmarkError('');
-      return;
+      const found = LANDMARKS.find(l => l === value);
+      newValue = found || value;
     }
     setPropertyData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : newValue }));
+
+    // If address or barangay changes, geocode
     if (name === 'address' || name === 'barangay') {
       const nextAddress = name === 'address' ? value : propertyData.address;
       const nextBarangay = name === 'barangay' ? value : propertyData.barangay;
@@ -217,11 +214,7 @@ const AddProperties = () => {
     if (isSubmitting) return;
     const token = localStorage.getItem('user_token');
     if (!token) { toast.error('No token found. Please log in.'); navigate('/login'); return; }
-    const required = ['title','description','address','price','barangay','category'];
-    if (required.some(f => !propertyData[f])) {
-      toast.error('Please fill in all required fields');
-      return;
-    }
+    // Only validate basic requirements client-side
     if (!propertyData.images.length) {
       toast.error('Please add at least one image');
       return;
@@ -423,8 +416,8 @@ const AddProperties = () => {
               </div>
               
               <div className="form-group">
-                <label className="required">Availability Status</label>
-                <select className="ll-field" name="availabilityStatus" value={propertyData.availabilityStatus} onChange={handleInputChange} required>
+                <label>Availability Status</label>
+                <select className="ll-field" name="availabilityStatus" value={propertyData.availabilityStatus} onChange={handleInputChange}>
                   <option value="Available">Available</option>
                   <option value="Fully Occupied">Fully Occupied</option>
                   <option value="Not Yet Ready">Not Yet Ready</option>
@@ -444,9 +437,8 @@ const AddProperties = () => {
               </div>
               
               <div className="form-group">
-                <label className="required">Property Size (sqm)</label>
-                <input className="ll-field" type="number" min={0.1} step={0.1} name="areaSqm" value={propertyData.areaSqm} onChange={handleInputChange} placeholder="e.g. 45" required />
-                {areaSqmError && <div className="field-error small" style={{color:'var(--danger)', marginTop:4}}>{areaSqmError}</div>}
+                <label>Property Size (sqm)</label>
+                <input className="ll-field" type="number" min={0} step={0.1} name="areaSqm" value={propertyData.areaSqm} onChange={handleInputChange} placeholder="e.g. 45" />
               </div>
               
               <div className="form-group">
@@ -464,23 +456,13 @@ const AddProperties = () => {
               </div>
               
               <div className="form-group full">
-                <label className="required">Nearby Landmarks<span style={{color:'var(--danger)'}}>*</span></label>
-                <div className="checkbox-group" style={{display:'flex', flexWrap:'wrap', gap:'10px 18px', marginBottom:'8px'}}>
+                <label>Nearby Landmark</label>
+                <select className="ll-field" name="landmarks" value={propertyData.landmarks} onChange={handleInputChange} required>
+                  <option value="">Select Landmark</option>
                   {LANDMARKS.map(l => (
-                    <label key={l} style={{display:'flex', alignItems:'center', gap:'6px', fontWeight:400, fontSize:'15px'}}>
-                      <input
-                        type="checkbox"
-                        name="landmarks"
-                        value={l}
-                        checked={propertyData.landmarks.includes(l)}
-                        onChange={handleInputChange}
-                      />
-                      {l.split(' ').map(word => word.includes('/') ? word.split('/').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('/') : word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-                    </label>
+                    <option key={l} value={l}>{l.split(' ').map(word => word.includes('/') ? word.split('/').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('/') : word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</option>
                   ))}
-                </div>
-                <input className="ll-field" type="text" name="customLandmark" value={propertyData.customLandmark || ''} onChange={handleInputChange} placeholder="Other landmark (e.g. Mall, Plaza)" style={{marginTop:'8px'}} />
-                {landmarkError && <div className="field-error small" style={{color:'var(--danger)', marginTop:4}}>{landmarkError}</div>}
+                </select>
               </div>
               
               <div className="form-group full">
@@ -503,8 +485,8 @@ const AddProperties = () => {
             <div className="ll-stack">
               {/* Images Section */}
               <div className="images-section" style={{marginTop:'0'}}>
-                <h3 className="section-title">Images<span style={{color:'var(--danger)'}}>*</span> <span style={{fontWeight:400, fontSize:'0.7rem'}}>({propertyData.images.length}/8 total)</span></h3>
-                <p className="field-hint">Add up to 8 images (JPG/PNG/WebP, max 10MB each). <span style={{color:'var(--danger)'}}>* Required</span></p>
+                <h3 className="section-title">Images <span style={{fontWeight:400, fontSize:'0.7rem'}}>({propertyData.images.length}/8 total)</span></h3>
+                <p className="field-hint">Add up to 8 images (JPG/PNG/WebP, max 10MB each).</p>
                 <div className="current-images-grid">
                   {imagePreviews.length ? imagePreviews.map((url, i) => (
                     <div key={i} className="image-chip">

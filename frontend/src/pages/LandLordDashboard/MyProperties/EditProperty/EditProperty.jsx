@@ -213,8 +213,8 @@ const EditProperty = () => {
         try {
             const userToken = localStorage.getItem("user_token");
             if (!userToken) throw new Error("Unauthorized access. Please log in.");
-            if (!formData.title || !formData.description || !formData.areaSqm || Number(formData.areaSqm) <= 0 || !formData.availabilityStatus) {
-                toast.error('Please fill in all required fields, including Property Size (sqm) and Availability Status.');
+            if (!formData.title || !formData.description) {
+                toast.error('Title & description are required.');
                 return;
             }
             // Validate and convert price (locale-aware)
@@ -435,7 +435,7 @@ const EditProperty = () => {
                                 <input className="ll-field" type="number" min={0} name="numberOfRooms" value={formData.numberOfRooms} onChange={handleChange} placeholder="e.g. 2" />
                             </div>
                             <div className="field-group">
-                                <label className="required">Availability Status</label>
+                                <label className="required">Availability</label>
                                 <select className="ll-field" name="availabilityStatus" value={formData.availabilityStatus} onChange={handleChange} required>
                                     <option value="Available">Available</option>
                                     <option value="Fully Occupied">Fully Occupied</option>
@@ -454,8 +454,8 @@ const EditProperty = () => {
                                 <div className="field-hint small">Current available units (will be clamped to Total Units).</div>
                             </div>
                             <div className="field-group">
-                                <label className="required">Property Size (sqm)</label>
-                                <input className="ll-field" type="number" min={0.1} step={0.1} name="areaSqm" value={formData.areaSqm} onChange={handleChange} placeholder="e.g. 45" required />
+                                <label>Property Size (sqm)</label>
+                                <input className="ll-field" type="number" min={0} step={0.1} name="areaSqm" value={formData.areaSqm} onChange={handleChange} placeholder="e.g. 45" />
                             </div>
                             <div className="field-group">
                                 <label className="required">Max Occupancy</label>
@@ -471,35 +471,13 @@ const EditProperty = () => {
                                 <label className="checkbox-label"><input type="checkbox" name="parking" checked={formData.parking} onChange={handleChange} /> Parking Available</label>
                             </div>
                             <div className="field-group full">
-                                                                <label>Nearby Landmark</label>
-                                                                <div style={{display:'flex',flexDirection:'column',gap:'8px',marginBottom:'8px'}}>
-                                                                    <div style={{display:'grid',gridTemplateColumns:window.innerWidth<768?'1fr':'repeat(2,1fr)',gap:'8px 16px'}}>
-                                                                        {LANDMARKS.map(l => (
-                                                                            <label key={l} style={{display:'flex',alignItems:'center',gap:'8px',fontWeight:400,fontSize:'0.98em'}}>
-                                                                                <input
-                                                                                    type="checkbox"
-                                                                                    name="landmarks"
-                                                                                    value={l}
-                                                                                    checked={Array.isArray(formData.landmarks) ? formData.landmarks.includes(l) : false}
-                                                                                    onChange={e => {
-                                                                                        const checked = e.target.checked;
-                                                                                        setFormData(prev => {
-                                                                                            let landmarksArr = Array.isArray(prev.landmarks) ? [...prev.landmarks] : (prev.landmarks ? [prev.landmarks] : []);
-                                                                                            if (checked) {
-                                                                                                if (!landmarksArr.includes(l)) landmarksArr.push(l);
-                                                                                            } else {
-                                                                                                landmarksArr = landmarksArr.filter(x => x !== l);
-                                                                                            }
-                                                                                            return { ...prev, landmarks: landmarksArr };
-                                                                                        });
-                                                                                    }}
-                                                                                />
-                                                                                {l.split(' ').map(word => word.includes('/') ? word.split('/').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('/') : word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-                                                                            </label>
-                                                                        ))}
-                                                                    </div>
-                                                                    <input className="ll-field" type="text" name="customLandmark" value={formData.customLandmark || ''} onChange={handleChange} placeholder="Other landmark (e.g. Mall, Plaza)" style={{marginTop:'8px'}} />
-                                                                </div>
+                                <label>Nearby Landmark</label>
+                                <select className="ll-field" name="landmarks" value={formData.landmarks} onChange={handleChange} required>
+                                    <option value="">Select Landmark</option>
+                                    {LANDMARKS.map(l => (
+                                        <option key={l} value={l}>{l.split(' ').map(word => word.includes('/') ? word.split('/').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('/') : word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</option>
+                                    ))}
+                                </select>
                             </div>
                             <div className="field-group full">
                                 <label>House Rules</label>
@@ -532,8 +510,8 @@ const EditProperty = () => {
                         </div>
 
                         <div className="images-section">
-                            <h3 className="section-title">Images <span style={{color:'var(--danger)'}}>*</span> <span style={{fontWeight:400, fontSize:'0.7rem'}}>({images.length + newImages.length}/8 total)</span></h3>
-                            <p className="field-hint">You can keep, remove, or add new images (max 8 total, JPG/PNG/WebP up to 10MB each). <span style={{color:'var(--danger)'}}>* Required</span></p>
+                            <h3 className="section-title">Images <span style={{fontWeight:400, fontSize:'0.7rem'}}>({images.length + newImages.length}/8 total)</span></h3>
+                            <p className="field-hint">You can keep, remove, or add new images (max 8 total, JPG/PNG/WebP up to 10MB each).</p>
                             <div className="current-images-grid">
                                 {images.length ? images.map((img, i) => {
                                     const url = img.startsWith('http') ? img : buildUpload(img);
