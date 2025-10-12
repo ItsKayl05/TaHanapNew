@@ -560,7 +560,7 @@ const EditProperty = () => {
                         </div>
 
                         <div className="images-section">
-    <h3 className="section-title">Images <span className="required" style={{marginLeft:'4px'}}>*</span> <span style={{fontWeight:400, fontSize:'0.7rem'}}>({images.length + newImages.length}/8 total)</span></h3>
+    <h3 className="section-title">Images <span style={{color:'red', marginLeft:'4px'}}>*</span> <span style={{fontWeight:400, fontSize:'0.7rem'}}>({images.length + newImages.length}/8 total)</span></h3>
     <p className="field-hint">You can keep, remove, or add new images (max 8 total, JPG/PNG/WebP up to 10MB each).</p>
     <div className="current-images-grid">
         {images.length ? images.map((img, i) => {

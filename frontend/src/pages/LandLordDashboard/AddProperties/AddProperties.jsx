@@ -538,9 +538,9 @@ const AddProperties = () => {
             </div>
             
             <div className="ll-stack">
-              {/* Images Section */}
+             {/* Images Section */}
 <div className="images-section" style={{marginTop:'0'}}>
-  <h3 className="section-title">Images <span className="required" style={{marginLeft:'4px'}}>*</span> <span style={{fontWeight:400, fontSize:'0.7rem'}}>({propertyData.images.length}/8 total)</span></h3>
+  <h3 className="section-title">Images <span style={{color:'red', marginLeft:'4px'}}>*</span> <span style={{fontWeight:400, fontSize:'0.7rem'}}>({propertyData.images.length}/8 total)</span></h3>
   <p className="field-hint">Add up to 8 images (JPG/PNG/WebP, max 10MB each).</p>
   <div className="current-images-grid">
     {imagePreviews.length ? imagePreviews.map((url, i) => (
