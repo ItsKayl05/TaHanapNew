@@ -267,9 +267,18 @@ const AddProperties = () => {
 
   setIsSubmitting(true);
   const formData = new FormData();
+  // Combine landmarks array and customLandmark into a single string
+  let landmarksArr = Array.isArray(propertyData.landmarks) ? [...propertyData.landmarks] : (propertyData.landmarks ? [propertyData.landmarks] : []);
+  if (propertyData.customLandmark && propertyData.customLandmark.trim()) {
+    landmarksArr.push(propertyData.customLandmark.trim());
+  }
+  const landmarksString = landmarksArr.join(', ');
+
   Object.entries(propertyData).forEach(([k,v]) => {
     if (k==='images') v.forEach(img => formData.append('images', img));
     else if (k==='video') { if (v) formData.append('video', v); }
+    else if (k==='landmarks') { formData.append('landmarks', landmarksString); }
+    else if (k==='customLandmark') { /* skip, already merged above */ }
     else formData.append(k,v);
   });
   // Add panorama if exists

@@ -76,6 +76,13 @@ const EditProperty = () => {
 
                 const data = await response.json();
                 setProperty(data);
+                // Always convert landmarks to array for form
+                let landmarksArr = [];
+                if (Array.isArray(data.landmarks)) {
+                  landmarksArr = data.landmarks;
+                } else if (typeof data.landmarks === 'string' && data.landmarks.trim()) {
+                  landmarksArr = data.landmarks.split(',').map(l => l.trim()).filter(l => l);
+                }
                 setFormData({
                     title: data.title,
                     description: data.description,
@@ -91,7 +98,8 @@ const EditProperty = () => {
                     availableUnits: data.availableUnits ?? (data.totalUnits ?? 1),
                     parking: data.parking,
                     rules: data.rules,
-                    landmarks: data.landmarks,
+                    landmarks: landmarksArr,
+                    customLandmark: '',
                     numberOfRooms: data.numberOfRooms ?? "",
                     areaSqm: data.areaSqm ?? "",
                     latitude: data.latitude ?? "",
@@ -254,14 +262,18 @@ const EditProperty = () => {
             setSubmitting(true);
 
             const formDataToSend = new FormData();
+            // Combine landmarks array and customLandmark into a single string
+            let landmarksArr = Array.isArray(formData.landmarks) ? [...formData.landmarks] : (formData.landmarks ? [formData.landmarks] : []);
+            if (formData.customLandmark && formData.customLandmark.trim()) {
+                landmarksArr.push(formData.customLandmark.trim());
+            }
+            const landmarksString = landmarksArr.join(', ');
+
             Object.entries(formData).forEach(([key, value]) => {
                 if (key === 'landmarks') {
-                    const v = (value || '').toLowerCase().trim();
-                    if (LANDMARKS.includes(v)) {
-                        formDataToSend.append('landmarks', v);
-                    } else {
-                        formDataToSend.append('landmarks', '');
-                    }
+                    formDataToSend.append('landmarks', landmarksString);
+                } else if (key === 'customLandmark') {
+                    /* skip, already merged above */
                 } else if (key === 'price') {
                     // skip here; we'll append numeric price below
                 } else if (value !== undefined && value !== null && value !== "") {
