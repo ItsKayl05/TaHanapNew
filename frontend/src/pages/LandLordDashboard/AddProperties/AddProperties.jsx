@@ -517,17 +517,8 @@ const AddProperties = () => {
                       </label>
                     ))}
                   </div>
-                  <input
-                    className="ll-field"
-                    type="text"
-                    name="customLandmark"
-                    placeholder="Other landmark (e.g. Mall, Plaza)"
-                    value={propertyData.customLandmark || ''}
-                    onChange={e => setPropertyData(prev => ({ ...prev, customLandmark: e.target.value }))}
-                    style={{marginTop:'8px'}}
-                  />
                 </div>
-                <div className="field-hint small">Check all that apply or enter your own landmark.</div>
+                <div className="field-hint small">Check all that apply.</div>
               </div>
               
               <div className="form-group full">

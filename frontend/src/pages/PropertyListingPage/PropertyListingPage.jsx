@@ -79,11 +79,11 @@ const PropertyListingPage = () => {
 
     const matches = ({ title='', category='', barangay='', price=0, petFriendly, occupancy=0, parking, landmarks='', numberOfRooms=0, areaSqm=0, video='', propertyType='For Rent' }) => {
         const s = filters.searchTerm.toLowerCase().trim();
-        // Only allow filtering by landmark values that are in the dropdown list (case-insensitive)
-        const allowedLandmarks = landmarkOptions;
-        const normalizedLandmark = allowedLandmarks.find(l => l === (landmarks || '').toLowerCase().trim());
+        // Split property landmarks string into array
+        const propertyLandmarksArr = typeof landmarks === 'string' ? landmarks.split(',').map(l => l.trim().toLowerCase()).filter(l => l) : [];
+        // Check if any selected filter landmark is included in propertyLandmarksArr
         const landmarkMatch = filters.landmarks.length > 0
-            ? filters.landmarks.some(l => (normalizedLandmark === l.toLowerCase().trim()))
+            ? filters.landmarks.some(l => propertyLandmarksArr.includes(l.trim().toLowerCase()))
             : true;
         // Custom landmark filter is now ignored to enforce dropdown-only
         return (
@@ -236,28 +236,6 @@ const PropertyListingPage = () => {
                                                 <label htmlFor={l}>{l}</label>
                                             </div>
                                         ))}
-                                    </div>
-                                    <div className="custom-landmark-input" style={{marginTop:'0.5em'}}>
-                                        <label htmlFor="customLandmark">Other Landmark</label>
-                                        <input
-                                            id="customLandmark"
-                                            type="text"
-                                            placeholder="Type a landmark..."
-                                            value={filters.customLandmark}
-                                            onChange={e => updateFilter('customLandmark', e.target.value)}
-                                            list="custom-landmark-list"
-                                            autoComplete="off"
-                                        />
-                                        <datalist id="custom-landmark-list">
-                                            {landmarkOptions.filter(l =>
-                                                filters.customLandmark.length === 0 ||
-                                                l.includes(filters.customLandmark.toLowerCase())
-                                            ).map(l => (
-                                                <option key={l} value={l}>
-                                                    {l.split(' ').map(word => word.includes('/') ? word.split('/').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('/') : word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-                                                </option>
-                                            ))}
-                                        </datalist>
                                     </div>
                                 </div>
                             </div>
