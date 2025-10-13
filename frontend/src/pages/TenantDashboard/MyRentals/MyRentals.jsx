@@ -56,12 +56,22 @@ const MyRentals = () => {
                   {app.status === 'Rejected' && <FaTimesCircle className="status-icon rejected" />}
                   <span className={`status-badge ${app.status.toLowerCase()}`}>{app.status}</span>
                 </div>
-                <h4><FaHome style={{marginRight:6}}/>{app.property?.title || 'Property'}</h4>
+                <h4>
+                  <FaHome style={{marginRight:6}}/>
+                  {app.property?.title
+                    ? app.property.title
+                    : <span style={{fontStyle: 'italic', color: '#888'}}>Property removed</span>
+                  }
+                </h4>
               </div>
-              <p><FaUser style={{marginRight:4}}/>Landlord: {app.landlord?.fullName || ''}</p>
+              <p><FaUser style={{marginRight:4}}/>Landlord: {app.landlord?.fullName || 'Unknown'}</p>
               <div className="actions">
-                <button onClick={() => navigate(`/property/${app.property?._id}`)}>
-                  <FaHome style={{marginRight:4}}/>View Property
+                <button
+                  onClick={() => app.property?._id && navigate(`/property/${app.property._id}`)}
+                  disabled={!app.property?._id}
+                  title={!app.property?._id ? 'Property no longer available' : 'View property'}
+                >
+                  <FaHome style={{marginRight:4}}/>{app.property?._id ? 'View Property' : 'Property removed'}
                 </button>
               </div>
             </div>

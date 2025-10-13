@@ -318,7 +318,7 @@ const PropertyListingPage = () => {
                             )}
                             <div className="property-images">
                                 <img src={images?.[0] || '/default-property.jpg'} alt={title} className="property-image" loading="lazy" />
-                                {video && <span className="video-badge" aria-label="Video available">Video</span>}
+                                {/* video badge intentionally removed */}
                                 <div className="property-price-row">
                                     <div className="property-price">₱{(price||0).toLocaleString()}</div>
                                     {(() => {

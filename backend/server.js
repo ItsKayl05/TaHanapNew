@@ -25,47 +25,82 @@ const port = process.env.PORT || 4000;
 // Base URL used when converting relative upload paths to absolute URLs in non-HTTP contexts (e.g. Socket.IO)
 const backendBase = process.env.BACKEND_URL || process.env.APP_URL || `http://localhost:${port}`;
 
+// Helper: normalize origin strings (strip trailing slash and lowercase) to avoid accidental mismatches
+const normalizeOrigin = (origin) => {
+    if (!origin) return origin;
+    try {
+        return origin.trim().replace(/\/+$/, '').toLowerCase();
+    } catch (e) {
+        return origin;
+    }
+};
+
+// Build canonical allowed origins from defaults plus environment variable
+const DEFAULT_ALLOWED_ORIGINS = [
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://localhost:5176',
+    'https://tahanap-frontend-joyb.onrender.com',
+    'https://tahanap-backend-g6mx.onrender.com',
+    'https://tahanap-admin-o398.onrender.com',
+    'https://tahanap.xyz',
+    'https://www.tahanap.xyz',
+    'https://api.tahanap.xyz',
+    'https://admin.tahanap.xyz'
+];
+
+const ALLOWED_ORIGINS = (() => {
+    const list = [...DEFAULT_ALLOWED_ORIGINS];
+    if (process.env.ALLOWED_ORIGINS) {
+        list.push(...process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim()).filter(Boolean));
+    }
+    // Normalize and deduplicate
+    return Array.from(new Set(list.map(normalizeOrigin)));
+})();
+
+const ALLOW_ALL = process.env.ALLOW_ALL_ORIGINS === 'true';
+
+const isOriginAllowed = (origin) => {
+    if (!origin) return true; // non-browser requests (curl, server-to-server)
+    if (ALLOW_ALL) return true;
+    const norm = normalizeOrigin(origin);
+    return ALLOWED_ORIGINS.includes(norm);
+};
+
 // Create HTTP server and Socket.IO instance
 import http from 'http';
 const server = http.createServer(app);
 
 // Environment-based CORS configuration
 const getCorsOptions = () => {
-    const allowedOrigins = [
-        'http://localhost:5173',
-        'http://localhost:5174',
-        'http://localhost:5176',
-        'https://tahanap-frontend.onrender.com',
-        'https://tahanap-backend.onrender.com',
-        'https://tahanap-admin.onrender.com',
-        'https://tahanap.xyz',
-        'https://www.tahanap.xyz',
-        'https://api.tahanap.xyz',
-        'https://admin.tahanap.xyz'
-    ];
-
-    // Add any additional origins from environment variable
-    if (process.env.ALLOWED_ORIGINS) {
-        allowedOrigins.push(...process.env.ALLOWED_ORIGINS.split(','));
-    }
+    // Use canonical ALLOWED_ORIGINS (normalized and deduped)
+    const allowedOrigins = ALLOWED_ORIGINS;
 
     return {
         origin: (origin, callback) => {
-            // Allow requests with no origin (mobile apps, curl, etc.)
+            // Respect ALLOW_ALL for quick debugging
+            if (ALLOW_ALL) {
+                if (process.env.NODE_ENV !== 'production') console.log('CORS: allowing all origins (override)');
+                return callback(null, true);
+            }
+
+            // Allow requests with no origin (mobile apps, curl, server-to-server)
             if (!origin) return callback(null, true);
 
-            if (allowedOrigins.includes(origin)) {
+            if (isOriginAllowed(origin)) {
                 return callback(null, true);
-            } else {
-                // In development, be more permissive
-                if (process.env.NODE_ENV !== 'production') {
-                    console.log('Allowing origin in development:', origin);
-                    return callback(null, true);
-                }
-                console.log('CORS blocked origin:', origin);
-                return callback(new Error('Not allowed by CORS'), false);
             }
+
+            // In development, allow and log
+            if (process.env.NODE_ENV !== 'production') {
+                console.log('Allowing origin in development (not in ALLOWED_ORIGINS):', origin);
+                return callback(null, true);
+            }
+
+            console.warn('CORS blocked origin:', origin);
+            return callback(new Error('Not allowed by CORS'), false);
         },
+        optionsSuccessStatus: 200,
         methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
         credentials: true,
@@ -202,24 +237,13 @@ connectDB();
 app.use(cors(corsOptions)); // Use the configured CORS options
 app.options('*', cors(corsOptions)); // Enable pre-flight for all routes
 
-// Add CORS headers manually as additional fallback
+// Add CORS headers manually as additional fallback (uses same canonical list)
 app.use((req, res, next) => {
-    const allowedOrigins = [
-        'https://tahanap-frontend.onrender.com',
-        'https://tahanap-backend.onrender.com',
-        'https://tahanap-admin.onrender.com',
-        'http://localhost:5173',
-        'http://localhost:5174',
-        'http://localhost:5176',
-        'https://tahanap.xyz',
-        'https://www.tahanap.xyz',
-        'https://api.tahanap.xyz',
-        'https://admin.tahanap.xyz'
-    ];
-
     const origin = req.headers.origin;
-    if (allowedOrigins.includes(origin)) {
-        res.header('Access-Control-Allow-Origin', origin);
+
+    if (isOriginAllowed(origin)) {
+        // echo the origin exactly as received to support credentials
+        res.header('Access-Control-Allow-Origin', origin || '*');
     }
 
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
@@ -330,12 +354,12 @@ app.use((err, req, res, next) => {
         return res.status(403).json({
             message: 'CORS Error: Origin not allowed',
             allowedOrigins: [
-                'https://tahanap-frontend.onrender.com',
-                'https://tahanap-backend.onrender.com',
-                'https://tahanap-admin.onrender.com',
                 'http://localhost:5173',
                 'http://localhost:5174',
                 'http://localhost:5176',
+                'https://tahanap-frontend-joyb.onrender.com',
+                'https://tahanap-backend-g6mx.onrender.com',
+                'https://tahanap-admin-o398.onrender.com',
                 'https://tahanap.xyz',
                 'https://www.tahanap.xyz',
                 'https://api.tahanap.xyz',
@@ -369,16 +393,5 @@ app.use('*', (req, res) => {
 server.listen(port, '0.0.0.0', () => {
     console.log(`🚀 Server running on port ${port}`);
     console.log(`📡 Socket.IO server initialized`);
-    console.log(`🌐 CORS enabled for: ${[
-        'https://tahanap-frontend.onrender.com',
-        'https://tahanap-backend.onrender.com',
-        'https://tahanap-admin.onrender.com',
-        'http://localhost:5173',
-        'http://localhost:5174',
-        'http://localhost:5176',
-        'https://tahanap.xyz',
-        'https://www.tahanap.xyz',
-        'https://api.tahanap.xyz',
-        'https://admin.tahanap.xyz'
-    ].join(', ')}`);
+    console.log(`🌐 CORS allowed origins: ${ALLOWED_ORIGINS.join(', ')}` + (ALLOW_ALL ? ' (ALLOW_ALL_ORIGINS=true)' : ''));
 });
