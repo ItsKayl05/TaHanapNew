@@ -25,7 +25,7 @@ const PropertyDetailPage = () => {
             try {
                 const response = await fetch(buildApi(`/properties/${id}`));
                 if (!response.ok) {
-                    throw new Error("Failed to fetch property");
+                    throw new Error("⚠️ Unable to load property information");
                 }
                 const data = await response.json();
                 // Normalize media URLs

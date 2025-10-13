@@ -45,7 +45,7 @@ const PropertyListingPage = () => {
             const data = await res.json();
             setProperties(data);
         } catch(err){
-            toast.error('Error fetching properties');
+            toast.error('⚠️ Unable to load properties');
         } finally { setLoading(false); }
     },[]);
 
