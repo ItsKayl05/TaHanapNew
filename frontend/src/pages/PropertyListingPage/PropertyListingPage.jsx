@@ -156,7 +156,7 @@ const PropertyListingPage = () => {
                     <div className="controls-wrapper">
                     <div className="search-input-container controls-align-left">
                         <FaSearch className="search-icon" />
-                        <input className="property-search" placeholder="Search by name or barangay..." value={filters.searchTerm} onChange={e=>updateFilter('searchTerm', e.target.value)} />
+                        <input className="property-search" placeholder="Search by name or category..." value={filters.searchTerm} onChange={e=>updateFilter('searchTerm', e.target.value)} />
                         <button className={`toggle-filters-btn ${showFilters?'active':''}`} onClick={()=>setShowFilters(s=>!s)}>{showFilters?'Hide Filters':'Show Filters'}</button>
                     </div>
                     {showFilters && (

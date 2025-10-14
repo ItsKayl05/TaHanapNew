@@ -118,7 +118,7 @@ const MyProperties = () => {
                             <input
                                 className="ll-field search-input"
                                 type="text"
-                                placeholder="Search by title, address, barangay, category..."
+                                placeholder="Search by title, address, category..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
