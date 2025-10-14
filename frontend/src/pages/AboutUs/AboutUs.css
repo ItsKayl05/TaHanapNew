@@ -3,7 +3,6 @@
 .aboutus-container { width:100%; max-width:1240px; margin:0 auto; padding:clamp(2rem,3vw,3.25rem) clamp(1.1rem,2.2vw,2.2rem) 5rem; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #f3f4f6; position:relative; z-index:0; }
 .aboutus-container h1, .aboutus-container h2, .aboutus-container h3 { font-weight:600; letter-spacing:.4px; color:#fff; }
 .aboutus-container h2 { font-size:clamp(1.6rem,1.1rem + 1.2vw,2.15rem); line-height:1.2; position:relative; }
-.aboutus-container h2::after { content:""; position:absolute; left:50%; transform:translateX(-50%); bottom:-10px; width:68px; height:3px; border-radius:2px; background:linear-gradient(90deg,#6366f1,#3b82f6,#0ea5e9); opacity:.75; }
 .gradient-text { background:linear-gradient(90deg,#38bdf8,#6366f1,#3b82f6); -webkit-background-clip:text; background-clip:text; color:transparent; }
 
 /* Hero */
