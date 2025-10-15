@@ -264,8 +264,10 @@ const EditProperty = () => {
             const formDataToSend = new FormData();
             // Combine landmarks array and customLandmark into a single string
             let landmarksArr = Array.isArray(formData.landmarks) ? [...formData.landmarks] : (formData.landmarks ? [formData.landmarks] : []);
+            // Always save as lowercase and trimmed
+            landmarksArr = landmarksArr.map(l => l.trim().toLowerCase()).filter(l => l);
             if (formData.customLandmark && formData.customLandmark.trim()) {
-                landmarksArr.push(formData.customLandmark.trim());
+                landmarksArr.push(formData.customLandmark.trim().toLowerCase());
             }
             const landmarksString = landmarksArr.join(', ');
 

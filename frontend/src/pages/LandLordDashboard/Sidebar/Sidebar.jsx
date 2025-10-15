@@ -224,7 +224,7 @@ const Sidebar = ({ handleLogout }) => {
                                         setDismissedRejected(true);
                                         setShowIdModal(false);
                                     }} disabled={uploading}>Cancel</button>
-                                    <button type="submit" disabled={uploading || idEntries.length===0}>{uploading ? 'Uploading...' : (hasRejected? 'Re-upload ID' : 'Submit for Review')}</button>
+                                    <button type="submit" className="aboutus-btn primary" disabled={uploading || idEntries.length===0}>{uploading ? 'Uploading...' : (hasRejected? 'Re-upload ID' : 'Submit for Review')}</button>
                                 </div>
                                 <div className="review-time">Typical review time: <strong>within 1 hour</strong>.</div>
                             </form>

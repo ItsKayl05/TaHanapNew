@@ -269,8 +269,10 @@ const AddProperties = () => {
   const formData = new FormData();
   // Combine landmarks array and customLandmark into a single string
   let landmarksArr = Array.isArray(propertyData.landmarks) ? [...propertyData.landmarks] : (propertyData.landmarks ? [propertyData.landmarks] : []);
+  // Always save as lowercase and trimmed
+  landmarksArr = landmarksArr.map(l => l.trim().toLowerCase()).filter(l => l);
   if (propertyData.customLandmark && propertyData.customLandmark.trim()) {
-    landmarksArr.push(propertyData.customLandmark.trim());
+    landmarksArr.push(propertyData.customLandmark.trim().toLowerCase());
   }
   const landmarksString = landmarksArr.join(', ');
 
