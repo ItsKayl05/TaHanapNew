@@ -209,31 +209,31 @@ const PropertyListingPage = () => {
                                     <label>Nearby Landmarks</label>
                                     <div className="landmarks-grid">
                                         {[
-                                            "Park",
-                                            "Church",
-                                            "Public Market",
-                                            "Major Highway",
-                                            "Public Transportation Stops",
-                                            "Banks and ATMs",
-                                            "Restaurants/Food Centers",
-                                            "Convenience Store/ Supermarket",
-                                            "School / University",
-                                            "Hospital / Health Center"
+                                            { value: "park", label: "Park" },
+                                            { value: "church", label: "Church" },
+                                            { value: "public market", label: "Public Market" },
+                                            { value: "major highway", label: "Major Highway" },
+                                            { value: "public transport stops", label: "Public Transportation Stops" },
+                                            { value: "banks and atms", label: "Banks and ATMs" },
+                                            { value: "restaurant/food centers", label: "Restaurants/Food Centers" },
+                                            { value: "convenience store/supermarket", label: "Convenience Store/Supermarket" },
+                                            { value: "school/university", label: "School/University" },
+                                            { value: "hospital/health care", label: "Hospital/Health Care" }
                                         ].map(l => (
-                                            <div key={l} className="amenity-checkbox landmark-option">
+                                            <div key={l.value} className="amenity-checkbox landmark-option">
                                                 <input
                                                     type="checkbox"
-                                                    id={l}
-                                                    checked={filters.landmarks.includes(l)}
+                                                    id={l.value}
+                                                    checked={filters.landmarks.includes(l.value)}
                                                     onChange={() => {
-                                                        if (filters.landmarks.includes(l)) {
-                                                            updateFilter("landmarks", filters.landmarks.filter(x => x !== l));
+                                                        if (filters.landmarks.includes(l.value)) {
+                                                            updateFilter("landmarks", filters.landmarks.filter(x => x !== l.value));
                                                         } else {
-                                                            updateFilter("landmarks", [...filters.landmarks, l]);
+                                                            updateFilter("landmarks", [...filters.landmarks, l.value]);
                                                         }
                                                     }}
                                                 />
-                                                <label htmlFor={l}>{l}</label>
+                                                <label htmlFor={l.value}>{l.label}</label>
                                             </div>
                                         ))}
                                     </div>
