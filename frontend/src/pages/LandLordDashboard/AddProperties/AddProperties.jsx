@@ -77,7 +77,7 @@ const AddProperties = () => {
   const { logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const [propertyData, setPropertyData] = useState({
-  title:'', description:'', address:'', price:'', barangay:'', propertyType: 'For Rent', petFriendly:false, allowedPets:'', occupancy:'', parking:false, rules:'', landmarks:'', numberOfRooms:'', areaSqm:'', images:[], video:null, latitude:'', longitude:'', availabilityStatus: 'Available'
+  title:'', description:'', address:'', price:'', barangay:'', propertyType: '', petFriendly:false, allowedPets:'', occupancy:'', parking:false, rules:'', landmarks:'', numberOfRooms:'', areaSqm:'', images:[], video:null, latitude:'', longitude:'', availabilityStatus: 'Available'
   });
   // Price input UI state
   const [priceFocused, setPriceFocused] = useState(false);
@@ -222,6 +222,7 @@ const AddProperties = () => {
     { key: 'address', ok: propertyData.address && propertyData.address.toString().trim() !== '', msg: "Make sure to provide the complete address of your property" },
     { key: 'price', ok: propertyData.price && propertyData.price.toString().trim() !== '', msg: "Don't forget to set a price for your property" },
   { key: 'barangay', ok: propertyData.barangay && propertyData.barangay.toString().trim() !== '', msg: "Please select which barangay your property is located in" },
+    { key: 'propertyType', ok: propertyData.propertyType && propertyData.propertyType.toString().trim() !== '', msg: "Please select listing type" },
     { key: 'areaSqm', ok: propertyData.areaSqm !== undefined && propertyData.areaSqm !== '' && !isNaN(Number(propertyData.areaSqm)) && Number(propertyData.areaSqm) > 0, msg: "Please provide the floor area (in square meters)" },
     { key: 'occupancy', ok: propertyData.occupancy && propertyData.occupancy.toString().trim() !== '', msg: "Please specify maximum occupancy" }
   ];
@@ -347,6 +348,7 @@ const AddProperties = () => {
               <div className="form-group">
                 <label className="required">Listing Type</label>
                 <select className="ll-field" name="propertyType" value={propertyData.propertyType} onChange={handleInputChange} required>
+                  <option value="">Select Listing Type</option>
                   <option value="For Rent">For Rent</option>
                   <option value="For Sale">For Sale</option>
                 </select>
