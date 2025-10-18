@@ -153,7 +153,7 @@ export const addProperty = async (req, res) => {
                 },
                 listingType: {
                     required: true,
-                    message: "Please select listing type (For Rent or For Sale)"
+                    message: "Please select listing type"
                 },
                 occupancy: {
                     required: true,
