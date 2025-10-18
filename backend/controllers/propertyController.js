@@ -328,7 +328,6 @@ export const addProperty = async (req, res) => {
 
             // Ensure numeric unit counts
             const totalUnitsNum = num(req.body.totalUnits, 1);
-            const availableUnitsInit = typeof req.body.availableUnits !== 'undefined' ? num(req.body.availableUnits, totalUnitsNum) : totalUnitsNum;
 
             const newProperty = new Property({
                 landlord,
@@ -353,8 +352,7 @@ export const addProperty = async (req, res) => {
                 longitude: longitude ? Number(longitude) : null,
                 status: 'approved', // auto-approved to avoid admin bottleneck
                 availabilityStatus,
-                totalUnits: totalUnitsNum,
-                availableUnits: availableUnitsInit
+                totalUnits: totalUnitsNum
             });
 
             await newProperty.save();
@@ -707,34 +705,13 @@ export const updateProperty = async (req, res) => {
                 panorama360: updatedPanorama
             };
 
-            // If landlord provided totalUnits, reconcile availableUnits
+            // If landlord provided totalUnits, accept it and allow availabilityStatus overrides.
             if (req.body.totalUnits !== undefined) {
                 const newTotal = num(req.body.totalUnits, property.totalUnits || 1);
-                // compute delta
-                const delta = newTotal - (property.totalUnits || 0);
-                let newAvailable = property.availableUnits || 0;
-                if (delta > 0) {
-                    // add newly created units to available pool
-                    newAvailable = newAvailable + delta;
-                } else if (delta < 0) {
-                    // If total decreased, reduce available units but never below 0
-                    newAvailable = Math.max(0, newAvailable + delta);
-                }
-                // If landlord explicitly sets availableUnits, honor but clamp
-                if (req.body.availableUnits !== undefined) {
-                    newAvailable = Math.min(newTotal, Math.max(0, num(req.body.availableUnits, newAvailable)));
-                }
                 updatedData.totalUnits = newTotal;
-                updatedData.availableUnits = newAvailable;
-                // Keep availabilityStatus consistent with availableUnits
-                if (newAvailable <= 0) updatedData.availabilityStatus = 'Fully Occupied';
-                else updatedData.availabilityStatus = updatedData.availabilityStatus || 'Available';
-            } else if (req.body.availableUnits !== undefined) {
-                // If only availableUnits was provided, clamp to existing totalUnits
-                const clamped = Math.min(property.totalUnits || 0, Math.max(0, num(req.body.availableUnits, property.availableUnits || 0)));
-                updatedData.availableUnits = clamped;
-                if (clamped <= 0) updatedData.availabilityStatus = 'Fully Occupied';
-                else updatedData.availabilityStatus = updatedData.availabilityStatus || 'Available';
+                // Do not accept availableUnits explicitly anymore - availability is derived from approved applications vs totalUnits
+                // If no explicit availabilityStatus was provided, keep previous or default to Available
+                updatedData.availabilityStatus = updatedData.availabilityStatus || property.availabilityStatus || 'Available';
             }
 
             const updatedProperty = await Property.findByIdAndUpdate(req.params.id, updatedData, { new: true });
@@ -807,38 +784,14 @@ export const setPropertyAvailability = async (req, res) => {
         if (!property) return res.status(404).json({ error: 'Property not found' });
         if (property.landlord.toString() !== req.user.id && req.user.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
 
-        // Accept availableUnits and/or availabilityStatus in body
+        // Accept only totalUnits and availabilityStatus from landlords
         const updates = {};
-        if (req.body.availableUnits !== undefined) {
-            const v = num(req.body.availableUnits, property.availableUnits || 0);
-            updates.availableUnits = Math.max(0, Math.min(v, req.body.totalUnits !== undefined ? num(req.body.totalUnits, property.totalUnits || 0) : property.totalUnits || v));
-        }
         if (req.body.totalUnits !== undefined) {
-            const t = num(req.body.totalUnits, property.totalUnits || 0);
-            updates.totalUnits = t;
-            // ensure availableUnits does not exceed total
-            if (updates.availableUnits === undefined) {
-                updates.availableUnits = Math.min(property.availableUnits || 0, t);
-            } else {
-                updates.availableUnits = Math.min(updates.availableUnits, t);
-            }
+            updates.totalUnits = num(req.body.totalUnits, property.totalUnits || 0);
         }
         if (req.body.availabilityStatus) {
             const allowedAvailability = ['Available','Fully Occupied','Not Yet Ready'];
             if (allowedAvailability.includes(req.body.availabilityStatus)) updates.availabilityStatus = req.body.availabilityStatus;
-        }
-
-        // If landlord updated availableUnits (or totalUnits caused a change),
-        // and they didn't explicitly set availabilityStatus, auto-set it to
-        // 'Fully Occupied' when availableUnits <= 0 so public listings behave correctly.
-        if (typeof updates.availableUnits !== 'undefined' && !updates.availabilityStatus) {
-            if (updates.availableUnits <= 0) {
-                updates.availabilityStatus = 'Fully Occupied';
-            } else {
-                // If there are units available and no explicit status provided,
-                // default to 'Available' to ensure consistency.
-                updates.availabilityStatus = 'Available';
-            }
         }
 
         const updated = await Property.findByIdAndUpdate(req.params.id, updates, { new: true });

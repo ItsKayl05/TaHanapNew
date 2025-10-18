@@ -13,7 +13,7 @@ const AboutUs = () => {
                         <span className="gradient-text">Redefining Rentals</span> in the Philippines
                     </h1>
                     <p className="aboutus-hero-subtitle">
-                        We're bridging the gap between property seekers and landlords through technology, transparency, and trust.
+                        We're bridging the gap between property seekers and property owners through technology, transparency, and trust.
                     </p>
                     <div className="aboutus-hero-cta-row">
                         <a href="/register" className="aboutus-btn primary">Get Started</a>
@@ -31,7 +31,7 @@ const AboutUs = () => {
                     </div>
                     <div className="metric-card">
                         <h3>1K+ <span>Users</span></h3>
-                        <p>Renters & landlords building trust.</p>
+                        <p>Property seekers & property owners building trust.</p>
                     </div>
                     <div className="metric-card">
                         <h3>95% <span>Match</span></h3>

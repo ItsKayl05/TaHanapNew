@@ -45,7 +45,7 @@ const EditProperty = () => {
         title: "", description: "", address: "", price: "", barangay: "", category: "",
         petFriendly: false, allowedPets: "", occupancy: "", parking: false, rules: "",
         landmarks: "", availabilityStatus: "Available", numberOfRooms: "", areaSqm: "",
-        latitude: "", longitude: "", totalUnits: 1, availableUnits: 1
+    latitude: "", longitude: "", totalUnits: 1
     });
     const [manualPin, setManualPin] = useState(false);
     const [images, setImages] = useState([]);
@@ -95,7 +95,7 @@ const EditProperty = () => {
                     occupancy: data.occupancy,
                     availabilityStatus: data.availabilityStatus ?? 'Available',
                     totalUnits: data.totalUnits ?? 1,
-                    availableUnits: data.availableUnits ?? (data.totalUnits ?? 1),
+                    // availableUnits removed - availability is derived server-side from totalUnits and approved applications
                     parking: data.parking,
                     rules: data.rules,
                     landmarks: landmarksArr,
@@ -477,9 +477,8 @@ const EditProperty = () => {
                                 <div className="field-hint small">Total rentable units for this listing.</div>
                             </div>
                             <div className="field-group">
-                                <label>Available Units</label>
-                                <input className="ll-field" type="number" min={0} name="availableUnits" value={formData.availableUnits || 0} onChange={handleChange} />
-                                <div className="field-hint small">Current available units (will be clamped to Total Units).</div>
+                                <label>Availability (system-managed)</label>
+                                <div className="field-hint small">Available units are managed automatically by the system based on approved applications and the Total Units value.</div>
                             </div>
                             <div className="field-group">
                                 <label className="required">Property Size (sqm)</label>

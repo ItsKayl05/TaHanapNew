@@ -64,7 +64,7 @@ const MyRentals = () => {
                   }
                 </h4>
               </div>
-              <p><FaUser style={{marginRight:4}}/>Landlord: {app.landlord?.fullName || 'Unknown'}</p>
+              <p><FaUser style={{marginRight:4}}/>Property Owner: {app.landlord?.fullName || 'Unknown'}</p>
               <div className="actions">
                 <button
                   onClick={() => app.property?._id && navigate(`/property/${app.property._id}`)}

@@ -30,11 +30,11 @@ const LandlordPublicProfile = () => {
     return ()=>{ active = false; };
   },[id]);
 
-  if(loading) return <div className="lp-loading"><div className="lp-spinner"/><p>Loading landlord profile...</p></div>;
+  if(loading) return <div className="lp-loading"><div className="lp-spinner"/><p>Loading property owner profile...</p></div>;
   if(error || !profile) return <div className="lp-error"><h3>{error || 'Profile not found'}</h3><button onClick={()=>navigate(-1)} className="lp-back"><FaArrowLeft/> Back</button></div>;
 
   return (
-    <div className="landlord-public-container">
+  <div className="landlord-public-container">
       <button onClick={()=>navigate(-1)} className="lp-back"><FaArrowLeft/> Back</button>
       <div className="lp-card">
         <div className="lp-header">
@@ -49,7 +49,7 @@ const LandlordPublicProfile = () => {
           </div>
         </div>
         <div className="lp-footer">
-          <p className="lp-note">This is a public snapshot of the landlord's verified profile. Do not share private information without consent.</p>
+          <p className="lp-note">This is a public snapshot of the property owner's verified profile. Do not share private information without consent.</p>
         </div>
       </div>
     </div>

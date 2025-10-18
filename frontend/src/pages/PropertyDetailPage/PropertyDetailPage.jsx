@@ -93,7 +93,8 @@ const PropertyDetailPage = () => {
         arrows: true,
     };
 
-    const isAvailable = (typeof property.availableUnits !== 'undefined') ? (property.availableUnits > 0) : (property.availabilityStatus !== 'Fully Occupied');
+    // Availability: rely on availabilityStatus determined server-side
+    const isAvailable = property.availabilityStatus !== 'Fully Occupied';
 
     return (
         <div className="property-detail-container">
@@ -270,7 +271,7 @@ const PropertyDetailPage = () => {
                                 </div>
                             </div>
                             <div className="landlord-card-actions">
-                                <button type="button" className="landlord-profile-btn" onClick={()=>navigate(`/landlord/${property.landlordProfile.id}`)}>View Landlord Profile</button>
+                                <button type="button" className="landlord-profile-btn" onClick={()=>navigate(`/landlord/${property.landlordProfile.id}`)}>View Property Owner Profile</button>
                             </div>
                         </div>
                     )}
@@ -305,13 +306,13 @@ const PropertyDetailPage = () => {
                                 Apply
                             </button>
                         )}
-                        {(typeof property.availableUnits !== 'undefined' || typeof property.totalUnits !== 'undefined') && (
+                        {(typeof property.totalUnits !== 'undefined') && (
                             <div className="availability-counter improved-units">
                                 <span className="units-pill">
                                     <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style={{verticalAlign:'middle',marginRight:'6px'}}><rect x="3" y="7" width="14" height="8" rx="2.5" fill="#38bdf8"/><rect x="7" y="3" width="6" height="4" rx="2" fill="#60aaff"/></svg>
-                                    {property.availableUnits !== undefined ? property.availableUnits : '0'}{property.totalUnits ? ` / ${property.totalUnits}` : ''}
+                                    {property.totalUnits}{property.totalUnits ? ` total` : ''}
                                 </span>
-                                <span className="units-label">Available Unit{(property.availableUnits === 1) ? '' : 's'}</span>
+                                <span className="units-label">Units</span>
                             </div>
                         )}
                         

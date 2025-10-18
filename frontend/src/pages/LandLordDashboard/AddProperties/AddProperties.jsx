@@ -76,7 +76,7 @@ const AddProperties = () => {
   const { logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const [propertyData, setPropertyData] = useState({
-    title:'', description:'', address:'', price:'', barangay:'', category:'', petFriendly:false, allowedPets:'', occupancy:'', parking:false, rules:'', landmarks:'', numberOfRooms:'', areaSqm:'', images:[], video:null, latitude:'', longitude:'', availabilityStatus: 'Available', totalUnits: 1, availableUnits: 1
+  title:'', description:'', address:'', price:'', barangay:'', category:'', petFriendly:false, allowedPets:'', occupancy:'', parking:false, rules:'', landmarks:'', numberOfRooms:'', areaSqm:'', images:[], video:null, latitude:'', longitude:'', availabilityStatus: 'Available', totalUnits: 1
   });
   // Price input UI state
   const [priceFocused, setPriceFocused] = useState(false);
@@ -455,11 +455,7 @@ const AddProperties = () => {
                 <div className="field-hint small">Set how many rentable units this listing has (e.g., number of rooms/slots).</div>
               </div>
               
-              <div className="form-group">
-                <label>Available Units</label>
-                <input className="ll-field" type="number" min={0} name="availableUnits" value={propertyData.availableUnits} onChange={handleInputChange} />
-                <div className="field-hint small">Optional: leave blank to default to Total Units.</div>
-              </div>
+              {/* availableUnits removed - availability is derived from totalUnits and server-side approvals */}
               
               <div className="form-group">
                 <label className="required">Property Size (sqm)</label>

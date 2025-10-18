@@ -57,12 +57,6 @@ const propertySchema = new mongoose.Schema({
     min: 0,
     default: 1,
   },
-  // Number of currently available units for rent. Kept in sync with totalUnits when creating/updating.
-  availableUnits: {
-    type: Number,
-    min: 0,
-    default: 1,
-  },
   petFriendly: {
     type: Boolean,
     default: false,

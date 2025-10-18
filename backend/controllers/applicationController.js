@@ -11,8 +11,9 @@ export const createApplication = async (req, res) => {
 
     const property = await Property.findById(propertyId).populate('landlord');
     if (!property) return res.status(404).json({ error: 'Property not found' });
-    // Block applications to fully occupied properties
-    if (typeof property.availableUnits !== 'undefined' && property.availableUnits <= 0) {
+    // Block applications if approved applications already meet or exceed totalUnits
+    const approvedCount = await Application.countDocuments({ property: propertyId, status: 'Approved' });
+    if ((property.totalUnits || 1) <= approvedCount) {
       return res.status(400).json({ error: 'Property is fully occupied and cannot accept new applications' });
     }
 
@@ -72,30 +73,27 @@ export const approveApplication = async (req, res) => {
     if (!app) return res.status(404).json({ error: 'Application not found' });
     if (app.landlord.toString() !== userId && req.user.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
 
-    // Attempt to decrement property's availableUnits atomically when present
-    let updatedProperty = null;
-    if (typeof app.property.availableUnits !== 'undefined') {
-      // Only decrement if availableUnits > 0
-      updatedProperty = await Property.findOneAndUpdate(
-        { _id: app.property._id, availableUnits: { $gt: 0 } },
-        { $inc: { availableUnits: -1 } },
-        { new: true }
-      );
-
-      if (!updatedProperty) {
-        return res.status(409).json({ error: 'No available units remaining for this property' });
-      }
-
-      // If it reached 0, update availabilityStatus
-      if (updatedProperty.availableUnits <= 0) {
-        updatedProperty.availabilityStatus = 'Fully Occupied';
-        await updatedProperty.save();
-      }
+    // Determine if approving this application would exceed totalUnits
+    const approvedBefore = await Application.countDocuments({ property: app.property._id, status: 'Approved' });
+    if ((app.property.totalUnits || 1) <= approvedBefore) {
+      return res.status(409).json({ error: 'No available units remaining for this property' });
     }
+
+    // After successful approval, update property's availabilityStatus if necessary
+    let updatedProperty = null;
 
     app.status = 'Approved';
     app.actedAt = new Date();
     await app.save();
+
+    // re-fetch property to reflect any status change
+    updatedProperty = await Property.findById(app.property._id);
+    // If approved applications now meet/exceed totalUnits, mark Fully Occupied
+    const approvedAfter = await Application.countDocuments({ property: app.property._id, status: 'Approved' });
+    if ((updatedProperty.totalUnits || 1) <= approvedAfter) {
+      updatedProperty.availabilityStatus = 'Fully Occupied';
+      await updatedProperty.save();
+    }
 
     res.json({ message: 'Application approved', application: app, property: updatedProperty });
   } catch (e) {

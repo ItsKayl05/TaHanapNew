@@ -311,13 +311,13 @@ const PropertyListingPage = () => {
                             <div className="property-details">
                                 <h3>{title}</h3>
                                 {createdAt && <span className="property-date" title={new Date(createdAt).toLocaleString()}>{formatCreatedAt(createdAt)}</span>}
-                                {(typeof p.availableUnits !== 'undefined' || typeof p.totalUnits !== 'undefined') && (
+                                {(typeof p.totalUnits !== 'undefined') && (
                                     <div className="card-units-pill-row">
                                         <div className="card-units-pill">
                                             <svg width="15" height="15" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style={{verticalAlign:'middle',marginRight:'5px'}}><rect x="3" y="7" width="14" height="8" rx="2.5" fill="#38bdf8"/><rect x="7" y="3" width="6" height="4" rx="2" fill="#60aaff"/></svg>
-                                            {p.availableUnits !== undefined ? p.availableUnits : '0'}{p.totalUnits ? ` / ${p.totalUnits}` : ''}
+                                            {p.totalUnits}{/* show total capacity; available is derived server-side */}
                                         </div>
-                                        <span className="card-units-label">Available units</span>
+                                        <span className="card-units-label">Units</span>
                                     </div>
                                 )}
                                 {landlordProfile && (

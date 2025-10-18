@@ -81,7 +81,7 @@ const RentalRequests = () => {
                 <strong className="property-name">{property.title || property._id || property}</strong>
               </div>
               <div className="property-units">
-                <strong>Available units:</strong> {property.availableUnits !== undefined ? property.availableUnits : 'N/A'}{property.totalUnits ? ` / ${property.totalUnits}` : ''}
+                <strong>Status:</strong> {property.availabilityStatus || 'Unknown'}{property.totalUnits ? ` • ${property.totalUnits} units` : ''}
               </div>
             </div>
           </div>
@@ -95,7 +95,7 @@ const RentalRequests = () => {
                 <div className="app-row-header">
                   <FaClock className="status-icon pending" />
                   <span className="status pending">Pending</span>
-                  <strong className="tenant-name">{a.tenant?.fullName || 'Tenant'}</strong>
+                  <strong className="tenant-name">{a.tenant?.fullName || 'Property Seeker'}</strong>
                 </div>
                 <p className="app-message">
                   {a.message ? a.message : <span className="no-message">No message</span>}
@@ -104,7 +104,7 @@ const RentalRequests = () => {
                 <div className="actions">
                   <button 
                     onClick={() => handleApprove(a._id)} 
-                    disabled={property && typeof property.availableUnits !== 'undefined' && property.availableUnits <= 0}
+                    disabled={property && property.availabilityStatus === 'Fully Occupied'}
                     className="approve-btn"
                   >
                     <FaCheckCircle /> Approve
@@ -127,7 +127,7 @@ const RentalRequests = () => {
                 <div className="app-row-header">
                   <FaCheckCircle className="status-icon approved" />
                   <span className="status approved">Approved</span>
-                  <strong className="tenant-name">{a.tenant?.fullName || 'Tenant'}</strong>
+                  <strong className="tenant-name">{a.tenant?.fullName || 'Property Seeker'}</strong>
                 </div>
                 <p className="app-message">
                   {a.message ? a.message : <span className="no-message">No message</span>}
@@ -151,7 +151,7 @@ const RentalRequests = () => {
                 <div className="app-row-header">
                   <FaTimesCircle className="status-icon rejected" />
                   <span className="status rejected">Rejected</span>
-                  <strong className="tenant-name">{a.tenant?.fullName || 'Tenant'}</strong>
+                  <strong className="tenant-name">{a.tenant?.fullName || 'Property Seeker'}</strong>
                 </div>
                 <p className="app-message">
                   {a.message ? a.message : <span className="no-message">No message</span>}

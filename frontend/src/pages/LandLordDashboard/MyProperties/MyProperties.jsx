@@ -192,11 +192,8 @@ const MyProperties = () => {
                                             try {
                                                 const newTotalStr = prompt('Enter new total units (leave blank to keep current):', String(property.totalUnits || 1));
                                                 if (newTotalStr === null) return; // cancelled
-                                                const newAvailStr = prompt('Enter available units (leave blank to auto-clamp):', String(property.availableUnits || property.totalUnits || 0));
-                                                if (newAvailStr === null) return;
                                                 const payload = {};
                                                 if (newTotalStr.trim() !== '') payload.totalUnits = Number(newTotalStr);
-                                                if (newAvailStr.trim() !== '') payload.availableUnits = Number(newAvailStr);
                                                 const token = localStorage.getItem('user_token');
                                                 if(!token){ toast.error('Not authenticated'); return; }
                                                 const res = await setAvailability(property._id, payload);
