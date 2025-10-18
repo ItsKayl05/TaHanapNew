@@ -100,6 +100,10 @@ const uploadToCloudinary = async (files, folder, resourceType = 'image') => {
 
 // 🏡 Add Property
 export const addProperty = async (req, res) => {
+    let images = [];
+    let video = '';
+    let panorama360 = '';
+
     uploadMemory(req, res, async (err) => {
         if (err) {
             let errorMsg = "Error uploading media";
@@ -123,11 +127,15 @@ export const addProperty = async (req, res) => {
                 console.log('[AddProperty] Request by user:', req.user ? { id: req.user.id, role: req.user.role } : 'anonymous');
                 console.log('[AddProperty] Body keys:', Object.keys(req.body || {}));
                 console.log('[AddProperty] Files:', Object.keys(req.files || {}).reduce((acc,k)=>{ acc[k]=(req.files[k]||[]).length; return acc; },{}));
+                
+                // DEBUG: Log the values
+                console.log('[AddProperty] propertyType value:', req.body.propertyType);
+                console.log('[AddProperty] listingType value:', req.body.listingType);
             } catch(e) { console.error('[AddProperty] debug log failed', e); }
             
             const { propertyType, description, address, price, barangay, listingType, petFriendly, allowedPets, occupancy, parking, rules, landmarks, numberOfRooms, areaSqm, latitude, longitude } = req.body;
 
-            // VALIDATION - propertyType is now required (replaces title)
+            // VALIDATION
             const validations = {
                 propertyType: {
                     required: true,
@@ -190,7 +198,19 @@ export const addProperty = async (req, res) => {
 
             // Return if there are any validation errors
             if (errors.length > 0) {
-                try { console.log('[AddProperty] Validation errors:', errors); } catch(e){}
+                try { 
+                    console.log('[AddProperty] Validation errors:', errors); 
+                    console.log('[AddProperty] Received data:', {
+                        propertyType: req.body.propertyType,
+                        listingType: req.body.listingType,
+                        description: req.body.description ? 'present' : 'missing',
+                        address: req.body.address ? 'present' : 'missing',
+                        price: req.body.price,
+                        barangay: req.body.barangay,
+                        occupancy: req.body.occupancy,
+                        areaSqm: req.body.areaSqm
+                    });
+                } catch(e){}
                 return res.status(400).json({
                     errors: errors
                 });
@@ -212,10 +232,6 @@ export const addProperty = async (req, res) => {
                     }
                 }
             }
-
-            let images = [];
-            let video = '';
-            let panorama360 = '';
 
             // Handle media uploads
             if (req.files?.images && req.files.images.length > 0) {
@@ -291,12 +307,12 @@ export const addProperty = async (req, res) => {
 
             const newProperty = new Property({
                 landlord,
-                title: propertyType, // MAP propertyType to title field in database
+                title: propertyType, // MAP: propertyType → title field in database
                 description,
                 address,
                 price: num(price),
                 barangay,
-                propertyType: listingType || 'For Rent', // MAP listingType to propertyType field in database
+                propertyType: listingType, // MAP: listingType → propertyType field in database
                 petFriendly: petFriendly === 'true' || petFriendly === true,
                 allowedPets,
                 occupancy: num(occupancy, 1),
@@ -465,7 +481,7 @@ export const updateProperty = async (req, res) => {
             delete updates.landlord;
             delete updates.status;
 
-            // VALIDATION - propertyType is now required (replaces title)
+            // VALIDATION
             const validations = {
                 propertyType: {
                     required: true,
@@ -611,8 +627,8 @@ export const updateProperty = async (req, res) => {
             const updatedData = {
                 ...req.body,
                 ...(availabilityStatus ? { availabilityStatus } : {}),
-                title: req.body.propertyType || property.title, // MAP propertyType to title
-                propertyType: req.body.listingType || property.propertyType, // MAP listingType to propertyType
+                title: req.body.propertyType || property.title, // MAP: propertyType → title
+                propertyType: req.body.listingType || property.propertyType, // MAP: listingType → propertyType
                 price: req.body.price !== undefined ? num(req.body.price) : property.price,
                 occupancy: req.body.occupancy !== undefined ? num(req.body.occupancy, 1) : property.occupancy,
                 petFriendly: req.body.petFriendly !== undefined ? (req.body.petFriendly === 'true' || req.body.petFriendly === true) : property.petFriendly,

@@ -13,7 +13,9 @@ import Sidebar from "../../Sidebar/Sidebar";
 import { buildApi, buildUpload } from '../../../../services/apiConfig';
 import { saveFormState, loadFormState, saveFiles, loadFiles, clearFormPersistence } from '../../../../utils/formPersistence';
 
-// categories deprecated; use property type dropdown instead
+// Property types to choose from
+const PROPERTY_TYPES = ['House','House and Lot','Apartment','Condominium','Townhouse','Dormitory','Bedspace','Studio Unit','Lot','Land','Commercial Space','Office Space','Warehouse','Building','Bungalow','Duplex','Triplex','Inner Lot','Corner Lot'];
+
 const barangays = [
     "Assumption", "Bagong Buhay I", "Bagong Buhay II", "Bagong Buhay III",
     "Ciudad Real", "Citrus", "Dulong Bayan", "Fatima I", "Fatima II", 
@@ -43,10 +45,10 @@ const EditProperty = () => {
     const navigate = useNavigate();
     const [property, setProperty] = useState(null);
     const [formData, setFormData] = useState({
-        title: "", description: "", address: "", price: "", barangay: "", propertyType: "For Rent",
+        propertyType: "", description: "", address: "", price: "", barangay: "", listingType: "",
         petFriendly: false, allowedPets: "", occupancy: "", parking: false, rules: "",
         landmarks: "", availabilityStatus: "Available", numberOfRooms: "", areaSqm: "",
-    latitude: "", longitude: ""
+        latitude: "", longitude: ""
     });
     const FORM_KEY = `edit-property-${propertyId}-v1`;
 
@@ -55,7 +57,7 @@ const EditProperty = () => {
         const saved = loadFormState(FORM_KEY);
             if (saved) {
                 const allowed = [
-                    'title','description','address','price','barangay','propertyType','petFriendly','allowedPets','occupancy','parking','rules','landmarks','numberOfRooms','areaSqm','latitude','longitude','availabilityStatus'
+                    'propertyType','description','address','price','barangay','listingType','petFriendly','allowedPets','occupancy','parking','rules','landmarks','numberOfRooms','areaSqm','latitude','longitude','availabilityStatus'
                 ];
                 const toRestore = {};
                 for (const k of allowed) {
@@ -131,18 +133,19 @@ const EditProperty = () => {
                 } else if (typeof data.landmarks === 'string' && data.landmarks.trim()) {
                   landmarksArr = data.landmarks.split(',').map(l => l.trim()).filter(l => l);
                 }
+                
+                // IMPORTANT: Map the database fields to the new form fields
                 setFormData({
-                    title: data.title,
+                    propertyType: data.title, // Map: title → propertyType
                     description: data.description,
                     address: data.address,
                     price: data.price,
                     barangay: data.barangay,
-                    // category removed
+                    listingType: data.propertyType, // Map: propertyType → listingType
                     petFriendly: data.petFriendly,
                     allowedPets: data.allowedPets,
                     occupancy: data.occupancy,
                     availabilityStatus: data.availabilityStatus ?? 'Available',
-                    // totalUnits removed from UI; availability is derived server-side from applications
                     parking: data.parking,
                     rules: data.rules,
                     landmarks: landmarksArr,
@@ -268,108 +271,111 @@ const EditProperty = () => {
   try {
     const userToken = localStorage.getItem("user_token");
     if (!userToken) throw new Error("Unauthorized access. Please log in.");
-            if (!formData.title || !formData.description) {
-                toast.error('Title & description are required.');
-                return;
-            }
-    // Ensure required numeric fields are provided
-    if (formData.price === undefined || formData.price === '' ) {
-      toast.error("Don't forget to set a price");
-      return;
+    
+    // Client-side validation
+    const requiredChecks = [
+        { key: 'propertyType', ok: formData.propertyType && formData.propertyType.toString().trim() !== '', msg: "Please select a property type" },
+        { key: 'description', ok: formData.description && formData.description.toString().trim() !== '', msg: "Please provide a description for your property" },
+        { key: 'address', ok: formData.address && formData.address.toString().trim() !== '', msg: "The property address cannot be empty" },
+        { key: 'price', ok: formData.price && formData.price.toString().trim() !== '', msg: "Don't forget to set a price" },
+        { key: 'barangay', ok: formData.barangay && formData.barangay.toString().trim() !== '', msg: "Please select a barangay for your property" },
+        { key: 'listingType', ok: formData.listingType && formData.listingType.toString().trim() !== '', msg: "Please select listing type" },
+        { key: 'areaSqm', ok: formData.areaSqm !== undefined && formData.areaSqm !== '' && !isNaN(Number(formData.areaSqm)) && Number(formData.areaSqm) > 0, msg: "Please provide the floor area (in square meters)" },
+        { key: 'occupancy', ok: formData.occupancy && formData.occupancy.toString().trim() !== '', msg: "Please specify maximum occupancy" }
+    ];
+    
+    for (const chk of requiredChecks) {
+        if (!chk.ok) { toast.error(chk.msg); return; }
     }
-    if (formData.areaSqm === undefined || formData.areaSqm === '' || isNaN(Number(formData.areaSqm)) || Number(formData.areaSqm) <= 0) {
-      toast.error('Please provide the floor area (in square meters)');
-      return;
-    }
-    // ADD THIS VALIDATION FOR OCCUPANCY
-    if (formData.occupancy === undefined || formData.occupancy === '') {
-      toast.error('Please specify maximum occupancy');
-      return;
-    }
-            // Validate and convert price (locale-aware)
-            const parseLocaleNumber = (str) => {
-                if (str === undefined || str === null || String(str).trim() === '') return NaN;
-                const nfParts = new Intl.NumberFormat(navigator.language).formatToParts(12345.6);
-                const group = nfParts.find(p => p.type === 'group')?.value || ',';
-                const decimal = nfParts.find(p => p.type === 'decimal')?.value || '.';
-                const esc = s => s.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
-                let normalized = String(str).replace(new RegExp(esc(group), 'g'), '');
-                if (decimal !== '.') normalized = normalized.replace(new RegExp(esc(decimal)), '.');
-                normalized = normalized.replace(/\s/g, '');
-                normalized = normalized.replace(/[^0-9.\-]/g, '');
-                const num = Number(normalized);
-                return isNaN(num) ? NaN : num;
-            };
-            const priceNum = parseLocaleNumber(formData.price);
-            if (isNaN(priceNum) || priceNum < 0) {
-                toast.error('Please enter a valid price');
-                return;
-            }
 
-            setSubmitting(true);
-
-            const formDataToSend = new FormData();
-            // Combine landmarks array and customLandmark into a single string
-            let landmarksArr = Array.isArray(formData.landmarks) ? [...formData.landmarks] : (formData.landmarks ? [formData.landmarks] : []);
-            // Always save as lowercase and trimmed
-            landmarksArr = landmarksArr.map(l => l.trim().toLowerCase()).filter(l => l);
-            if (formData.customLandmark && formData.customLandmark.trim()) {
-                landmarksArr.push(formData.customLandmark.trim().toLowerCase());
-            }
-            const landmarksString = landmarksArr.join(', ');
-
-            Object.entries(formData).forEach(([key, value]) => {
-                if (key === 'landmarks') {
-                    formDataToSend.append('landmarks', landmarksString);
-                } else if (key === 'customLandmark') {
-                    /* skip, already merged above */
-                } else if (key === 'price') {
-                    // skip here; we'll append numeric price below
-                } else if (value !== undefined && value !== null && value !== "") {
-                    formDataToSend.append(key, value);
-                }
-            });
-            // append numeric price value
-            formDataToSend.append('price', priceNum);
-            images.forEach(img => formDataToSend.append('existingImages', img));
-            deletedImages.forEach(img => formDataToSend.append('deletedImages[]', img.split('/').pop()));
-            newImages.forEach(file => formDataToSend.append('images', file));
-            if (videoFile) formDataToSend.append('video', videoFile);
-            if (removeVideo) formDataToSend.append('removeVideo', 'true');
-            if (panorama) {
-                formDataToSend.append('panorama360', panorama);
-            } else if (existingPanorama === null && property && property.panorama360) {
-                formDataToSend.append('removePanorama', 'true');
-            }
-            const response = await fetch(buildApi(`/properties/${propertyId}`), {
-                method: 'PUT',
-                headers: { Authorization: `Bearer ${userToken}` },
-                body: formDataToSend
-            });
-            const data = await response.json();
-            if (!response.ok) {
-                if (data.errors && Array.isArray(data.errors)) {
-                    data.errors.forEach(error => toast.error(error));
-                } else if (data.error && typeof data.error === 'string') {
-                    toast.error(data.error);
-                } else if (data.message) {
-                    toast.error(data.message);
-                } else {
-                    toast.error('Failed to update property');
-                }
-                return;
-            }
-            toast.success('Property updated successfully');
-                try {
-                    await clearFormPersistence(FORM_KEY);
-                } catch (e) { console.error('Failed to clear draft after update', e); }
-                navigate('/my-properties');
-        } catch (err) {
-            toast.error(err.message || 'Error updating property');
-        } finally {
-            setSubmitting(false);
-        }
+    // Validate and convert price (locale-aware)
+    const parseLocaleNumber = (str) => {
+        if (str === undefined || str === null || String(str).trim() === '') return NaN;
+        const nfParts = new Intl.NumberFormat(navigator.language).formatToParts(12345.6);
+        const group = nfParts.find(p => p.type === 'group')?.value || ',';
+        const decimal = nfParts.find(p => p.type === 'decimal')?.value || '.';
+        const esc = s => s.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
+        let normalized = String(str).replace(new RegExp(esc(group), 'g'), '');
+        if (decimal !== '.') normalized = normalized.replace(new RegExp(esc(decimal)), '.');
+        normalized = normalized.replace(/\s/g, '');
+        normalized = normalized.replace(/[^0-9.\-]/g, '');
+        const num = Number(normalized);
+        return isNaN(num) ? NaN : num;
     };
+    
+    const priceNum = parseLocaleNumber(formData.price);
+    if (isNaN(priceNum) || priceNum < 0) {
+        toast.error('Please enter a valid price');
+        return;
+    }
+
+    setSubmitting(true);
+
+    const formDataToSend = new FormData();
+    // Combine landmarks array and customLandmark into a single string
+    let landmarksArr = Array.isArray(formData.landmarks) ? [...formData.landmarks] : (formData.landmarks ? [formData.landmarks] : []);
+    // Always save as lowercase and trimmed
+    landmarksArr = landmarksArr.map(l => l.trim().toLowerCase()).filter(l => l);
+    if (formData.customLandmark && formData.customLandmark.trim()) {
+        landmarksArr.push(formData.customLandmark.trim().toLowerCase());
+    }
+    const landmarksString = landmarksArr.join(', ');
+
+    // Append all form data with the new field names
+    Object.entries(formData).forEach(([key, value]) => {
+        if (key === 'landmarks') {
+            formDataToSend.append('landmarks', landmarksString);
+        } else if (key === 'customLandmark') {
+            /* skip, already merged above */
+        } else if (key === 'price') {
+            // skip here; we'll append numeric price below
+        } else if (value !== undefined && value !== null && value !== "") {
+            formDataToSend.append(key, value);
+        }
+    });
+    
+    // append numeric price value
+    formDataToSend.append('price', priceNum);
+    images.forEach(img => formDataToSend.append('existingImages', img));
+    deletedImages.forEach(img => formDataToSend.append('deletedImages[]', img.split('/').pop()));
+    newImages.forEach(file => formDataToSend.append('images', file));
+    if (videoFile) formDataToSend.append('video', videoFile);
+    if (removeVideo) formDataToSend.append('removeVideo', 'true');
+    if (panorama) {
+        formDataToSend.append('panorama360', panorama);
+    } else if (existingPanorama === null && property && property.panorama360) {
+        formDataToSend.append('removePanorama', 'true');
+    }
+    
+    const response = await fetch(buildApi(`/properties/${propertyId}`), {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${userToken}` },
+        body: formDataToSend
+    });
+    const data = await response.json();
+    if (!response.ok) {
+        if (data.errors && Array.isArray(data.errors)) {
+            data.errors.forEach(error => toast.error(error));
+        } else if (data.error && typeof data.error === 'string') {
+            toast.error(data.error);
+        } else if (data.message) {
+            toast.error(data.message);
+        } else {
+            toast.error('Failed to update property');
+        }
+        return;
+    }
+    toast.success('Property updated successfully');
+        try {
+            await clearFormPersistence(FORM_KEY);
+        } catch (e) { console.error('Failed to clear draft after update', e); }
+        navigate('/my-properties');
+    } catch (err) {
+        toast.error(err.message || 'Error updating property');
+    } finally {
+        setSubmitting(false);
+    }
+};
 
     return (
         <div className="dashboard-container landlord-dashboard">
@@ -439,32 +445,25 @@ const EditProperty = () => {
                         </div>
                         <div className="form-grid">
                             
+                            {/* LISTING TYPE - For Rent/For Sale */}
+                            <div className="field-group">
+                                <label className="required">Listing Type</label>
+                                <select className="ll-field" name="listingType" value={formData.listingType} onChange={handleChange} required>
+                                    <option value="">Select Listing Type</option>
+                                    <option value="For Rent">For Rent</option>
+                                    <option value="For Sale">For Sale</option>
+                                </select>
+                            </div>
+
+                            {/* PROPERTY TYPE - House, Apartment, etc. */}
                             <div className="field-group">
                                 <label className="required">Property Type</label>
-                                <select className="ll-field" name="title" value={formData.title} onChange={handleChange} required>
+                                <select className="ll-field" name="propertyType" value={formData.propertyType} onChange={handleChange} required>
                                     <option value="">Select Property Type</option>
-                                    <option>House</option>
-                                    <option>House and Lot</option>
-                                    <option>Apartment</option>
-                                    <option>Condominium</option>
-                                    <option>Townhouse</option>
-                                    <option>Dormitory</option>
-                                    <option>Bedspace</option>
-                                    <option>Studio Unit</option>
-                                    <option>Lot</option>
-                                    <option>Land</option>
-                                    <option>Commercial Space</option>
-                                    <option>Office Space</option>
-                                    <option>Warehouse</option>
-                                    <option>Building</option>
-                                    <option>Bungalow</option>
-                                    <option>Duplex</option>
-                                    <option>Triplex</option>
-                                    <option>Inner Lot</option>
-                                    <option>Corner Lot</option>
+                                    {PROPERTY_TYPES.map(pt => <option key={pt} value={pt}>{pt}</option>)}
                                 </select>
-                                <div className="field-hint small">{String(formData.title || '').length}/100</div>
                             </div>
+
                             <div className="field-group full">
                                 <label className="required">Description</label>
                                 <textarea className="ll-field" name="description" value={formData.description} onChange={handleChange} rows={5} maxLength={500} required />
@@ -481,39 +480,7 @@ const EditProperty = () => {
                                     {barangays.map(brgy => <option key={brgy} value={brgy}>{brgy}</option>)}
                                 </select>
                             </div>
-                            <div className="field-group">
-                                <label className="required">Listing Type</label>
-                                <select className="ll-field" name="propertyType" value={formData.propertyType} onChange={handleChange} required>
-                                    <option value="For Rent">For Rent</option>
-                                    <option value="For Sale">For Sale</option>
-                                </select>
-                            </div>
-                            <div className="field-group">
-                                <label className="required">Property Type</label>
-                                <select className="ll-field" name="title" value={formData.title} onChange={handleChange} required>
-                                    <option value="">Select Property Type</option>
-                                    <option>House</option>
-                                    <option>House and Lot</option>
-                                    <option>Apartment</option>
-                                    <option>Condominium</option>
-                                    <option>Townhouse</option>
-                                    <option>Dormitory</option>
-                                    <option>Bedspace</option>
-                                    <option>Studio Unit</option>
-                                    <option>Lot</option>
-                                    <option>Land</option>
-                                    <option>Commercial Space</option>
-                                    <option>Office Space</option>
-                                    <option>Warehouse</option>
-                                    <option>Building</option>
-                                    <option>Bungalow</option>
-                                    <option>Duplex</option>
-                                    <option>Triplex</option>
-                                    <option>Inner Lot</option>
-                                    <option>Corner Lot</option>
-                                </select>
-                                <div className="field-hint small">{String(formData.title || '').length}/100</div>
-                            </div>
+                            
                             <div className="field-group">
                                 <label className="required">Price (₱)</label>
                                 <input
@@ -526,7 +493,19 @@ const EditProperty = () => {
                                     onFocus={() => { setPriceFocused(true); setPriceError(''); }}
                                     onBlur={() => {
                                         setPriceFocused(false);
-                                        const num = parseLocaleNumber(formData.price);
+                                        const num = (function parseLocaleNumberLocal(str){
+                                            if (str === undefined || str === null || String(str).trim() === '') return NaN;
+                                            const nfParts = new Intl.NumberFormat(navigator.language).formatToParts(12345.6);
+                                            const group = nfParts.find(p => p.type === 'group')?.value || ',';
+                                            const decimal = nfParts.find(p => p.type === 'decimal')?.value || '.';
+                                            const esc = s => s.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
+                                            let normalized = String(str).replace(new RegExp(esc(group), 'g'), '');
+                                            if (decimal !== '.') normalized = normalized.replace(new RegExp(esc(decimal)), '.');
+                                            normalized = normalized.replace(/\s/g, '');
+                                            normalized = normalized.replace(/[^0-9.\-]/g, '');
+                                            const num = Number(normalized);
+                                            return isNaN(num) ? NaN : num;
+                                        })(formData.price);
                                         if (isNaN(num)) {
                                             setPriceError('Please enter a valid price');
                                         } else {
