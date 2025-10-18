@@ -145,7 +145,7 @@ const RegisterPage = () => {
                 </picture>
                 <div className="illu-inner">
                     <h2>Find Your Next Home</h2>
-                    <p>Register now to save favorites, contact landlords, and manage your rentals effortlessly.</p>
+                    <p>Register now to save favorites, contact property owners, and manage your rentals effortlessly.</p>
                 </div>
             </div>
             <div className="auth-form-wrap">
@@ -230,8 +230,8 @@ const RegisterPage = () => {
                             <AiOutlineHome size={20} color="#777" />
                         )}
                         <select name="role" id="role" value={formData.role} onChange={handleChange}>
-                            <option value="tenant">Tenant</option>
-                            <option value="landlord">Landlord</option>
+                                <option value="tenant">Property Seeker</option>
+                            <option value="landlord">Property Owner</option>
                         </select>
                     </div>
                 </div>

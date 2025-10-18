@@ -55,7 +55,7 @@ const Sidebar = ({ handleLogout }) => {
     useEffect(()=>{
         if (landlordData) {
             if (lastVerificationState === false && landlordData.landlordVerified === true) {
-                toast.success('Your landlord verification is approved.');
+                toast.success('Your property owner verification is approved.');
             }
             setLastVerificationState(landlordData.landlordVerified);
         }
@@ -165,7 +165,7 @@ const Sidebar = ({ handleLogout }) => {
                 <div className="id-modal-overlay" onClick={() => { if (hasRejected) setDismissedRejected(true); else setShowIdModal(false); }}>
                     <div className={`id-modal ${isMobile ? 'mobile-modal' : ''}`} onClick={(e)=>e.stopPropagation()}>
                         <div className="modal-header">
-                            <h3>Landlord Verification</h3>
+                            <h3>Property Owner Verification</h3>
                             {isMobile && (
                                 <button 
                                     className="modal-close-btn"

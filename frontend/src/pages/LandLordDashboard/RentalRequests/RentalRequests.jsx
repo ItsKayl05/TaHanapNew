@@ -81,7 +81,7 @@ const RentalRequests = () => {
                 <strong className="property-name">{property.title || property._id || property}</strong>
               </div>
               <div className="property-units">
-                <strong>Status:</strong> {property.availabilityStatus || 'Unknown'}{property.totalUnits ? ` • ${property.totalUnits} units` : ''}
+                <strong>Status:</strong> {property.availabilityStatus || 'Unknown'}
               </div>
             </div>
           </div>

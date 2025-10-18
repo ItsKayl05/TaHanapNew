@@ -52,16 +52,16 @@ const AdminDashboard = () => {
 
           <div className="dashboard-cards">
             <div className="card-accent-blue"><DashboardCard title="Total Users" value={totalUsers} icon={<FaUsers />} /></div>
-            <div className="card-accent-purple"><DashboardCard title="Landlords" value={landlordsCount} icon={<FaUserTie />} /></div>
-            <div className="card-accent-green"><DashboardCard title="Tenants" value={tenantsCount} icon={<FaUser />} /></div>
+            <div className="card-accent-purple"><DashboardCard title="Property Owners" value={landlordsCount} icon={<FaUserTie />} /></div>
+            <div className="card-accent-green"><DashboardCard title="Property Seekers" value={tenantsCount} icon={<FaUser />} /></div>
             <div className="card-accent-yellow"><DashboardCard title="Properties Listed" value={totalProperties} icon={<FaBuilding />} /></div>
           </div>
           {/* Per-barangay breakdown */}
           <div className="barangay-stats-section" style={{marginTop: '2.5rem'}}>
-            <h2 style={{fontSize: '1.3rem', marginBottom: '1.2rem'}}>Landlords & Tenants per Barangay</h2>
+            <h2 style={{fontSize: '1.3rem', marginBottom: '1.2rem'}}>Property Owners & Property Seekers per Barangay</h2>
             <div className="barangay-stats-tables" style={{display: 'flex', gap: '2.5rem', flexWrap: 'wrap'}}>
               <div style={{flex: 1, minWidth: 260}}>
-                <h3 style={{fontSize: '1.1rem', marginBottom: '0.7rem'}}>Landlords</h3>
+                <h3 style={{fontSize: '1.1rem', marginBottom: '0.7rem'}}>Property Owners</h3>
                 <table className="barangay-table">
                   <thead><tr><th>Barangay</th><th>Count</th></tr></thead>
                   <tbody>
@@ -72,7 +72,7 @@ const AdminDashboard = () => {
                 </table>
               </div>
               <div style={{flex: 1, minWidth: 260}}>
-                <h3 style={{fontSize: '1.1rem', marginBottom: '0.7rem'}}>Tenants</h3>
+                <h3 style={{fontSize: '1.1rem', marginBottom: '0.7rem'}}>Property Seekers</h3>
                 <table className="barangay-table">
                   <thead><tr><th>Barangay</th><th>Count</th></tr></thead>
                   <tbody>

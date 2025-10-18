@@ -37,7 +37,8 @@ const DashboardSidebar = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [mobileMenuOpen]);
 
-  const brandTitle = variant === 'landlord' ? 'TaHanap Landlord' : 'TaHanap Tenant';
+  // Use friendly role names in the sidebar branding
+  const brandTitle = variant === 'landlord' ? 'TaHanap Property Owner' : 'TaHanap Property Seeker';
 
   const statusPill = (() => {
     if (!verification) return null;

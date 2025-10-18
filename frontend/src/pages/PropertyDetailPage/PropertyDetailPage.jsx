@@ -167,7 +167,6 @@ const PropertyDetailPage = () => {
                         <h2>₱{property.price.toLocaleString()}</h2>
                         <div className="property-badges-container">
                             <div className="badge-group">
-                                <span className="property-badge">{property.category}</span>
                                 <span className={`property-type-badge ${property.propertyType?.toLowerCase().replace(/\s+/g, '-')}`}>
                                     {property.propertyType || "For Rent"}
                                 </span>
@@ -306,21 +305,13 @@ const PropertyDetailPage = () => {
                                 Apply
                             </button>
                         )}
-                        {(typeof property.totalUnits !== 'undefined') && (
-                            <div className="availability-counter improved-units">
-                                <span className="units-pill">
-                                    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style={{verticalAlign:'middle',marginRight:'6px'}}><rect x="3" y="7" width="14" height="8" rx="2.5" fill="#38bdf8"/><rect x="7" y="3" width="6" height="4" rx="2" fill="#60aaff"/></svg>
-                                    {property.totalUnits}{property.totalUnits ? ` total` : ''}
-                                </span>
-                                <span className="units-label">Units</span>
-                            </div>
-                        )}
+                        {/* totalUnits display removed per UX changes */}
                         
                         <button
                             className="contact-btn"
                             onClick={() => {
                                 if (property.landlordProfile) {
-                                    console.log('Message Landlord clicked. landlordProfile:', property.landlordProfile);
+                                    console.log('Message Property Owner clicked. landlordProfile:', property.landlordProfile);
                                     const ownerId = property.landlordProfile.id || property.landlordProfile._id;
                                     if (!ownerId) {
                                         toast.error('Owner user ID not found.');
@@ -344,7 +335,7 @@ const PropertyDetailPage = () => {
                                 }
                             }}
                         >
-                            Message Landlord
+                            Message Property Owner
                         </button>
                     </div>
                 </div>

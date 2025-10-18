@@ -1,4 +1,4 @@
-import fs from "fs/promises"; // Use async file operations
+import fs from "fs/promises";
 import path from "path";
 import multer from "multer";
 import mongoose from 'mongoose';
@@ -6,9 +6,9 @@ import Property from "../models/Property.js";
 import User from "../models/User.js";
 
 // Constants
-const MAX_IMAGES = 8; // Align with frontend limit
+const MAX_IMAGES = 8;
 
-// Memory-based multer for Cloudinary uploads (exported for routes)
+// Memory-based multer for Cloudinary uploads
 const memoryUpload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 50 * 1024 * 1024 },
@@ -32,12 +32,6 @@ const memoryUpload = multer({
 
 export const uploadMemory = memoryUpload;
 
-// Helper: Build absolute media URL (for Cloudinary URLs, return as-is)
-const toAbsolute = (req, url) => url ? (url.startsWith('http') ? url : `${req.protocol}://${req.get('host')}${url}`) : '';
-
-// Helper: Format image paths for frontend
-const formatImagePaths = (req, images) => images.map(img => toAbsolute(req, img));
-
 // Helper: safe number coercion
 const num = (v, def = 0) => {
     const n = Number(v);
@@ -58,7 +52,6 @@ const deleteCloudinaryAssets = async (urls) => {
 
                 console.log('[Cloudinary Delete] Attempting to delete:', publicId);
                 
-                // Determine resource type based on URL path
                 const resourceType = url.includes('/video/') ? 'video' : 'image';
                 
                 await cloudinary.uploader.destroy(publicId, { resource_type: resourceType })
@@ -94,14 +87,14 @@ const uploadToCloudinary = async (files, folder, resourceType = 'image') => {
                 }
             } catch (e) {
                 console.error(`Cloudinary ${resourceType} upload failed:`, e);
-                throw e; // Re-throw to be caught by outer try-catch
+                throw e;
             }
         }
         
         return resourceType === 'image' ? urls : urls[0] || '';
     } catch (error) {
         console.error('Error in uploadToCloudinary:', error);
-        throw error; // Re-throw to be handled by the calling function
+        throw error;
     }
 };
 
@@ -125,13 +118,20 @@ export const addProperty = async (req, res) => {
         }
 
         try {
-            const { title, description, address, price, barangay, category, petFriendly, allowedPets, occupancy, parking, rules, landmarks, numberOfRooms, areaSqm, latitude, longitude } = req.body;
+            // Debug logging
+            try {
+                console.log('[AddProperty] Request by user:', req.user ? { id: req.user.id, role: req.user.role } : 'anonymous');
+                console.log('[AddProperty] Body keys:', Object.keys(req.body || {}));
+                console.log('[AddProperty] Files:', Object.keys(req.files || {}).reduce((acc,k)=>{ acc[k]=(req.files[k]||[]).length; return acc; },{}));
+            } catch(e) { console.error('[AddProperty] debug log failed', e); }
+            
+            const { propertyType, description, address, price, barangay, listingType, petFriendly, allowedPets, occupancy, parking, rules, landmarks, numberOfRooms, areaSqm, latitude, longitude } = req.body;
 
-            // Define field validations with friendly messages
+            // VALIDATION - propertyType is now required (replaces title)
             const validations = {
-                title: {
+                propertyType: {
                     required: true,
-                    message: "Don't forget to add a title for your property"
+                    message: "Please select a property type"
                 },
                 description: {
                     required: true,
@@ -151,20 +151,14 @@ export const addProperty = async (req, res) => {
                     required: true,
                     message: "Please select which barangay your property is located in"
                 },
-                category: {
+                listingType: {
                     required: true,
-                    message: "Don't forget to specify what type of property you're listing"
-                },
-                numberOfRooms: {
-                    required: false,
-                    message: "You haven't specified how many rooms the property has",
-                    validate: value => !value || (!isNaN(Number(value)) && Number(value) >= 0),
-                    errorMessage: "Number of rooms should be 0 or more"
+                    message: "Please select listing type (For Rent or For Sale)"
                 },
                 occupancy: {
-                    required: false,
-                    message: "Consider specifying the maximum number of occupants allowed",
-                    validate: value => !value || (!isNaN(Number(value)) && Number(value) > 0),
+                    required: true,
+                    message: "Please specify maximum occupancy",
+                    validate: value => !isNaN(Number(value)) && Number(value) > 0,
                     errorMessage: "Maximum occupancy should be greater than 0"
                 },
                 areaSqm: {
@@ -172,25 +166,11 @@ export const addProperty = async (req, res) => {
                     message: "Please provide the floor area (in square meters)",
                     validate: value => !isNaN(Number(value)) && Number(value) > 0,
                     errorMessage: "Floor area should be a number greater than 0"
-                },
-                landmarks: {
-                    required: false,
-                    message: "Consider adding nearby landmarks to help people locate your property"
-                },
-                rules: {
-                    required: false,
-                    message: "You might want to add some house rules for your property"
-                },
-                allowedPets: {
-                    required: false,
-                    dependsOn: 'petFriendly',
-                    message: "Since this is a pet-friendly property, you might want to specify which pets are allowed"
                 }
             };
 
             // Collect all validation errors
             const errors = [];
-            const suggestions = [];
 
             // Check required fields and validations
             for (const [field, validation] of Object.entries(validations)) {
@@ -202,33 +182,23 @@ export const addProperty = async (req, res) => {
                     continue;
                 }
 
-                // Check dependent fields
-                if (validation.dependsOn && req.body[validation.dependsOn] === true && (!value || value.toString().trim() === '')) {
-                    suggestions.push(validation.message);
-                }
-
                 // Check validations if value is provided
                 if (value && validation.validate && !validation.validate(value)) {
                     errors.push(validation.errorMessage || validation.message);
-                }
-
-                // Add suggestions for empty optional fields
-                if (!validation.required && !value && !validation.dependsOn) {
-                    suggestions.push(validation.message);
                 }
             }
 
             // Return if there are any validation errors
             if (errors.length > 0) {
+                try { console.log('[AddProperty] Validation errors:', errors); } catch(e){}
                 return res.status(400).json({
-                    errors: errors, // Send just the array of error messages
-                    suggestions: suggestions
+                    errors: errors
                 });
             }
 
             const landlord = req.user.id;
 
-            // Verification gating (temporarily disabled if feature flag set)
+            // Verification gating
             if (process.env.DISABLE_VERIFICATION !== 'true') {
                 if (req.user.role === 'landlord') {
                     if (req.user.landlordVerified === false || req.user.landlordVerified === undefined) {
@@ -241,18 +211,15 @@ export const addProperty = async (req, res) => {
                         return res.status(403).json({ error: 'Landlord not verified. Please upload required IDs and wait for admin approval.' });
                     }
                 }
-            } // else bypass verification
+            }
 
             let images = [];
             let video = '';
             let panorama360 = '';
 
-            // Upload all media to Cloudinary
             // Handle media uploads
-            // Handle image uploads
             if (req.files?.images && req.files.images.length > 0) {
                 try {
-                    // Check file sizes and types before uploading
                     for (const file of req.files.images) {
                         if (file.size > 10 * 1024 * 1024) {
                             throw new Error(`Image "${file.originalname}" exceeds 10MB limit`);
@@ -263,7 +230,6 @@ export const addProperty = async (req, res) => {
                     }
                     images = await uploadToCloudinary(req.files.images, 'images', 'image');
                 } catch (error) {
-                    // Clean up any uploaded files if there was an error
                     if (images.length > 0) {
                         await deleteCloudinaryAssets(images);
                     }
@@ -283,7 +249,6 @@ export const addProperty = async (req, res) => {
                     }
                     video = await uploadToCloudinary(req.files.video, 'videos', 'video');
                 } catch (error) {
-                    // Clean up any uploaded files if there was an error
                     if (images.length > 0) {
                         await deleteCloudinaryAssets(images);
                     }
@@ -304,7 +269,6 @@ export const addProperty = async (req, res) => {
                     const panoramaResult = await uploadToCloudinary(req.files.panorama360, 'panorama', 'image');
                     panorama360 = panoramaResult[0] || '';
                 } catch (error) {
-                    // Clean up any uploaded files if there was an error
                     if (images.length > 0) {
                         await deleteCloudinaryAssets(images);
                     }
@@ -316,27 +280,23 @@ export const addProperty = async (req, res) => {
             }
 
             if (images.length > MAX_IMAGES) {
-                // Clean up uploaded images if we exceed the limit
                 await deleteCloudinaryAssets(images);
                 return res.status(400).json({ error: `Maximum of ${MAX_IMAGES} images exceeded` });
             }
 
-            const allowedAvailability = ['Available','Fully Occupied','Not Yet Ready'];
-
-            // ensure availabilityStatus defaults to 'Available' unless explicitly set by landlord to a valid option
+            const allowedAvailability = ['Available','Not Available'];
             const availabilityStatus = (req.body.availabilityStatus && allowedAvailability.includes(req.body.availabilityStatus)) ? req.body.availabilityStatus : 'Available';
 
-            // Ensure numeric unit counts
             const totalUnitsNum = num(req.body.totalUnits, 1);
 
             const newProperty = new Property({
                 landlord,
-                title,
+                title: propertyType, // MAP propertyType to title field in database
                 description,
                 address,
                 price: num(price),
                 barangay,
-                category,
+                propertyType: listingType || 'For Rent', // MAP listingType to propertyType field in database
                 petFriendly: petFriendly === 'true' || petFriendly === true,
                 allowedPets,
                 occupancy: num(occupancy, 1),
@@ -350,26 +310,24 @@ export const addProperty = async (req, res) => {
                 panorama360,
                 latitude: latitude ? Number(latitude) : null,
                 longitude: longitude ? Number(longitude) : null,
-                status: 'approved', // auto-approved to avoid admin bottleneck
+                status: 'approved',
                 availabilityStatus,
                 totalUnits: totalUnitsNum
             });
 
             await newProperty.save();
             
-            // Return Cloudinary URLs directly - no need for formatting
             const responseProperty = {
                 ...newProperty._doc,
-                images: newProperty.images, // Already Cloudinary URLs
-                video: newProperty.video, // Already Cloudinary URL
-                panorama360: newProperty.panorama360 // Already Cloudinary URL
+                images: newProperty.images,
+                video: newProperty.video,
+                panorama360: newProperty.panorama360
             };
             
             res.status(201).json({ message: "Property added successfully!", property: responseProperty });
 
         } catch (error) {
             console.error("Add Property Error:", error);
-            // Clean up any uploaded files in case of error
             const filesToDelete = [
                 ...(images || []),
                 ...(video ? [video] : []),
@@ -394,21 +352,19 @@ export const getAllProperties = async (req, res) => {
     try {
         const { propertyType } = req.query;
         
-        // Build query object
         const query = {};
         if (propertyType && ["For Rent", "For Sale"].includes(propertyType)) {
             query.propertyType = propertyType;
         }
         
         const properties = await Property.find(query).populate('landlord', 'fullName username profilePic address contactNumber role landlordVerified');
-        // Filter out properties whose landlord is null (deleted)
         const filtered = properties.filter(property => property.landlord !== null);
         
         res.status(200).json(filtered.map(property => ({
             ...property._doc,
-            images: property.images, // Cloudinary URLs - return as-is
-            video: property.video, // Cloudinary URL - return as-is
-            panorama360: property.panorama360, // Cloudinary URL - return as-is
+            images: property.images,
+            video: property.video,
+            panorama360: property.panorama360,
             latitude: property.latitude,
             longitude: property.longitude,
             landlordProfile: property.landlord ? {
@@ -418,7 +374,7 @@ export const getAllProperties = async (req, res) => {
                 contactNumber: property.landlord.contactNumber || '',
                 address: property.landlord.address || '',
                 verified: !!property.landlord.landlordVerified,
-                profilePic: property.landlord.profilePic || '' // Cloudinary URL or empty
+                profilePic: property.landlord.profilePic || ''
             } : null
         })));
     } catch (error) {
@@ -441,16 +397,16 @@ export const getPropertiesByLandlord = async (req, res) => {
         const properties = await Property.find({ landlord: req.user.id }).populate('landlord', 'fullName username profilePic landlordVerified contactNumber');
         res.status(200).json(properties.map(p => ({
             ...p._doc,
-            images: p.images || [], // Cloudinary URLs - return as-is
-            video: p.video, // Cloudinary URL - return as-is
-            panorama360: p.panorama360, // Cloudinary URL - return as-is
+            images: p.images || [],
+            video: p.video,
+            panorama360: p.panorama360,
             landlordProfile: p.landlord ? {
                 id: p.landlord._id,
                 fullName: p.landlord.fullName || p.landlord.username || 'You',
                 username: p.landlord.username || '',
                 contactNumber: p.landlord.contactNumber || '',
                 verified: !!p.landlord.landlordVerified,
-                profilePic: p.landlord.profilePic || '' // Cloudinary URL or empty
+                profilePic: p.landlord.profilePic || ''
             } : null
         })));
     } catch (error) {
@@ -466,9 +422,9 @@ export const getProperty = async (req, res) => {
         if (!property) return res.status(404).json({ error: 'Property not found' });
         res.status(200).json({
             ...property._doc,
-            images: property.images, // Cloudinary URLs - return as-is
-            video: property.video, // Cloudinary URL - return as-is
-            panorama360: property.panorama360, // Cloudinary URL - return as-is
+            images: property.images,
+            video: property.video,
+            panorama360: property.panorama360,
             landlordProfile: property.landlord ? {
                 id: property.landlord._id,
                 fullName: property.landlord.fullName || property.landlord.username || 'Landlord',
@@ -476,7 +432,7 @@ export const getProperty = async (req, res) => {
                 contactNumber: property.landlord.contactNumber || '',
                 address: property.landlord.address || '',
                 verified: !!property.landlord.landlordVerified,
-                profilePic: property.landlord.profilePic || '' // Cloudinary URL or empty
+                profilePic: property.landlord.profilePic || ''
             } : null
         });
     } catch (error) {
@@ -506,15 +462,14 @@ export const updateProperty = async (req, res) => {
 
             const updates = { ...req.body };
             
-            // Remove protected fields
             delete updates.landlord;
             delete updates.status;
 
-            // Define validations with friendly messages for update
+            // VALIDATION - propertyType is now required (replaces title)
             const validations = {
-                title: {
+                propertyType: {
                     required: true,
-                    message: "The property title cannot be empty"
+                    message: "Please select a property type"
                 },
                 description: {
                     required: true,
@@ -534,20 +489,14 @@ export const updateProperty = async (req, res) => {
                     required: true,
                     message: "Please select a barangay for your property"
                 },
-                category: {
+                listingType: {
                     required: true,
-                    message: "The property type cannot be empty"
-                },
-                numberOfRooms: {
-                    required: false,
-                    message: "You might want to specify the number of rooms",
-                    validate: value => !value || (!isNaN(Number(value)) && Number(value) >= 0),
-                    errorMessage: "Number of rooms should be 0 or more"
+                    message: "Please select listing type"
                 },
                 occupancy: {
-                    required: false,
-                    message: "Consider adding the maximum occupancy allowed",
-                    validate: value => !value || (!isNaN(Number(value)) && Number(value) > 0),
+                    required: true,
+                    message: "Please specify maximum occupancy",
+                    validate: value => !isNaN(Number(value)) && Number(value) > 0,
                     errorMessage: "Maximum occupancy should be greater than 0"
                 },
                 areaSqm: {
@@ -555,25 +504,10 @@ export const updateProperty = async (req, res) => {
                     message: "Please provide the floor area (in square meters)",
                     validate: value => !isNaN(Number(value)) && Number(value) > 0,
                     errorMessage: "Floor area should be a number greater than 0"
-                },
-                landmarks: {
-                    required: false,
-                    message: "You might want to add nearby landmarks"
-                },
-                rules: {
-                    required: false,
-                    message: "Consider adding some property rules"
-                },
-                allowedPets: {
-                    required: false,
-                    dependsOn: 'petFriendly',
-                    message: "Since this is pet-friendly, you might want to specify which pets are allowed"
                 }
             };
 
-            // Collect validation errors and suggestions
             const errors = [];
-            const suggestions = [];
 
             // Handle boolean conversions first
             if (typeof updates.petFriendly === 'string') {
@@ -588,31 +522,20 @@ export const updateProperty = async (req, res) => {
                 if (field in updates) {
                     const value = updates[field];
 
-                    // Check required fields
                     if (validation.required && (!value || value.toString().trim() === '')) {
                         errors.push(validation.message);
                         continue;
                     }
 
-                    // Check validations if value is provided
                     if (value && validation.validate && !validation.validate(value)) {
                         errors.push(validation.errorMessage || validation.message);
                     }
                 }
-
-                // Check dependent fields
-                if (validation.dependsOn && 
-                    updates[validation.dependsOn] === true && 
-                    (!updates[field] || updates[field].toString().trim() === '')) {
-                    suggestions.push(validation.message);
-                }
             }
 
-            // Return if there are any validation errors
             if (errors.length > 0) {
                 return res.status(400).json({
-                    errors: errors, // Send just the array of error messages
-                    suggestions: suggestions
+                    errors: errors
                 });
             }
 
@@ -620,16 +543,14 @@ export const updateProperty = async (req, res) => {
             let updatedVideo = property.video || '';
             let updatedPanorama = property.panorama360 || '';
 
-            // Remove deleted images from the property
+            // Remove deleted images
             if (req.body.deletedImages) {
                 const imagesToDelete = updatedImages.filter(img => 
                     req.body.deletedImages.some(deleted => img.includes(deleted))
                 );
                 
-                // Delete images from Cloudinary
                 await deleteCloudinaryAssets(imagesToDelete);
                 
-                // Remove from the array
                 updatedImages = updatedImages.filter(img => 
                     !req.body.deletedImages.some(deleted => img.includes(deleted))
                 );
@@ -642,7 +563,6 @@ export const updateProperty = async (req, res) => {
             }
 
             if (updatedImages.length > MAX_IMAGES) {
-                // Delete just-uploaded new images to avoid orphan files in Cloudinary
                 const overflow = updatedImages.length - MAX_IMAGES;
                 const imagesToDelete = updatedImages.slice(-overflow);
                 await deleteCloudinaryAssets(imagesToDelete);
@@ -651,7 +571,6 @@ export const updateProperty = async (req, res) => {
 
             // Handle video upload / replacement
             if (req.files?.video && req.files.video.length > 0) {
-                // Delete previous video from Cloudinary if exists
                 if (updatedVideo) {
                     await deleteCloudinaryAssets([updatedVideo]);
                 }
@@ -666,7 +585,6 @@ export const updateProperty = async (req, res) => {
 
             // Handle panorama360 upload/replacement
             if (req.files?.panorama360 && req.files.panorama360.length > 0) {
-                // Delete previous panorama from Cloudinary if exists
                 if (updatedPanorama) {
                     await deleteCloudinaryAssets([updatedPanorama]);
                 }
@@ -684,16 +602,17 @@ export const updateProperty = async (req, res) => {
             if (req.body.status) delete req.body.status;
 
             // Allow landlords to change availabilityStatus but validate values
-            const allowedAvailability = ['Available','Fully Occupied','Not Yet Ready'];
+            const allowedAvailability = ['Available','Not Available'];
             let availabilityStatus;
             if (req.body.availabilityStatus && allowedAvailability.includes(req.body.availabilityStatus)) {
                 availabilityStatus = req.body.availabilityStatus;
             }
 
-            // Handle totalUnits / availableUnits adjustments
             const updatedData = {
                 ...req.body,
                 ...(availabilityStatus ? { availabilityStatus } : {}),
+                title: req.body.propertyType || property.title, // MAP propertyType to title
+                propertyType: req.body.listingType || property.propertyType, // MAP listingType to propertyType
                 price: req.body.price !== undefined ? num(req.body.price) : property.price,
                 occupancy: req.body.occupancy !== undefined ? num(req.body.occupancy, 1) : property.occupancy,
                 petFriendly: req.body.petFriendly !== undefined ? (req.body.petFriendly === 'true' || req.body.petFriendly === true) : property.petFriendly,
@@ -705,12 +624,9 @@ export const updateProperty = async (req, res) => {
                 panorama360: updatedPanorama
             };
 
-            // If landlord provided totalUnits, accept it and allow availabilityStatus overrides.
             if (req.body.totalUnits !== undefined) {
                 const newTotal = num(req.body.totalUnits, property.totalUnits || 1);
                 updatedData.totalUnits = newTotal;
-                // Do not accept availableUnits explicitly anymore - availability is derived from approved applications vs totalUnits
-                // If no explicit availabilityStatus was provided, keep previous or default to Available
                 updatedData.availabilityStatus = updatedData.availabilityStatus || property.availabilityStatus || 'Available';
             }
 
@@ -718,9 +634,9 @@ export const updateProperty = async (req, res) => {
 
             res.json({
                 ...updatedProperty._doc,
-                images: updatedProperty.images, // Cloudinary URLs - return as-is
-                video: updatedProperty.video, // Cloudinary URL - return as-is
-                panorama360: updatedProperty.panorama360 // Cloudinary URL - return as-is
+                images: updatedProperty.images,
+                video: updatedProperty.video,
+                panorama360: updatedProperty.panorama360
             });
         } catch (error) {
             console.error("UpdateProperty error:", error);
@@ -741,8 +657,8 @@ export const setPropertyStatus = async (req, res) => {
         if (!property) return res.status(404).json({ error: 'Property not found' });
         res.json({ message:'Status updated', property: {
             ...property._doc,
-            images: property.images, // Cloudinary URLs - return as-is
-            video: property.video // Cloudinary URL - return as-is
+            images: property.images,
+            video: property.video
         }});
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -759,12 +675,11 @@ export const deleteProperty = async (req, res) => {
             return res.status(403).json({ error: "Unauthorized" });
         }
 
-        // Remove all media from Cloudinary
         const assetsToDelete = [
             ...property.images,
             property.video,
             property.panorama360
-        ].filter(Boolean); // Remove empty strings
+        ].filter(Boolean);
 
         await deleteCloudinaryAssets(assetsToDelete);
 
@@ -784,13 +699,12 @@ export const setPropertyAvailability = async (req, res) => {
         if (!property) return res.status(404).json({ error: 'Property not found' });
         if (property.landlord.toString() !== req.user.id && req.user.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
 
-        // Accept only totalUnits and availabilityStatus from landlords
         const updates = {};
         if (req.body.totalUnits !== undefined) {
             updates.totalUnits = num(req.body.totalUnits, property.totalUnits || 0);
         }
         if (req.body.availabilityStatus) {
-            const allowedAvailability = ['Available','Fully Occupied','Not Yet Ready'];
+            const allowedAvailability = ['Available','Not Available'];
             if (allowedAvailability.includes(req.body.availabilityStatus)) updates.availabilityStatus = req.body.availabilityStatus;
         }
 

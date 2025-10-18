@@ -1,29 +1,6 @@
-.improved-units {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 18px 0 10px 0;
-}
-.units-pill {
-  display: inline-flex;
-  align-items: center;
-  background: linear-gradient(90deg,#38bdf8 0%,#60aaff 100%);
-  color: #fff;
-  font-weight: 700;
-  font-size: 1.08rem;
-  border-radius: 999px;
-  padding: 6px 18px 6px 12px;
-  box-shadow: 0 2px 12px 0 rgba(56,189,248,0.13);
-  letter-spacing: 0.04em;
-  min-width: 60px;
-}
-.units-label {
-  color: #38bdf8;
-  font-size: 1rem;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  text-shadow: 0 1px 6px rgba(56,189,248,0.08);
-}
+.improved-units { display:none; }
+.units-pill { display:none; }
+.units-label { display:none; }
 .panorama-section .section-title {
   font-size:1.15rem;
   font-weight:600;

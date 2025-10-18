@@ -91,7 +91,7 @@ export const approveApplication = async (req, res) => {
     // If approved applications now meet/exceed totalUnits, mark Fully Occupied
     const approvedAfter = await Application.countDocuments({ property: app.property._id, status: 'Approved' });
     if ((updatedProperty.totalUnits || 1) <= approvedAfter) {
-      updatedProperty.availabilityStatus = 'Fully Occupied';
+      updatedProperty.availabilityStatus = 'Not Available';
       await updatedProperty.save();
     }
 

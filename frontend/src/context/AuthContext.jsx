@@ -85,9 +85,9 @@ const AuthProvider = ({ children }) => {
       }
     } catch (e) {}
     if (role === 'tenant') {
-      toast.success('Tenant login successful');
+      toast.success('Property Seeker login successful');
     } else if (role === 'landlord') {
-      toast.success('Landlord login successful');
+      toast.success('Property Owner login successful');
     } else {
       toast.success('Login successful');
     }

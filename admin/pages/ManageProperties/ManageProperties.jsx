@@ -30,7 +30,7 @@ const ManageProperties = () => {
 
   const filtered = useMemo(()=>{
     const term = search.toLowerCase().trim();
-    return properties.filter(p=> term ? (p.title?.toLowerCase().includes(term) || p.barangay?.toLowerCase().includes(term) || p.category?.toLowerCase().includes(term)) : true);
+    return properties.filter(p=> term ? (p.title?.toLowerCase().includes(term) || p.barangay?.toLowerCase().includes(term) || (p.propertyType||'').toLowerCase().includes(term)) : true);
   },[properties, search]);
 
   const sorted = useMemo(()=>{
@@ -63,7 +63,7 @@ const ManageProperties = () => {
           <div className="mp-actions">
             <input
               className="mp-search"
-              placeholder="Search title, barangay, category..."
+              placeholder="Search title, barangay, listing type..."
               value={search}
               onChange={e=>setSearch(e.target.value)}
             />

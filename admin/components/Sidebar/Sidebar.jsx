@@ -41,7 +41,7 @@ const Sidebar = ({ onLogout }) => {
               to="/admin/landlord-verification" 
               className={location.pathname === "/admin/landlord-verification" ? "active" : ""}
             >
-              <span>Landlord Verification</span>
+              <span>Property Owner Verification</span>
             </Link>
           </li>
         </ul>

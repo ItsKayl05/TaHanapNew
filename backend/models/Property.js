@@ -1,14 +1,19 @@
 import mongoose from "mongoose";
 
+const PROPERTY_TYPES = ['House','House and Lot','Apartment','Condominium','Townhouse','Dormitory','Bedspace','Studio Unit','Lot','Land','Commercial Space','Office Space','Warehouse','Building','Bungalow','Duplex','Triplex','Inner Lot','Corner Lot'];
+
 const propertySchema = new mongoose.Schema({
   landlord: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
     required: true,
   },
+  // `title` stores the enumerated property kind (e.g. House, Apartment, Lot).
+  // This is intentionally separate from `propertyType` which stores the listing type (For Rent / For Sale).
   title: {
     type: String,
     required: true,
+    enum: PROPERTY_TYPES,
     trim: true,
   },
   description: {
@@ -29,11 +34,6 @@ const propertySchema = new mongoose.Schema({
   barangay: {
     type: String,
     required: true,
-  },
-  category: {
-    type: String,
-    required: true,
-    enum: ["Apartment", "Dorm", "House", "Condominium", "Studio"], // Optional: Restrict category options
   },
   propertyType: {
     type: String,
@@ -114,7 +114,7 @@ const propertySchema = new mongoose.Schema({
   // Human-facing availability remark controlled by landlord: Available / Fully Occupied / Not Yet Ready
   availabilityStatus: {
     type: String,
-    enum: ['Available','Fully Occupied','Not Yet Ready'],
+    enum: ['Available','Not Available'],
     default: 'Available',
     index: true
   },

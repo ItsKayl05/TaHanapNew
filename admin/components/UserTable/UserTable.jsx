@@ -15,7 +15,7 @@ const SkeletonRows = ({ rows = 6, cols = 5 }) => {
     );
 };
 
-const UserTable = ({ users, onBan, onDelete, userType, loading }) => {
+const UserTable = ({ users, onBan, onDelete, userType, loading, userLabelPlural }) => {
         return (
                 <div className="user-table">
                         {loading ? (
@@ -27,8 +27,8 @@ const UserTable = ({ users, onBan, onDelete, userType, loading }) => {
                                 </thead>
                                 <SkeletonRows />
                             </table>
-                        ) : users.length === 0 ? (
-                                <p>No {userType}s found.</p>
+            ) : users.length === 0 ? (
+                <p>No {userLabelPlural || (userType + 's')} found.</p>
                         ) : (
                                 <table>
                     <thead>

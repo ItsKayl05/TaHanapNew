@@ -14,7 +14,8 @@ import 'leaflet/dist/leaflet.css';
 const barangayList = [
     'Assumption','Bagong Buhay I','Bagong Buhay II','Bagong Buhay III','Ciudad Real','Citrus','Dulong Bayan','Fatima I','Fatima II','Fatima III','Fatima IV','Fatima V','Francisco Homes – Guijo','Francisco Homes – Mulawin','Francisco Homes – Narra','Francisco Homes – Yakal','Gaya-gaya','Graceville','Gumaok Central','Gumaok East','Gumaok West','Kaybanban','Kaypian','Lawang Pare','Maharlika','Minuyan I','Minuyan II','Minuyan III','Minuyan IV','Minuyan V','Minuyan Proper','Muzon East','Muzon Proper','Muzon South','Muzon West','Paradise III','Poblacion','Poblacion 1','San Isidro','San Manuel','San Martin De Porres','San Martin I','San Martin II','San Martin III','San Martin IV','San Pedro','San Rafael I','San Rafael II','San Rafael III','San Rafael IV','San Rafael V','San Roque','Sapang Palay Proper','Sta. Cruz I','Sta. Cruz II','Sta. Cruz III','Sta. Cruz IV','Sta. Cruz V','Sto. Cristo','Sto. Nino I','Sto. Nino II','Tungkong Mangga'
 ];
-const categories = ['Apartment','Dorm','House','Condominium','Studio'];
+// Property types to choose from (replaces previous 'category' and free-text title)
+const PROPERTY_TYPES = ['House','House and Lot','Apartment','Condominium','Townhouse','Dormitory','Bedspace','Studio Unit','Lot','Land','Commercial Space','Office Space','Warehouse','Building','Bungalow','Duplex','Triplex','Inner Lot','Corner Lot'];
 
 const LANDMARKS = [
           "park",
@@ -76,7 +77,7 @@ const AddProperties = () => {
   const { logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const [propertyData, setPropertyData] = useState({
-  title:'', description:'', address:'', price:'', barangay:'', category:'', petFriendly:false, allowedPets:'', occupancy:'', parking:false, rules:'', landmarks:'', numberOfRooms:'', areaSqm:'', images:[], video:null, latitude:'', longitude:'', availabilityStatus: 'Available', totalUnits: 1
+  title:'', description:'', address:'', price:'', barangay:'', propertyType: 'For Rent', petFriendly:false, allowedPets:'', occupancy:'', parking:false, rules:'', landmarks:'', numberOfRooms:'', areaSqm:'', images:[], video:null, latitude:'', longitude:'', availabilityStatus: 'Available'
   });
   // Price input UI state
   const [priceFocused, setPriceFocused] = useState(false);
@@ -216,12 +217,11 @@ const AddProperties = () => {
   if (!token) { toast.error('No token found. Please log in.'); navigate('/login'); return; }
   // Specific client-side required field checks to provide friendly messages
   const requiredChecks = [
-    { key: 'title', ok: propertyData.title && propertyData.title.toString().trim() !== '', msg: "Don't forget to add a title for your property" },
+    { key: 'title', ok: propertyData.title && propertyData.title.toString().trim() !== '', msg: "Please select a property type" },
     { key: 'description', ok: propertyData.description && propertyData.description.toString().trim() !== '', msg: "Please add a description to help people understand your property better" },
     { key: 'address', ok: propertyData.address && propertyData.address.toString().trim() !== '', msg: "Make sure to provide the complete address of your property" },
     { key: 'price', ok: propertyData.price && propertyData.price.toString().trim() !== '', msg: "Don't forget to set a price for your property" },
-    { key: 'barangay', ok: propertyData.barangay && propertyData.barangay.toString().trim() !== '', msg: "Please select which barangay your property is located in" },
-    { key: 'category', ok: propertyData.category && propertyData.category.toString().trim() !== '', msg: "Don't forget to specify what type of property you're listing" },
+  { key: 'barangay', ok: propertyData.barangay && propertyData.barangay.toString().trim() !== '', msg: "Please select which barangay your property is located in" },
     { key: 'areaSqm', ok: propertyData.areaSqm !== undefined && propertyData.areaSqm !== '' && !isNaN(Number(propertyData.areaSqm)) && Number(propertyData.areaSqm) > 0, msg: "Please provide the floor area (in square meters)" },
     { key: 'occupancy', ok: propertyData.occupancy && propertyData.occupancy.toString().trim() !== '', msg: "Please specify maximum occupancy" }
   ];
@@ -300,16 +300,12 @@ const AddProperties = () => {
     if (!res.ok) {
       // Show detailed validation errors from backend
       if (data.errors && Array.isArray(data.errors)) {
-        // Show each validation error as a separate toast
         data.errors.forEach(error => toast.error(error));
       } else if (data.error && typeof data.error === 'string') {
-        // Single error message
         toast.error(data.error);
       } else if (data.message) {
-        // Fallback to message field
         toast.error(data.message);
       } else {
-        // Generic error
         toast.error('Failed to add property');
       }
       setIsSubmitting(false);
@@ -349,43 +345,37 @@ const AddProperties = () => {
             <div className="ll-stack">
               {/* Property Info Section */}
               <div className="form-group">
-                <label className="required">Title</label>
-                <input className="ll-field" name="title" value={propertyData.title} onChange={handleInputChange} required placeholder="Property Title" maxLength={100} />
-                <div className="field-hint small">{propertyData.title.length}/100</div>
-              </div>
-              
-              <div className="form-group full">
-                <label className="required">Description</label>
-                <textarea className="ll-field" name="description" value={propertyData.description} onChange={handleInputChange} rows={isMobile ? 3 : 5} maxLength={500} required />
-                <div className="field-hint small">{propertyData.description.length}/500</div>
-              </div>
-              
-              <div className="form-group">
-                <label className="required">Address</label>
-                <input className="ll-field" name="address" value={propertyData.address} onChange={handleInputChange} required placeholder="Street, Building, etc." />
-              </div>
-              
-              <div className="form-group">
-                <label className="required">Barangay</label>
-                <select className="ll-field" name="barangay" value={propertyData.barangay} onChange={handleInputChange} required>
-                  <option value="">Select Barangay</option>
-                  {barangayList.map(b => <option key={b} value={b}>{b}</option>)}
-                </select>
-              </div>
-              
-              <div className="form-group">
-                <label className="required">Category</label>
-                <select className="ll-field" name="category" value={propertyData.category} onChange={handleInputChange} required>
-                  <option value="">Select Category</option>
-                  {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                <label className="required">Listing Type</label>
+                <select className="ll-field" name="propertyType" value={propertyData.propertyType} onChange={handleInputChange} required>
+                  <option value="For Rent">For Rent</option>
+                  <option value="For Sale">For Sale</option>
                 </select>
               </div>
 
               <div className="form-group">
                 <label className="required">Property Type</label>
-                <select className="ll-field" name="propertyType" value={propertyData.propertyType} onChange={handleInputChange} required>
-                  <option value="For Rent">For Rent</option>
-                  <option value="For Sale">For Sale</option>
+                <select className="ll-field" name="title" value={propertyData.title} onChange={handleInputChange} required>
+                  <option value="">Select Property Type</option>
+                  {PROPERTY_TYPES.map(pt => <option key={pt} value={pt}>{pt}</option>)}
+                </select>
+              </div>
+
+              <div className="form-group full">
+                <label className="required">Description</label>
+                <textarea className="ll-field" name="description" value={propertyData.description} onChange={handleInputChange} rows={isMobile ? 3 : 5} maxLength={500} required />
+                <div className="field-hint small">{propertyData.description.length}/500</div>
+              </div>
+
+              <div className="form-group">
+                <label className="required">Address</label>
+                <input className="ll-field" name="address" value={propertyData.address} onChange={handleInputChange} required placeholder="Street, Building, etc." />
+              </div>
+
+              <div className="form-group">
+                <label className="required">Barangay</label>
+                <select className="ll-field" name="barangay" value={propertyData.barangay} onChange={handleInputChange} required>
+                  <option value="">Select Barangay</option>
+                  {barangayList.map(b => <option key={b} value={b}>{b}</option>)}
                 </select>
               </div>
               
@@ -418,7 +408,6 @@ const AddProperties = () => {
                     if (isNaN(num)) {
                       setPriceError('Please enter a valid price');
                     } else {
-                      // format with locale, two decimals
                       try {
                         const formatted = new Intl.NumberFormat(navigator.language, { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(num);
                         setPropertyData(prev => ({ ...prev, price: String(formatted) }));
@@ -444,15 +433,8 @@ const AddProperties = () => {
                 <label>Availability Status</label>
                 <select className="ll-field" name="availabilityStatus" value={propertyData.availabilityStatus} onChange={handleInputChange}>
                   <option value="Available">Available</option>
-                  <option value="Fully Occupied">Fully Occupied</option>
-                  <option value="Not Yet Ready">Not Yet Ready</option>
+                  <option value="Not Available">Not Available</option>
                 </select>
-              </div>
-              
-              <div className="form-group">
-                <label className="required">Total Units</label>
-                <input className="ll-field" type="number" min={1} name="totalUnits" value={propertyData.totalUnits} onChange={handleInputChange} required />
-                <div className="field-hint small">Set how many rentable units this listing has (e.g., number of rooms/slots).</div>
               </div>
               
               {/* availableUnits removed - availability is derived from totalUnits and server-side approvals */}

@@ -82,8 +82,7 @@ const MyProperties = () => {
         return properties.filter(p =>
             (p.title?.toLowerCase() || '').includes(term) ||
             (p.address?.toLowerCase() || '').includes(term) ||
-            (p.barangay?.toLowerCase() || '').includes(term) ||
-            (p.category?.toLowerCase() || '').includes(term)
+            (p.barangay?.toLowerCase() || '').includes(term)
         );
     }, [properties, searchTerm]);
 
@@ -118,7 +117,7 @@ const MyProperties = () => {
                             <input
                                 className="ll-field search-input"
                                 type="text"
-                                placeholder="Search by title, address, category..."
+                                placeholder="Search by title or address..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
@@ -158,7 +157,7 @@ const MyProperties = () => {
                                 <img src={img1} alt={property.title || 'Property'} className="property-image layer base" loading="lazy" />
                                 {img2 && <img src={img2} alt="Alt view" className="property-image layer hover" loading="lazy" />}
                                 <div className="image-badges">
-                                    <span className="tag cat">{property.category}</span>
+                                    {/* category removed */}
                                     <span className="tag loc">{property.barangay}</span>
                                     {property.petFriendly && <span className="tag pet" title="Pet Friendly">🐾 Pets</span>}
                                     {property.parking && <span className="tag park" title="Parking Available">🅿 Parking</span>}

@@ -9,7 +9,7 @@ const PropertyTable = ({ properties = [], loading=false, onDelete }) => {
           <tr>
             <th>Title</th>
             <th>Barangay</th>
-            <th>Category</th>
+            <th>Listing Type</th>
             <th>Price (₱)</th>
             <th>Rooms</th>
             <th>Size (sqm)</th>
@@ -22,7 +22,7 @@ const PropertyTable = ({ properties = [], loading=false, onDelete }) => {
           {loading ? (
             [...Array(5)].map((_,i)=>(
               <tr key={i} className="skeleton-row">
-                <td colSpan={10}><div className="skeleton-line"/></td>
+                <td colSpan={9}><div className="skeleton-line"/></td>
               </tr>
             ))
           ) : properties.length ? (
@@ -30,7 +30,7 @@ const PropertyTable = ({ properties = [], loading=false, onDelete }) => {
               <tr key={p._id}>
                 <td className="truncate" title={p.title}>{p.title}</td>
                 <td>{p.barangay || '-'}</td>
-                <td>{p.category || '-'}</td>
+                <td>{p.propertyType || '-'}</td>
                 <td>{p.price?.toLocaleString?.() || 0}</td>
                 <td>{p.numberOfRooms || 0}</td>
                 <td>{p.areaSqm || 0}</td>

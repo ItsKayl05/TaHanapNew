@@ -32,7 +32,7 @@ const PropertyListingPage = () => {
     const [properties, setProperties] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filters, setFilters] = useState({
-        searchTerm:'', category:'', location:'', minPrice:'', maxPrice:'', petFriendly:false, occupancy:'', parking:false, landmarks:[], minRooms:'', maxRooms:'', minArea:'', maxArea:'', hasVideo:false, customLandmark:'', propertyType:''
+        searchTerm:'', location:'', minPrice:'', maxPrice:'', petFriendly:false, occupancy:'', parking:false, landmarks:[], minRooms:'', maxRooms:'', minArea:'', maxArea:'', hasVideo:false, customLandmark:'', propertyType:''
     });
     const [sortOption, setSortOption] = useState('newest');
     const [showFilters, setShowFilters] = useState(false);
@@ -75,9 +75,9 @@ const PropertyListingPage = () => {
     },[fetchProperties]);
 
     const updateFilter = (k,v)=> setFilters(p=>({...p,[k]:v}));
-    const resetFilters = ()=> setFilters({ searchTerm:'', category:'', location:'', minPrice:'', maxPrice:'', petFriendly:false, occupancy:'', parking:false, landmarks:[], minRooms:'', maxRooms:'', minArea:'', maxArea:'', hasVideo:false, customLandmark:'' });
+    const resetFilters = ()=> setFilters({ searchTerm:'', location:'', minPrice:'', maxPrice:'', petFriendly:false, occupancy:'', parking:false, landmarks:[], minRooms:'', maxRooms:'', minArea:'', maxArea:'', hasVideo:false, customLandmark:'' });
 
-    const matches = ({ title='', category='', barangay='', price=0, petFriendly, occupancy=0, parking, landmarks='', numberOfRooms=0, areaSqm=0, video='', propertyType='For Rent' }) => {
+    const matches = ({ title='', barangay='', price=0, petFriendly, occupancy=0, parking, landmarks='', numberOfRooms=0, areaSqm=0, video='', propertyType='For Rent' }) => {
         const s = filters.searchTerm.toLowerCase().trim();
         // Split property landmarks string into array
         const propertyLandmarksArr = typeof landmarks === 'string' ? landmarks.split(',').map(l => l.trim().toLowerCase()).filter(l => l) : [];
@@ -88,7 +88,7 @@ const PropertyListingPage = () => {
         // Custom landmark filter is now ignored to enforce dropdown-only
         return (
             (s ? title.toLowerCase().includes(s) || barangay.toLowerCase().includes(s) : true) &&
-            (filters.category ? category===filters.category : true) &&
+            true &&
             (filters.location ? barangay===filters.location : true) &&
             (filters.minPrice ? price >= Number(filters.minPrice) : true) &&
             (filters.maxPrice ? price <= Number(filters.maxPrice) : true) &&
@@ -156,19 +156,13 @@ const PropertyListingPage = () => {
                     <div className="controls-wrapper">
                     <div className="search-input-container controls-align-left">
                         <FaSearch className="search-icon" />
-                        <input className="property-search" placeholder="Search by name or category..." value={filters.searchTerm} onChange={e=>updateFilter('searchTerm', e.target.value)} />
+                    <input className="property-search" placeholder="Search by name..." value={filters.searchTerm} onChange={e=>updateFilter('searchTerm', e.target.value)} />
                         <button className={`toggle-filters-btn ${showFilters?'active':''}`} onClick={()=>setShowFilters(s=>!s)}>{showFilters?'Hide Filters':'Show Filters'}</button>
                     </div>
                     {showFilters && (
                         <div className="filters-container controls-align-left">
                             <div className="filters-grid">
-                                <div className="filter-group">
-                                    <label><FaHome/> Property Type</label>
-                                    <select value={filters.category} onChange={e=>updateFilter('category', e.target.value)}>
-                                        <option value="">All Categories</option>
-                                        {categories.map(c=> <option key={c} value={c}>{c}</option>)}
-                                    </select>
-                                </div>
+                                            {/* Category filter removed - replaced by propertyType (Listing Type) */}
                                 <div className="filter-group">
                                     <label><FaMapMarkerAlt/> Location</label>
                                     <select value={filters.location} onChange={e=>updateFilter('location', e.target.value)}>
@@ -249,13 +243,13 @@ const PropertyListingPage = () => {
                         </div>
                         <div className="filters-bar">
                             <div className="filter-item">
-                                <label htmlFor="propertyTypeSelect">Type:</label>
+                                <label htmlFor="propertyTypeSelect">Listing Type:</label>
                                 <select 
                                     id="propertyTypeSelect" 
                                     value={filters.propertyType} 
                                     onChange={e => setFilters(prev => ({...prev, propertyType: e.target.value}))}
                                 >
-                                    <option value="">All Types</option>
+                                    <option value="">All Listing Types</option>
                                     <option value="For Rent">For Rent</option>
                                     <option value="For Sale">For Sale</option>
                                 </select>
@@ -280,11 +274,10 @@ const PropertyListingPage = () => {
             </div>
             <div className="properties-grid">
                 {sorted.length ? sorted.map(p=>{
-                    const {_id,title,category,barangay,price,images,petFriendly,parking,occupancy,landmarks,numberOfRooms,areaSqm,video, landlordProfile, createdAt, propertyType}=p;
+                    const {_id,title,barangay,price,images,petFriendly,parking,occupancy,landmarks,numberOfRooms,areaSqm,video, landlordProfile, createdAt, propertyType}=p;
                     return (
                         <div key={_id} className="property-card" onClick={()=>navigate(`/property/${_id}`)}>
                             <div className="property-badges">
-                                <span className="property-badge">{category}</span>
                                 <span className={`property-type-badge ${(propertyType || "For Rent")?.toLowerCase().replace(/\s+/g, '-')}`}>
                                     {propertyType || "For Rent"}
                                 </span>
@@ -300,10 +293,10 @@ const PropertyListingPage = () => {
                                 <div className="property-price-row">
                                     <div className="property-price">₱{(price||0).toLocaleString()}</div>
                                     {(() => {
-                                        const status = p.availabilityStatus ? p.availabilityStatus : (occupancy >= (numberOfRooms || 1) ? 'Fully Occupied' : (numberOfRooms>0 ? 'Available' : 'Not Yet Ready'));
-                                        let className = 'property-availability';
-                                        if (/unavail|full/i.test(status)) className += ' unavailable';
-                                        else if (/not yet ready/i.test(status)) className += ' not-ready';
+                                        // Normalize status to only 'Available' or 'Not Available'
+                                        const raw = p.availabilityStatus;
+                                        const status = raw ? (raw === 'Available' ? 'Available' : 'Not Available') : (numberOfRooms > 0 ? 'Available' : 'Not Available');
+                                        const className = `property-availability ${status === 'Available' ? 'available' : 'not-available'}`;
                                         return <div className={className}>{status}</div>;
                                     })()}
                                 </div>
@@ -311,15 +304,7 @@ const PropertyListingPage = () => {
                             <div className="property-details">
                                 <h3>{title}</h3>
                                 {createdAt && <span className="property-date" title={new Date(createdAt).toLocaleString()}>{formatCreatedAt(createdAt)}</span>}
-                                {(typeof p.totalUnits !== 'undefined') && (
-                                    <div className="card-units-pill-row">
-                                        <div className="card-units-pill">
-                                            <svg width="15" height="15" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style={{verticalAlign:'middle',marginRight:'5px'}}><rect x="3" y="7" width="14" height="8" rx="2.5" fill="#38bdf8"/><rect x="7" y="3" width="6" height="4" rx="2" fill="#60aaff"/></svg>
-                                            {p.totalUnits}{/* show total capacity; available is derived server-side */}
-                                        </div>
-                                        <span className="card-units-label">Units</span>
-                                    </div>
-                                )}
+                                {/* Units display removed - availability shown via badges and server-side logic */}
                                 {landlordProfile && (
                                     <div className="landlord-mini" onClick={(e)=>{e.stopPropagation(); navigate(`/landlord/${landlordProfile.id}`);}} role="button" tabIndex={0} onKeyDown={(e)=>{if(e.key==='Enter'){ e.preventDefault(); e.stopPropagation(); navigate(`/landlord/${landlordProfile.id}`);} }}>
                                         <img src={landlordProfile.profilePic || '/default-avatar.png'} alt={landlordProfile.fullName} className="landlord-avatar" loading="lazy" />

@@ -199,12 +199,13 @@ const ManageUsers = () => {
         <h2>Manage Users</h2>
         {error && <div className="error-message">{error}</div>}
 
-        <h3>Tenants ({filteredTenants.length})</h3>
+        <h3>Property Seekers ({filteredTenants.length})</h3>
         <UserTable
           users={paginatedTenants}
           onDelete={handleDelete}
           userType="tenant"
           loading={loading}
+          userLabelPlural="Property Seekers"
         />
         <div className="pagination-bar">
           <button disabled={tenantPage===1} onClick={()=>setTenantPage(p=>Math.max(1,p-1))}>Prev</button>
@@ -212,12 +213,13 @@ const ManageUsers = () => {
           <button disabled={tenantPage===tenantTotalPages} onClick={()=>setTenantPage(p=>Math.min(tenantTotalPages,p+1))}>Next</button>
         </div>
 
-        <h3>Landlords ({filteredLandlords.length})</h3>
+        <h3>Property Owners ({filteredLandlords.length})</h3>
         <UserTable
           users={paginatedLandlords}
           onDelete={handleDelete}
           userType="landlord"
           loading={loading}
+          userLabelPlural="Property Owners"
         />
         <div className="pagination-bar">
           <button disabled={landlordPage===1} onClick={()=>setLandlordPage(p=>Math.max(1,p-1))}>Prev</button>

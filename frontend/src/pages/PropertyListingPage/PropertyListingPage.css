@@ -1,30 +1,4 @@
-.card-units-pill-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 7px 0 7px 0;
-}
-.card-units-label {
-  color: #38bdf8;
-  font-size: 0.97rem;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  text-shadow: 0 1px 6px rgba(56,189,248,0.08);
-}
-.card-units-pill {
-  display: inline-flex;
-  align-items: center;
-  background: linear-gradient(90deg,#38bdf8 0%,#60aaff 100%);
-  color: #fff;
-  font-weight: 700;
-  font-size: 0.98rem;
-  border-radius: 999px;
-  padding: 4px 14px 4px 9px;
-  box-shadow: 0 2px 10px 0 rgba(56,189,248,0.10);
-  letter-spacing: 0.04em;
-  min-width: 48px;
-  margin: 7px 0 7px 0;
-}
+/* Units pill styles removed — Units are now not shown in listing cards */
 
 /* Dark / Glass Themed Property Listing */
 .property-listing-container { max-width:1320px; margin:0 auto; padding:clamp(2.2rem,3.5vw,3.6rem) clamp(1.1rem,2.2vw,2.4rem) 5rem; font-family:'Inter',system-ui,sans-serif; color:#f1f5f9; position:relative; }

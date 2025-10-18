@@ -100,26 +100,26 @@ const LandlordVerification = () => {
             <Sidebar />
             <main className="content">
                 <div className="page-header simple">
-                    <h2>Landlord Verification</h2>
-                    <p className="subtitle">Accept one valid government ID to verify a landlord.</p>
+                    <h2>Property Owner Verification</h2>
+                    <p className="subtitle">Accept one valid government ID to verify a property owner.</p>
                 </div>
                 <div className="card">
                     <div className="toolbar minimal">
-                        <input type="text" className="search-input" placeholder="Search landlord..." value={filter} onChange={e=>setFilter(e.target.value)} />
+                        <input type="text" className="search-input" placeholder="Search property owner..." value={filter} onChange={e=>setFilter(e.target.value)} />
                         <button className="tbtn" onClick={fetchLandlordsForVerification} disabled={loading}>{loading? 'Loading...' : 'Refresh'}</button>
                     </div>
                     <div className="table-wrapper">
                         <table className="verification-table">
                             <thead>
-                                <tr>
-                                    <th>Landlord</th>
-                                    <th>Documents</th>
-                                    <th>Verified?</th>
-                                </tr>
+                                    <tr>
+                                        <th>Property Owner</th>
+                                        <th>Documents</th>
+                                        <th>Verified?</th>
+                                    </tr>
                             </thead>
                             <tbody>
                                 {filteredLandlords.length===0 && (
-                                    <tr><td colSpan="3" style={{textAlign:'center',padding:'36px 0', fontSize:'14px', color:'#64748b'}}>No pending landlord verifications.</td></tr>
+                                    <tr><td colSpan="3" style={{textAlign:'center',padding:'36px 0', fontSize:'14px', color:'#64748b'}}>No pending property owner verifications.</td></tr>
                                 )}
                                 {filteredLandlords.map(landlord => {
                                     const docs = landlord.idDocuments || [];

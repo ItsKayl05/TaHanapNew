@@ -11,8 +11,9 @@ import '../MyProperties.css';
 import "./EditProperty.css";
 import Sidebar from "../../Sidebar/Sidebar";
 import { buildApi, buildUpload } from '../../../../services/apiConfig';
+import { saveFormState, loadFormState, saveFiles, loadFiles, clearFormPersistence } from '../../../../utils/formPersistence';
 
-const categories = ["Apartment", "Dorm", "House", "Studio"];
+// categories deprecated; use property type dropdown instead
 const barangays = [
     "Assumption", "Bagong Buhay I", "Bagong Buhay II", "Bagong Buhay III",
     "Ciudad Real", "Citrus", "Dulong Bayan", "Fatima I", "Fatima II", 
@@ -42,11 +43,58 @@ const EditProperty = () => {
     const navigate = useNavigate();
     const [property, setProperty] = useState(null);
     const [formData, setFormData] = useState({
-        title: "", description: "", address: "", price: "", barangay: "", category: "",
+        title: "", description: "", address: "", price: "", barangay: "", propertyType: "For Rent",
         petFriendly: false, allowedPets: "", occupancy: "", parking: false, rules: "",
         landmarks: "", availabilityStatus: "Available", numberOfRooms: "", areaSqm: "",
-    latitude: "", longitude: "", totalUnits: 1
+    latitude: "", longitude: ""
     });
+    const FORM_KEY = `edit-property-${propertyId}-v1`;
+
+    // Restore persisted state for edit form (only after initial load)
+    useEffect(() => {
+        const saved = loadFormState(FORM_KEY);
+            if (saved) {
+                const allowed = [
+                    'title','description','address','price','barangay','propertyType','petFriendly','allowedPets','occupancy','parking','rules','landmarks','numberOfRooms','areaSqm','latitude','longitude','availabilityStatus'
+                ];
+                const toRestore = {};
+                for (const k of allowed) {
+                    if (saved.fields && Object.prototype.hasOwnProperty.call(saved.fields, k)) toRestore[k] = saved.fields[k];
+                }
+                setFormData(prev => ({ ...prev, ...toRestore }));
+            }
+        (async () => {
+            try {
+                const imgs = await loadFiles(FORM_KEY, 'images');
+                if (imgs && imgs.length) {
+                    // add blob previews to newImages
+                    setNewImages(prev => [...prev, ...imgs.filter(i=>i.blob).map(i=>i.blob)]);
+                }
+                const vid = await loadFiles(FORM_KEY, 'video');
+                if (vid && vid.length) {
+                    setVideoFile(vid[0].blob || null);
+                    setVideoPreview(vid[0].url);
+                }
+                const pan = await loadFiles(FORM_KEY, 'panorama');
+                if (pan && pan.length) {
+                    setPanorama(pan[0].blob || null);
+                    setPanoramaPreview(pan[0].url);
+                }
+            } catch (e) { console.error('restore edit persistence', e); }
+        })();
+    }, [propertyId]);
+
+    // Save form fields to localStorage
+    useEffect(() => {
+        const toSave = { fields: { ...formData } };
+        const id = setTimeout(()=> saveFormState(FORM_KEY, toSave), 300);
+        return () => clearTimeout(id);
+    }, [formData]);
+
+    // Save file changes
+    useEffect(() => { if (newImages && newImages.length) saveFiles(FORM_KEY,'images', newImages.filter(f=> f instanceof File)).catch(()=>{}); }, [newImages]);
+    useEffect(() => { if (videoFile && videoFile instanceof File) saveFiles(FORM_KEY,'video',[videoFile]).catch(()=>{}); }, [videoFile]);
+    useEffect(() => { if (panorama && panorama instanceof File) saveFiles(FORM_KEY,'panorama',[panorama]).catch(()=>{}); }, [panorama]);
     const [manualPin, setManualPin] = useState(false);
     const [images, setImages] = useState([]);
     const [newImages, setNewImages] = useState([]);
@@ -89,13 +137,12 @@ const EditProperty = () => {
                     address: data.address,
                     price: data.price,
                     barangay: data.barangay,
-                    category: data.category,
+                    // category removed
                     petFriendly: data.petFriendly,
                     allowedPets: data.allowedPets,
                     occupancy: data.occupancy,
                     availabilityStatus: data.availabilityStatus ?? 'Available',
-                    totalUnits: data.totalUnits ?? 1,
-                    // availableUnits removed - availability is derived server-side from totalUnits and approved applications
+                    // totalUnits removed from UI; availability is derived server-side from applications
                     parking: data.parking,
                     rules: data.rules,
                     landmarks: landmarksArr,
@@ -221,10 +268,10 @@ const EditProperty = () => {
   try {
     const userToken = localStorage.getItem("user_token");
     if (!userToken) throw new Error("Unauthorized access. Please log in.");
-    if (!formData.title || !formData.description) {
-      toast.error('Title & description are required.');
-      return;
-    }
+            if (!formData.title || !formData.description) {
+                toast.error('Title & description are required.');
+                return;
+            }
     // Ensure required numeric fields are provided
     if (formData.price === undefined || formData.price === '' ) {
       toast.error("Don't forget to set a price");
@@ -301,24 +348,22 @@ const EditProperty = () => {
             });
             const data = await response.json();
             if (!response.ok) {
-                // Show detailed validation errors from backend
                 if (data.errors && Array.isArray(data.errors)) {
-                    // Show each validation error as a separate toast
                     data.errors.forEach(error => toast.error(error));
                 } else if (data.error && typeof data.error === 'string') {
-                    // Single error message
                     toast.error(data.error);
                 } else if (data.message) {
-                    // Fallback to message field
                     toast.error(data.message);
                 } else {
-                    // Generic error
                     toast.error('Failed to update property');
                 }
                 return;
             }
             toast.success('Property updated successfully');
-            navigate('/my-properties');
+                try {
+                    await clearFormPersistence(FORM_KEY);
+                } catch (e) { console.error('Failed to clear draft after update', e); }
+                navigate('/my-properties');
         } catch (err) {
             toast.error(err.message || 'Error updating property');
         } finally {
@@ -393,10 +438,32 @@ const EditProperty = () => {
                             <p className="form-subtitle">Update your listing details and images. Changes go live immediately after saving.</p>
                         </div>
                         <div className="form-grid">
+                            
                             <div className="field-group">
-                                <label className="required">Title</label>
-                                <input className="ll-field" name="title" value={formData.title} onChange={handleChange} maxLength={100} required />
-                                <div className="field-hint small">{formData.title.length}/100</div>
+                                <label className="required">Property Type</label>
+                                <select className="ll-field" name="title" value={formData.title} onChange={handleChange} required>
+                                    <option value="">Select Property Type</option>
+                                    <option>House</option>
+                                    <option>House and Lot</option>
+                                    <option>Apartment</option>
+                                    <option>Condominium</option>
+                                    <option>Townhouse</option>
+                                    <option>Dormitory</option>
+                                    <option>Bedspace</option>
+                                    <option>Studio Unit</option>
+                                    <option>Lot</option>
+                                    <option>Land</option>
+                                    <option>Commercial Space</option>
+                                    <option>Office Space</option>
+                                    <option>Warehouse</option>
+                                    <option>Building</option>
+                                    <option>Bungalow</option>
+                                    <option>Duplex</option>
+                                    <option>Triplex</option>
+                                    <option>Inner Lot</option>
+                                    <option>Corner Lot</option>
+                                </select>
+                                <div className="field-hint small">{String(formData.title || '').length}/100</div>
                             </div>
                             <div className="field-group full">
                                 <label className="required">Description</label>
@@ -415,18 +482,37 @@ const EditProperty = () => {
                                 </select>
                             </div>
                             <div className="field-group">
-                                <label className="required">Category</label>
-                                <select className="ll-field" name="category" value={formData.category} onChange={handleChange} required>
-                                    <option value="">Select category</option>
-                                    {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                                </select>
-                            </div>
-                            <div className="field-group">
-                                <label className="required">Property Type</label>
+                                <label className="required">Listing Type</label>
                                 <select className="ll-field" name="propertyType" value={formData.propertyType} onChange={handleChange} required>
                                     <option value="For Rent">For Rent</option>
                                     <option value="For Sale">For Sale</option>
                                 </select>
+                            </div>
+                            <div className="field-group">
+                                <label className="required">Property Type</label>
+                                <select className="ll-field" name="title" value={formData.title} onChange={handleChange} required>
+                                    <option value="">Select Property Type</option>
+                                    <option>House</option>
+                                    <option>House and Lot</option>
+                                    <option>Apartment</option>
+                                    <option>Condominium</option>
+                                    <option>Townhouse</option>
+                                    <option>Dormitory</option>
+                                    <option>Bedspace</option>
+                                    <option>Studio Unit</option>
+                                    <option>Lot</option>
+                                    <option>Land</option>
+                                    <option>Commercial Space</option>
+                                    <option>Office Space</option>
+                                    <option>Warehouse</option>
+                                    <option>Building</option>
+                                    <option>Bungalow</option>
+                                    <option>Duplex</option>
+                                    <option>Triplex</option>
+                                    <option>Inner Lot</option>
+                                    <option>Corner Lot</option>
+                                </select>
+                                <div className="field-hint small">{String(formData.title || '').length}/100</div>
                             </div>
                             <div className="field-group">
                                 <label className="required">Price (₱)</label>
@@ -466,16 +552,11 @@ const EditProperty = () => {
                                 <label className="required">Availability</label>
                                 <select className="ll-field" name="availabilityStatus" value={formData.availabilityStatus} onChange={handleChange} required>
                                     <option value="Available">Available</option>
-                                    <option value="Fully Occupied">Fully Occupied</option>
-                                    <option value="Not Yet Ready">Not Yet Ready</option>
+                                    <option value="Not Available">Not Available</option>
                                 </select>
                                 <div className="field-hint small">Choose the current availability for this listing.</div>
                             </div>
-                            <div className="field-group">
-                                <label className="required">Total Units</label>
-                                <input className="ll-field" type="number" min={1} name="totalUnits" value={formData.totalUnits || 1} onChange={handleChange} />
-                                <div className="field-hint small">Total rentable units for this listing.</div>
-                            </div>
+                            {/* Total Units is now system-managed on the backend; landlords cannot edit it here */}
                             <div className="field-group">
                                 <label>Availability (system-managed)</label>
                                 <div className="field-hint small">Available units are managed automatically by the system based on approved applications and the Total Units value.</div>
@@ -569,7 +650,11 @@ const EditProperty = () => {
                         </div>
 
                         <div className="images-section">
-    <h3 className="section-title">Images <span style={{color:'red', marginLeft:'4px'}}>*</span> <span style={{fontWeight:400, fontSize:'0.7rem'}}>({images.length + newImages.length}/8 total)</span></h3>
+    {(() => {
+        const existingCount = Array.isArray(images) ? images.length : 0;
+        const newCount = Array.isArray(newImages) ? newImages.length : 0;
+        return (<h3 className="section-title">Images <span style={{color:'red', marginLeft:'4px'}}>*</span> <span style={{fontWeight:400, fontSize:'0.7rem'}}>({existingCount + newCount}/8 total)</span></h3>);
+    })()}
     <p className="field-hint">You can keep, remove, or add new images (max 8 total, JPG/PNG/WebP up to 10MB each).</p>
     <div className="current-images-grid">
         {images.length ? images.map((img, i) => {
