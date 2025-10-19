@@ -31,6 +31,7 @@ const RegisterPage = () => {
     const [pwdScore, setPwdScore] = useState(0); // 0-100
     const [pwdLabel, setPwdLabel] = useState('');
     const [isPopupOpen, setIsPopupOpen] = useState(false); // State for terms popup
+    const MIN_PASSWORD_LENGTH = 8;
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -107,8 +108,8 @@ const RegisterPage = () => {
         }
 
         // Validate password length
-        if (formData.password.length < 6) {
-            toast.error("Password must be at least 6 characters long.");
+        if (formData.password.length < MIN_PASSWORD_LENGTH) {
+            toast.error(`Password must be at least ${MIN_PASSWORD_LENGTH} characters long.`);
             setLoading(false);
             return;
         }
@@ -287,6 +288,14 @@ const RegisterPage = () => {
                                 <div className={`pwd-meta ${pwdLabel.toLowerCase()}`}>{pwdLabel}</div>
                             )}
                         </div>
+                    )}
+                    {/* Inline hint / error for minimum password length */}
+                    {formData.password && formData.password.length < MIN_PASSWORD_LENGTH ? (
+                        <div className="field-error small" style={{color:'var(--danger)', marginTop:6}}>
+                            Password must be at least {MIN_PASSWORD_LENGTH} characters long.
+                        </div>
+                    ) : (
+                        <div className="field-hint small">Minimum {MIN_PASSWORD_LENGTH} characters. Use letters, numbers, and symbols for a stronger password.</div>
                     )}
                 </div>
 

@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect, useRef } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -9,16 +9,7 @@ import '../landlord-theme.css';
 import './AddProperties.css';
 import PhotoDomeViewer from '../../../components/PhotoDomeViewer';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
-import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-
-// Fix for default markers in react-leaflet
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
 
 const barangayList = [
     'Assumption','Bagong Buhay I','Bagong Buhay II','Bagong Buhay III','Ciudad Real','Citrus','Dulong Bayan','Fatima I','Fatima II','Fatima III','Fatima IV','Fatima V','Francisco Homes – Guijo','Francisco Homes – Mulawin','Francisco Homes – Narra','Francisco Homes – Yakal','Gaya-gaya','Graceville','Gumaok Central','Gumaok East','Gumaok West','Kaybanban','Kaypian','Lawang Pare','Maharlika','Minuyan I','Minuyan II','Minuyan III','Minuyan IV','Minuyan V','Minuyan Proper','Muzon East','Muzon Proper','Muzon South','Muzon West','Paradise III','Poblacion','Poblacion 1','San Isidro','San Manuel','San Martin De Porres','San Martin I','San Martin II','San Martin III','San Martin IV','San Pedro','San Rafael I','San Rafael II','San Rafael III','San Rafael IV','San Rafael V','San Roque','Sapang Palay Proper','Sta. Cruz I','Sta. Cruz II','Sta. Cruz III','Sta. Cruz IV','Sta. Cruz V','Sto. Cristo','Sto. Nino I','Sto. Nino II','Tungkong Mangga'
@@ -32,8 +23,15 @@ const LANDMARKS = [
     "school/university", "hospital/health care"
 ];
 
+// Default map center and zoom for San Jose del Monte
+const SJDM_CENTER = [14.8136, 121.0450];
+const SJDM_ZOOM = 13;
+
 const AddProperties = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [isGeocoding, setIsGeocoding] = useState(false);
+  const [mapCenter, setMapCenter] = useState(SJDM_CENTER);
+  const [mapZoom, setMapZoom] = useState(SJDM_ZOOM);
   
   useEffect(() => {
     const handleResize = () => {
@@ -44,36 +42,37 @@ const AddProperties = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const [panorama, setPanorama] = useState(null);
-  const [panoramaPreview, setPanoramaPreview] = useState(null);
-  const mapRef = useRef();
+
+  // Multiple panoramas
+  const [panoramas, setPanoramas] = useState([]); // array of File
+  const [panoramaPreviews, setPanoramaPreviews] = useState([]); // array of URLs
 
   const handlePanoramaChange = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const validType = file.type.startsWith('image/');
-    const sizeOk = file.size <= 10*1024*1024;
-    if (!validType) { 
-      toast.error('360° Panorama upload failed: Only image files (JPG, PNG, WebP) are allowed.'); 
-      return; 
-    }
-    if (!sizeOk) { 
-      toast.error('360° Panorama upload failed: Image size exceeds 10MB limit.'); 
-      return; 
-    }
-    if (panoramaPreview) URL.revokeObjectURL(panoramaPreview);
-    setPanorama(file);
-    setPanoramaPreview(URL.createObjectURL(file));
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    const validFiles = files.filter(file => {
+      const validType = file.type.startsWith('image/');
+      const sizeOk = file.size <= 10*1024*1024;
+      if (!validType) toast.error(`${file.name}: Only image files (JPG, PNG, WebP) allowed.`);
+      if (!sizeOk) toast.error(`${file.name}: Image size exceeds 10MB limit.`);
+      return validType && sizeOk;
+    });
+    if (!validFiles.length) return;
+    // Add new files, avoid duplicates by name
+    const existingNames = panoramas.map(f => f.name);
+    const newFiles = validFiles.filter(f => !existingNames.includes(f.name));
+    setPanoramas(prev => [...prev, ...newFiles]);
+    setPanoramaPreviews(prev => [...prev, ...newFiles.map(f => URL.createObjectURL(f))]);
+  };
+
+  const removePanorama = (idx) => {
+    setPanoramaPreviews(prev => {
+      if (prev[idx]) URL.revokeObjectURL(prev[idx]);
+      return prev.filter((_,i)=>i!==idx);
+    });
+    setPanoramas(prev => prev.filter((_,i)=>i!==idx));
   };
   
-  const removePanorama = () => {
-    if (panoramaPreview) URL.revokeObjectURL(panoramaPreview);
-    setPanorama(null);
-    setPanoramaPreview(null);
-  };
-  
-  const SJDM_CENTER = [14.8136, 121.0450];
-  const SJDM_ZOOM = 13;
   const { logout } = useContext(AuthContext);
   const navigate = useNavigate();
   
@@ -94,15 +93,15 @@ const AddProperties = () => {
     landmarks:[], 
     numberOfRooms:'', 
     areaSqm:'', 
+    floorArea:'',
+    lotArea:'',
+    numberOfFloors:'',
     images:[], 
     video:null, 
     latitude:'', 
     longitude:'', 
-    availabilityStatus: 'Available',
-    manualPin: false
+    availabilityStatus: 'Available'
   });
-
-  const [block, setBlock] = useState(''); // For additional address details
 
   // Auto-clear fields when listing type changes
   useEffect(() => {
@@ -130,70 +129,34 @@ const AddProperties = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const MAX_IMAGES = 8;
 
-  // Enhanced geocoding function from source code
-  const geocodeAddress = async (address, barangay, block = '') => {
-    if (!barangay) {
-      toast.error('Please select a Barangay first.');
-      return null;
-    }
-
-    const city = "San Jose del Monte, Bulacan, Philippines";
-    const fullAddress = `${block ? block + ', ' : ''}${address ? address + ', ' : ''}${barangay}, ${city}`;
-    
+  const geocodeAddress = async (address, barangay) => {
+    if (!address || !barangay) return;
+    setIsGeocoding(true);
+    const query = encodeURIComponent(`${address}, ${barangay}, San Jose del Monte, Bulacan, Philippines`);
     try {
-      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddress)}`;
-      const response = await fetch(url);
-      const data = await response.json();
-
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}`);
+      const data = await res.json();
       if (data && data.length > 0) {
-        const { lat, lon, display_name } = data[0];
-        toast.success(`Location found: ${display_name.split(',')[0]}`);
-        return { lat: parseFloat(lat), lon: parseFloat(lon) };
+        const coords = { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
+        setMapCenter([coords.lat, coords.lon]);
+        setMapZoom(16); // Zoom in closer to show the area better
+        return coords;
       } else {
-        toast.error('Address not found. Try refining your input or use manual pin placement.');
-        return null;
+        toast.warn('Location not found. Try being more specific with the address.');
       }
     } catch (err) {
-      console.error('Geocoding error:', err);
-      toast.error('Geocoding service unavailable. Please use manual pin placement.');
-      return null;
+      toast.error('Error finding location. Please try again.');
+    } finally {
+      setIsGeocoding(false);
     }
+    return null;
   };
 
-  // Function to handle locating address on map (from source code)
-  const locateAddressOnMap = async () => {
-    if (!propertyData.barangay) {
-      toast.error('Please select a Barangay.');
-      return;
-    }
-
-    const coords = await geocodeAddress(propertyData.address, propertyData.barangay, block);
-    if (coords) {
-      setPropertyData(prev => ({ 
-        ...prev, 
-        latitude: coords.lat, 
-        longitude: coords.lon,
-        manualPin: false 
-      }));
-
-      // Center map on the found location
-      if (mapRef.current) {
-        mapRef.current.setView([coords.lat, coords.lon], 17);
-      }
-    }
-  };
-
-  // Map click handler for manual pin placement
   function LocationSelector() {
     useMapEvents({
       click(e) {
-        setPropertyData(prev => ({ 
-          ...prev, 
-          latitude: e.latlng.lat, 
-          longitude: e.latlng.lng, 
-          manualPin: true 
-        }));
-        toast.info('Manual pin location set! You can drag the marker to adjust.');
+        setPropertyData(prev => ({ ...prev, latitude: e.latlng.lat, longitude: e.latlng.lng, manualPin: true }));
+        toast.info('Pin location set!');
       }
     });
     return null;
@@ -220,34 +183,18 @@ const AddProperties = () => {
     
     setPropertyData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : newValue }));
 
-    // Auto-geocode when both address and barangay are provided
-    if ((name === 'address' || name === 'barangay') && !propertyData.manualPin) {
+    if (name === 'address' || name === 'barangay') {
       const nextAddress = name === 'address' ? value : propertyData.address;
       const nextBarangay = name === 'barangay' ? value : propertyData.barangay;
-      
       if (nextAddress && nextBarangay) {
-        // Small delay to avoid too many API calls
-        const timeoutId = setTimeout(async () => {
-          const coords = await geocodeAddress(nextAddress, nextBarangay, block);
-          if (coords) {
-            setPropertyData(prev => ({ 
-              ...prev, 
-              latitude: coords.lat, 
-              longitude: coords.lon 
-            }));
-          }
-        }, 1000);
-        
-        return () => clearTimeout(timeoutId);
+        const coords = await geocodeAddress(nextAddress, nextBarangay);
+        if (coords) {
+          setPropertyData(prev => ({ ...prev, latitude: coords.lat, longitude: coords.lon }));
+        }
       }
     }
   };
 
-  const handleBlockChange = (e) => {
-    setBlock(e.target.value);
-  };
-
-  // Rest of your existing functions remain the same...
   const handleImageChange = (e) => {
     const selected = Array.from(e.target.files);
     if (!selected.length) return;
@@ -277,9 +224,9 @@ const AddProperties = () => {
     return () => {
       imagePreviews.forEach(url => URL.revokeObjectURL(url));
       if (videoPreview?.startsWith('blob:')) URL.revokeObjectURL(videoPreview);
-      if (panoramaPreview) URL.revokeObjectURL(panoramaPreview);
+      panoramaPreviews.forEach(url => URL.revokeObjectURL(url));
     };
-  },[imagePreviews, videoPreview, panoramaPreview]);
+  },[imagePreviews, videoPreview, panoramaPreviews]);
 
   const handleVideoChange = (e) => {
     const file = e.target.files?.[0];
@@ -318,6 +265,9 @@ const AddProperties = () => {
     requiredChecks.push({ key: 'price', ok: propertyData.price && propertyData.price.toString().trim() !== '', msg: "Don't forget to set a price for your property" });
     requiredChecks.push({ key: 'barangay', ok: propertyData.barangay && propertyData.barangay.toString().trim() !== '', msg: "Please select which barangay your property is located in" });
     requiredChecks.push({ key: 'areaSqm', ok: propertyData.areaSqm !== undefined && propertyData.areaSqm !== '' && !isNaN(Number(propertyData.areaSqm)) && Number(propertyData.areaSqm) > 0, msg: "Please provide the floor area (in square meters)" });
+  requiredChecks.push({ key: 'floorArea', ok: propertyData.floorArea !== undefined && propertyData.floorArea !== '' , msg: "Please provide the total floor area (floor area)" });
+  requiredChecks.push({ key: 'lotArea', ok: propertyData.lotArea !== undefined && propertyData.lotArea !== '' , msg: "Please provide the lot area" });
+  requiredChecks.push({ key: 'numberOfFloors', ok: propertyData.numberOfFloors !== undefined && propertyData.numberOfFloors !== '' , msg: "Please specify the number of floors" });
     
     if (propertyData.listingType === 'For Rent') {
       requiredChecks.push({ key: 'occupancy', ok: propertyData.occupancy && propertyData.occupancy.toString().trim() !== '' && !isNaN(Number(propertyData.occupancy)) && Number(propertyData.occupancy) > 0, msg: "Please specify maximum occupancy (must be greater than 0)" });
@@ -381,6 +331,26 @@ const AddProperties = () => {
       }
     }
 
+    // Parse and validate required numeric fields
+    const floorAreaNum = parseLocaleNumber(propertyData.floorArea);
+    if (isNaN(floorAreaNum) || floorAreaNum <= 0) {
+      toast.error('Floor area must be a number greater than 0');
+      return;
+    }
+
+    const lotAreaNum = parseLocaleNumber(propertyData.lotArea);
+    if (isNaN(lotAreaNum) || lotAreaNum <= 0) {
+      toast.error('Lot area must be a number greater than 0');
+      return;
+    }
+
+    const floorsNumRaw = propertyData.numberOfFloors;
+    const floorsNum = floorsNumRaw === '' || floorsNumRaw === null ? NaN : Number(floorsNumRaw);
+    if (isNaN(floorsNum) || !Number.isInteger(floorsNum) || floorsNum < 0) {
+      toast.error('Number of floors must be a non-negative integer');
+      return;
+    }
+
     setIsSubmitting(true);
     const formData = new FormData();
     
@@ -428,9 +398,13 @@ const AddProperties = () => {
     if (propertyData.listingType === 'For Rent') {
       formData.append('occupancy', parseLocaleNumber(propertyData.occupancy).toString());
     }
+    // Append optional numeric fields if provided
+    if (!isNaN(floorAreaNum)) formData.append('floorArea', floorAreaNum.toString());
+    if (!isNaN(lotAreaNum)) formData.append('lotArea', lotAreaNum.toString());
+    if (!isNaN(floorsNum)) formData.append('numberOfFloors', String(floorsNum));
     
-    if (panorama) {
-      formData.append('panorama360', panorama);
+    if (panoramas.length) {
+      panoramas.forEach(file => formData.append('panorama360', file));
     }
     
     try {
@@ -590,53 +564,17 @@ const AddProperties = () => {
                 <div className="field-hint small">Optional - check any market highlights that apply.</div>
               </div>
 
-              {/* Enhanced Address Section with Block/Lot/Street */}
+              <div className="form-group">
+                <label className="required">Address</label>
+                <input className="ll-field" name="address" value={propertyData.address} onChange={handleInputChange} required placeholder="Street, Barangay, etc." />
+              </div>
+
               <div className="form-group">
                 <label className="required">Barangay</label>
                 <select className="ll-field" name="barangay" value={propertyData.barangay} onChange={handleInputChange} required>
                   <option value="">Select Barangay</option>
                   {barangayList.map(b => <option key={b} value={b}>{b}</option>)}
                 </select>
-              </div>
-
-              <div className="form-group">
-                <label>Block / Lot / Street (optional)</label>
-                <input 
-                  className="ll-field" 
-                  name="block" 
-                  value={block} 
-                  onChange={handleBlockChange} 
-                  placeholder="Blk 1, Lot 2, Street Name" 
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="required">Address</label>
-                <input 
-                  className="ll-field" 
-                  name="address" 
-                  value={propertyData.address} 
-                  onChange={handleInputChange} 
-                  required 
-                  placeholder="House Number, Street, Subdivision, etc." 
-                />
-              </div>
-
-              <div className="form-group">
-                <button 
-                  type="button" 
-                  className="ll-btn primary outline" 
-                  onClick={locateAddressOnMap}
-                  disabled={!propertyData.barangay}
-                  style={{width: '100%', marginTop: '8px'}}
-                >
-                  📍 Locate on Map
-                </button>
-                <div className="field-hint small">
-                  {propertyData.manualPin ? 
-                    'Using manually set location. Click map to change.' : 
-                    'Auto-location based on address. Click map for manual pin.'}
-                </div>
               </div>
               
               <div className="form-group">
@@ -699,6 +637,24 @@ const AddProperties = () => {
                 <label className="required">Property Size (sqm)</label>
                 <input className="ll-field" type="number" min={0.1} step={0.1} name="areaSqm" value={propertyData.areaSqm} onChange={handleInputChange} placeholder="e.g. 45" required />
                 <div className="field-hint small">Enter the floor area in square meters (must be greater than 0)</div>
+              </div>
+              
+              <div className="form-group">
+                <label className="required">Floor Area (sqm)</label>
+                <input className="ll-field" type="text" name="floorArea" value={propertyData.floorArea} onChange={handleInputChange} placeholder="e.g. 45 or 45.5" required />
+                <div className="field-hint small">Enter total usable floor area in square meters (numbers only; decimals allowed). Required.</div>
+              </div>
+
+              <div className="form-group">
+                <label className="required">Lot Area (sqm)</label>
+                <input className="ll-field" type="text" name="lotArea" value={propertyData.lotArea} onChange={handleInputChange} placeholder="e.g. 100" required />
+                <div className="field-hint small">Enter lot size in square meters (numbers only; decimals allowed). Required.</div>
+              </div>
+
+              <div className="form-group">
+                <label className="required">Number of Floors</label>
+                <input className="ll-field" type="number" min={0} step={1} name="numberOfFloors" value={propertyData.numberOfFloors} onChange={handleInputChange} placeholder="e.g. 2" required />
+                <div className="field-hint small">Enter number of floors (whole number, 0 for single-storey). Required.</div>
               </div>
               
               <div className="form-group">
@@ -819,30 +775,14 @@ const AddProperties = () => {
               
               <div className={`form-row ${isMobile ? 'mobile-column' : ''}`}>
                 <div className="form-group">
-                  <label htmlFor="latitude">Latitude</label>
-                  <input id="latitude" name="latitude" type="number" step="any" value={propertyData.latitude} readOnly style={{background:'#f5f5f5'}} placeholder="Auto-filled or click map" />
+                  <label htmlFor="latitude">Latitude (auto-filled)</label>
+                  <input id="latitude" name="latitude" type="number" step="any" value={propertyData.latitude} readOnly style={{background:'#f5f5f5'}} placeholder="Auto-filled" />
                 </div>
                 <div className="form-group">
-                  <label htmlFor="longitude">Longitude</label>
-                  <input id="longitude" name="longitude" type="number" step="any" value={propertyData.longitude} readOnly style={{background:'#f5f5f5'}} placeholder="Auto-filled or click map" />
+                  <label htmlFor="longitude">Longitude (auto-filled)</label>
+                  <input id="longitude" name="longitude" type="number" step="any" value={propertyData.longitude} readOnly style={{background:'#f5f5f5'}} placeholder="Auto-filled" />
                 </div>
               </div>
-
-              {/* Coordinates Display */}
-              {propertyData.latitude && propertyData.longitude && (
-                <div className="coordinates-display" style={{
-                  padding: '12px',
-                  background: '#f8f9fa',
-                  border: '1px solid #dee2e6',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  marginTop: '8px'
-                }}>
-                  <strong>📍 Current Marker Location:</strong><br />
-                  Latitude: <b>{parseFloat(propertyData.latitude).toFixed(6)}</b><br />
-                  Longitude: <b>{parseFloat(propertyData.longitude).toFixed(6)}</b>
-                </div>
-              )}
             </div>
             
             <div className="ll-stack">
@@ -866,22 +806,23 @@ const AddProperties = () => {
               </div>
 
               <div className="panorama-section" style={{marginTop:'32px'}}>
-                <h3 className="section-title">360° Panoramic Image</h3>
-                <p className="field-hint">Optional: Add a panoramic 360° image (JPG/PNG/WebP, max 10MB, equirectangular projection).</p>
-                {panoramaPreview ? (
-                  <div style={{marginBottom:'12px'}}>
-                    <div className="panorama-preview-container">
-                      <PhotoDomeViewer imageUrl={panoramaPreview} mode="MONOSCOPIC" />
-                    </div>
-                    <div style={{marginTop:'8px', display:'flex', gap:'8px'}}>
-                      <button type="button" className="ll-btn tiny danger" onClick={removePanorama}>Remove</button>
-                    </div>
+                <h3 className="section-title">360° Panoramic Images</h3>
+                <p className="field-hint">Optional: Add one or more panoramic 360° images (JPG/PNG/WebP, max 10MB each, equirectangular projection).</p>
+                <label className="file-drop-modern">
+                  <input id="panorama-input" type="file" accept="image/*" multiple style={{display:'none'}} onChange={handlePanoramaChange} />
+                  <span onClick={()=>document.getElementById('panorama-input').click()}>Add 360° Panoramic Images</span>
+                </label>
+                {panoramaPreviews.length > 0 && (
+                  <div style={{marginTop:'12px', display:'flex', gap:'16px', flexWrap:'wrap'}}>
+                    {panoramaPreviews.map((url, idx) => (
+                      <div key={idx} style={{position:'relative', width:'180px'}}>
+                        <div className="panorama-preview-container">
+                          <PhotoDomeViewer imageUrl={url} mode="MONOSCOPIC" />
+                        </div>
+                        <button type="button" className="ll-btn tiny danger" style={{position:'absolute',top:4,right:4}} onClick={()=>removePanorama(idx)}>Remove</button>
+                      </div>
+                    ))}
                   </div>
-                ) : (
-                  <label className="file-drop-modern">
-                    <input id="panorama-input" type="file" accept="image/*" style={{display:'none'}} onChange={handlePanoramaChange} />
-                    <span onClick={()=>document.getElementById('panorama-input').click()}>Add 360° Panoramic Image</span>
-                  </label>
                 )}
               </div>
               
@@ -905,15 +846,40 @@ const AddProperties = () => {
               </div>
               
               <div className="ll-card map-preview-section" style={{marginTop:'32px', padding:'24px', borderRadius:'12px', boxShadow:'0 2px 12px rgba(0,0,0,0.05)', background:'#fafafa'}}>
-                <h3 style={{marginBottom:'18px'}}>Map Preview (San Jose del Monte Only)</h3>
+                <div style={{display: 'flex', flexDirection: 'column', gap: '12px', marginBottom:'18px'}}>
+                  <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
+                    <h3 style={{margin: 0}}>Map Preview (SJDM only)</h3>
+                    {isGeocoding && (
+                      <div style={{display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9em', color: '#666'}}>
+                        <div style={{width: '16px', height: '16px', border: '2px solid #666', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite'}}></div>
+                        Finding location...
+                      </div>
+                    )}
+                  </div>
+                  <div style={{
+                    padding: '12px',
+                    background: '#fff',
+                    border: '1px solid #e0e0e0',
+                    borderRadius: '8px',
+
+                    fontSize: '0.9em',
+                    color: '#555'
+                  }}>
+                    <div style={{fontWeight: 'bold', marginBottom: '8px'}}>📍 How to set your property's location:</div>
+                    <ol style={{margin: '0', paddingLeft: '20px'}}>
+                      <li>Enter your complete address and select barangay for automatic pin placement</li>
+                      <li>Fine-tune the location by either:
+                        <ul style={{marginTop: '4px'}}>
+                          <li>Clicking anywhere on the map to move the pin</li>
+                          <li>Dragging the red pin marker to the exact location</li>
+                        </ul>
+                      </li>
+                      <li>Zoom in/out using the +/- buttons or mouse wheel for better accuracy</li>
+                    </ol>
+                  </div>
+                </div>
                 <div style={{height: isMobile ? '220px' : '320px', width:'100%', border:'1px solid #ccc', borderRadius:'8px', overflow:'hidden'}}>
-                  <MapContainer 
-                    center={propertyData.latitude && propertyData.longitude ? [parseFloat(propertyData.latitude), parseFloat(propertyData.longitude)] : SJDM_CENTER} 
-                    zoom={SJDM_ZOOM} 
-                    style={{height:'100%', width:'100%'}} 
-                    scrollWheelZoom={true}
-                    ref={mapRef}
-                  >
+                  <MapContainer center={mapCenter} zoom={mapZoom} style={{height:'100%', width:'100%'}} scrollWheelZoom={true}>
                     <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap contributors" />
                     <LocationSelector />
                     {propertyData.latitude && propertyData.longitude && (
@@ -921,52 +887,38 @@ const AddProperties = () => {
                         position={[parseFloat(propertyData.latitude), parseFloat(propertyData.longitude)]}
                         draggable={true}
                         eventHandlers={{
+                          dragstart: () => {
+                            toast.info('Dragging pin to adjust location...', {autoClose: 2000});
+                          },
                           dragend: (e) => {
                             const latlng = e.target.getLatLng();
-                            setPropertyData(prev => ({ 
-                              ...prev, 
-                              latitude: latlng.lat, 
-                              longitude: latlng.lng, 
-                              manualPin: true 
-                            }));
-                            toast.info('Pin moved! Drag marker or click map to adjust further.');
+                            setPropertyData(prev => ({ ...prev, latitude: latlng.lat, longitude: latlng.lng, manualPin: true }));
+                            toast.success('Location updated! ✨', {autoClose: 2000});
                           }
                         }}
                       >
                         <Popup>
-                          <strong>{propertyData.propertyType || 'New Property'}</strong><br />
-                          {propertyData.address}<br />
-                          {propertyData.price ? `₱${propertyData.price}` : ''}
-                          <br /><span style={{fontSize:'0.8em'}}>
-                            {propertyData.manualPin ? 'Manual pin' : 'Auto-located pin'}. Drag to adjust or click map for new location.
-                          </span>
+                          <div style={{fontSize: '0.9em', padding: '4px'}}>
+                            <div style={{fontWeight: 'bold', marginBottom: '4px'}}>{propertyData.propertyType || 'New Property'}</div>
+                            <div style={{color: '#666', marginBottom: '4px'}}>{propertyData.address}</div>
+                            {propertyData.price && <div style={{color: '#2c5282', fontWeight: 'bold', marginBottom: '4px'}}>₱{propertyData.price}</div>}
+                            <div style={{fontSize: '0.8em', color: '#666', marginTop: '8px'}}>
+                              {propertyData.manualPin ? '✏️ Manually placed' : '🎯 Auto-located'}<br/>
+                              Drag pin or click map to adjust
+                            </div>
+                          </div>
                         </Popup>
                       </Marker>
                     )}
                   </MapContainer>
                 </div>
-                <div style={{marginTop:'12px', fontSize:'0.95em', color:'#555', lineHeight:'1.4'}}>
-                  <strong>How to set location:</strong><br />
-                  • <strong>Auto-pin:</strong> Select barangay and enter address, then click "Locate on Map"<br />
-                  • <strong>Manual pin:</strong> Click anywhere on the map to set pin<br />
-                  • <strong>Adjust pin:</strong> Drag the marker to fine-tune location<br />
+                <div style={{marginTop:'8px', fontSize:'0.95em', color:'#555'}}>
+                  Tip: You can manually set the pin by clicking on the map or dragging the marker. Zoom in/out and pan to adjust view.<br />
                   {propertyData.manualPin && (
-                    <button 
-                      type="button" 
-                      className="ll-btn tiny outline" 
-                      style={{marginTop:'8px'}} 
-                      onClick={() => {
-                        setPropertyData(prev => ({ 
-                          ...prev, 
-                          latitude:'', 
-                          longitude:'', 
-                          manualPin: false 
-                        }));
-                        toast.info('Pin reset. Enter address and barangay to auto-fill location.');
-                      }}
-                    >
-                      Reset to Auto-location
-                    </button>
+                    <button type="button" className="ll-btn tiny outline" style={{marginTop:'8px'}} onClick={() => {
+                      setPropertyData(prev => ({ ...prev, latitude:'', longitude:'', manualPin: false }));
+                      toast.info('Pin reset. Enter address and barangay to auto-fill location.');
+                    }}>Reset Pin to Auto</button>
                   )}
                 </div>
               </div>

@@ -8,6 +8,9 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Minimum password length across registration and reset flows
+const MIN_PASSWORD_LENGTH = 8;
+
 // Sender configuration: allow a display name and an email address via env.
 // If RESEND_FROM_NAME is not provided we default to 'Tahanap'.
 // If RESEND_FROM_EMAIL is not provided we first try RESEND_FROM, then fallback to 'mail@tahanap.xyz'.
@@ -259,6 +262,11 @@ export const registerUser = async (req, res) => {
   const { username, email, fullName, address, password, role, contactNumber } = req.body;
   const lowerEmail = email.toLowerCase();
 
+  // Server-side password length enforcement
+  if (!password || String(password).length < MIN_PASSWORD_LENGTH) {
+    return res.status(400).json({ msg: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` });
+  }
+
   try {
     let user = await User.findOne({ email: lowerEmail });
 
@@ -500,8 +508,8 @@ export const resetPassword = async (req, res) => {
   const lowerEmail = email.toLowerCase();
 
   // Validate password strength before proceeding
-  if (newPassword.length < 6) {
-    return res.status(400).json({ msg: 'Password must be at least 6 characters' });
+  if (!newPassword || newPassword.length < MIN_PASSWORD_LENGTH) {
+    return res.status(400).json({ msg: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` });
   }
 
   try {
