@@ -127,7 +127,6 @@ export const addProperty = async (req, res) => {
                 latitude,
                 longitude,
                 propertyCondition,
-                totalUnits,
                 availabilityStatus,
                 billsIncluded,
                 marketHighlights
@@ -233,7 +232,7 @@ export const addProperty = async (req, res) => {
 
             const landlord = req.user.id;
 
-            // Enhanced landlord verification check
+            // Landlord verification check
             if (process.env.DISABLE_VERIFICATION !== 'true') {
                 if (req.user.role === 'landlord') {
                     const landlordUser = await User.findById(landlord).select('landlordVerified');
@@ -319,8 +318,6 @@ export const addProperty = async (req, res) => {
                 ? availabilityStatus 
                 : 'Available';
 
-            const totalUnitsNum = num(totalUnits, 1);
-
             // Normalize array fields
             const normalizeList = (v) => {
                 if (!v && v !== 0) return [];
@@ -358,8 +355,7 @@ export const addProperty = async (req, res) => {
                 latitude: latitude ? parseFloat(latitude) : null,
                 longitude: longitude ? parseFloat(longitude) : null,
                 status: 'approved',
-                availabilityStatus: finalAvailabilityStatus,
-                totalUnits: totalUnitsNum
+                availabilityStatus: finalAvailabilityStatus
             });
 
             await newProperty.save();
@@ -716,12 +712,6 @@ export const updateProperty = async (req, res) => {
                 panorama360: updatedPanorama
             };
 
-            if (req.body.totalUnits !== undefined) {
-                const newTotal = num(req.body.totalUnits, property.totalUnits || 1);
-                updatedData.totalUnits = newTotal;
-                updatedData.availabilityStatus = updatedData.availabilityStatus || property.availabilityStatus || 'Available';
-            }
-
             const updatedProperty = await Property.findByIdAndUpdate(
                 req.params.id, 
                 updatedData, 
@@ -805,9 +795,6 @@ export const setPropertyAvailability = async (req, res) => {
         if (property.landlord.toString() !== req.user.id && req.user.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
 
         const updates = {};
-        if (req.body.totalUnits !== undefined) {
-            updates.totalUnits = num(req.body.totalUnits, property.totalUnits || 0);
-        }
         if (req.body.availabilityStatus) {
             const allowedAvailability = ['Available','Not Available'];
             if (allowedAvailability.includes(req.body.availabilityStatus)) updates.availabilityStatus = req.body.availabilityStatus;

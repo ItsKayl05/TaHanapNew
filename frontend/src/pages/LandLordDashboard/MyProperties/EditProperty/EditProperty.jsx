@@ -63,8 +63,7 @@ const EditProperty = () => {
         numberOfRooms: "", 
         areaSqm: "",
         latitude: "", 
-        longitude: "",
-        totalUnits: 1
+        longitude: ""
     });
     
     const FORM_KEY = `edit-property-${propertyId}-v1`;
@@ -132,8 +131,7 @@ const EditProperty = () => {
                     numberOfRooms: data.numberOfRooms ?? "",
                     areaSqm: data.areaSqm ?? "",
                     latitude: data.latitude ?? "",
-                    longitude: data.longitude ?? "",
-                    totalUnits: data.totalUnits ?? 1
+                    longitude: data.longitude ?? ""
                 });
                 
                 setOriginalLatLng({
@@ -246,7 +244,7 @@ const EditProperty = () => {
         const saved = loadFormState(FORM_KEY);
         if (saved) {
             const allowed = [
-                'propertyType','billsIncluded','propertyCondition','marketHighlights','address','price','barangay','listingType','petFriendly','allowedPets','occupancy','parking','rules','landmarks','numberOfRooms','areaSqm','latitude','longitude','availabilityStatus','totalUnits'
+                'propertyType','billsIncluded','propertyCondition','marketHighlights','address','price','barangay','listingType','petFriendly','allowedPets','occupancy','parking','rules','landmarks','numberOfRooms','areaSqm','latitude','longitude','availabilityStatus'
             ];
             const toRestore = {};
             for (const k of allowed) {
@@ -396,9 +394,6 @@ const EditProperty = () => {
             if (formData.listingType === 'For Rent') {
                 formDataToSend.append('occupancy', parseLocaleNumber(formData.occupancy).toString());
             }
-            
-            // Handle totalUnits
-            formDataToSend.append('totalUnits', formData.totalUnits ? formData.totalUnits.toString() : '1');
             
             // Handle images
             newImages.forEach(file => formDataToSend.append('images', file));
@@ -676,12 +671,6 @@ const EditProperty = () => {
                             <div className="field-group">
                                 <label>Number of Rooms</label>
                                 <input className="ll-field" type="number" min={0} name="numberOfRooms" value={formData.numberOfRooms} onChange={handleChange} placeholder="e.g. 2" />
-                            </div>
-
-                            <div className="field-group">
-                                <label>Total Units</label>
-                                <input className="ll-field" type="number" min={1} name="totalUnits" value={formData.totalUnits} onChange={handleChange} placeholder="e.g. 1" />
-                                <div className="field-hint small">Number of available units</div>
                             </div>
 
                             <div className="field-group">

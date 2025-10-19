@@ -44,11 +44,6 @@ const propertySchema = new mongoose.Schema({
     min: 0,
     default: 0,
   },
-  totalUnits: {
-    type: Number,
-    min: 0,
-    default: 1,
-  },
   petFriendly: {
     type: Boolean,
     default: false,

@@ -88,8 +88,7 @@ const AddProperties = () => {
     video:null, 
     latitude:'', 
     longitude:'', 
-    availabilityStatus: 'Available',
-    totalUnits: 1
+    availabilityStatus: 'Available'
   });
 
   useEffect(() => {
@@ -354,9 +353,6 @@ const AddProperties = () => {
       formData.append('occupancy', parseLocaleNumber(propertyData.occupancy).toString());
     }
     
-    // Handle totalUnits - ensure it's always a number
-    formData.append('totalUnits', propertyData.totalUnits ? propertyData.totalUnits.toString() : '1');
-    
     if (panorama) {
       formData.append('panorama360', panorama);
     }
@@ -575,12 +571,6 @@ const AddProperties = () => {
               <div className="form-group">
                 <label>Number of Rooms</label>
                 <input className="ll-field" type="number" min={0} name="numberOfRooms" value={propertyData.numberOfRooms} onChange={handleInputChange} placeholder="e.g. 2" />
-              </div>
-              
-              <div className="form-group">
-                <label>Total Units</label>
-                <input className="ll-field" type="number" min={1} name="totalUnits" value={propertyData.totalUnits} onChange={handleInputChange} placeholder="e.g. 1" />
-                <div className="field-hint small">Number of available units (default: 1)</div>
               </div>
               
               <div className="form-group">
