@@ -302,33 +302,7 @@ const PropertyListingPage = () => {
                             {filtered.length} {filtered.length===1?'property':'properties'} found
                             {filtered.length>0 && <span className="results-metrics"> • Avg Size {avgArea.toFixed(1)} sqm {avgPricePerSqm>0 && `• Avg ₱${Math.round(avgPricePerSqm).toLocaleString()}/sqm`}</span>}
                         </div>
-                        <div className="filters-bar">
-                            <div className="filter-item">
-                                <label htmlFor="propertyTypeSelect">Type:</label>
-                                <select 
-                                    id="propertyTypeSelect" 
-                                    value={filters.propertyType} 
-                                    onChange={e => setFilters(prev => ({...prev, propertyType: e.target.value}))}
-                                >
-                                    <option value="">All Types</option>
-                                    <option value="For Rent">For Rent</option>
-                                    <option value="For Sale">For Sale</option>
-                                </select>
-                            </div>
-                            <div className="filter-item">
-                                <label htmlFor="sortSelect">Sort:</label>
-                                <select id="sortSelect" value={sortOption} onChange={e=>setSortOption(e.target.value)}>
-                                    <option value="newest">Newest</option>
-                                    <option value="oldest">Oldest</option>
-                                    <option value="priceDesc">Price High-Low</option>
-                                    <option value="priceAsc">Price Low-High</option>
-                                    <option value="roomsDesc">Rooms High-Low</option>
-                                    <option value="roomsAsc">Rooms Low-High</option>
-                                    <option value="areaDesc">Area High-Low</option>
-                                    <option value="areaAsc">Area Low-High</option>
-                                </select>
-                            </div>
-                        </div>
+                        {/* header now contains listing type + sort controls; removed duplicate controls here */}
                     </div>
                     </div>
                 </div>

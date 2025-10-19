@@ -511,6 +511,14 @@ export const updateProperty = async (req, res) => {
             return res.status(400).json({ error: err.message || "Error uploading media" });
         }
 
+        // Debug: log incoming non-file fields (keys only)
+        try {
+            const incomingKeys = Object.keys(req.body || {});
+            console.info('updateProperty invoked for id=%s, incoming body keys=%o, files=%o', req.params.id, incomingKeys, Object.keys(req.files || {}));
+        } catch (e) {
+            console.info('updateProperty invoked (failed to enumerate incoming keys)');
+        }
+
         try {
             const property = await Property.findById(req.params.id);
             if (!property) {
@@ -615,6 +623,20 @@ export const updateProperty = async (req, res) => {
             }
 
             if (errors.length > 0) {
+                // Add some server-side debugging output to help diagnose why the client request failed validation
+                try {
+                    console.warn('UpdateProperty validation failed for property', req.params.id);
+                    console.warn('Validation errors:', JSON.stringify(errors));
+                    // Log a compact snapshot of the incoming updates (avoid logging files/buffers)
+                    const incomingSnapshot = { ...updates };
+                    delete incomingSnapshot.images;
+                    delete incomingSnapshot.video;
+                    delete incomingSnapshot.panorama360;
+                    console.warn('Incoming update snapshot:', JSON.stringify(incomingSnapshot));
+                } catch (logErr) {
+                    console.warn('Error while logging validation context', logErr);
+                }
+
                 return res.status(400).json({
                     error: 'Please fix the following errors',
                     details: errors
@@ -629,21 +651,29 @@ export const updateProperty = async (req, res) => {
             if (req.body.deletedImages) {
                 let deletedImagesArray;
                 try {
-                    deletedImagesArray = Array.isArray(req.body.deletedImages) 
-                        ? req.body.deletedImages 
-                        : JSON.parse(req.body.deletedImages);
+                    if (Array.isArray(req.body.deletedImages)) {
+                        deletedImagesArray = req.body.deletedImages;
+                    } else {
+                        // It may be a JSON string or a plain single filename string
+                        try {
+                            deletedImagesArray = JSON.parse(req.body.deletedImages);
+                        } catch (e) {
+                            // Treat as single filename
+                            deletedImagesArray = [req.body.deletedImages];
+                        }
+                    }
                 } catch (e) {
                     deletedImagesArray = [];
                 }
-                
+
                 const imagesToDelete = updatedImages.filter(img => 
                     deletedImagesArray.some(deleted => img.includes(deleted))
                 );
-                
+
                 if (imagesToDelete.length > 0) {
                     await deleteCloudinaryAssets(imagesToDelete);
                 }
-                
+
                 updatedImages = updatedImages.filter(img => 
                     !deletedImagesArray.some(deleted => img.includes(deleted))
                 );
