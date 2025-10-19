@@ -1,14 +1,10 @@
-import fs from "fs/promises";
-import path from "path";
 import multer from "multer";
 import mongoose from 'mongoose';
 import Property from "../models/Property.js";
 import User from "../models/User.js";
 
-// Constants
 const MAX_IMAGES = 8;
 
-// Memory-based multer for Cloudinary uploads
 const memoryUpload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 50 * 1024 * 1024 },
@@ -32,13 +28,11 @@ const memoryUpload = multer({
 
 export const uploadMemory = memoryUpload;
 
-// Helper: safe number coercion
 const num = (v, def = 0) => {
     const n = Number(v);
     return Number.isFinite(n) && n >= 0 ? n : def;
 };
 
-// Helper function to delete Cloudinary assets
 const deleteCloudinaryAssets = async (urls) => {
     try {
         const { extractPublicId, default: cloudinary } = await import('../utils/cloudinary.js');
@@ -50,17 +44,9 @@ const deleteCloudinaryAssets = async (urls) => {
                 const publicId = extractPublicId(url);
                 if (!publicId) continue;
 
-                console.log('[Cloudinary Delete] Attempting to delete:', publicId);
-                
                 const resourceType = url.includes('/video/') ? 'video' : 'image';
                 
-                await cloudinary.uploader.destroy(publicId, { resource_type: resourceType })
-                    .then(result => {
-                        console.log('[Cloudinary Delete] Deleted:', publicId, result);
-                    })
-                    .catch(err => {
-                        console.error('[Cloudinary Delete] Failed to delete', publicId, err.message);
-                    });
+                await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
             } catch (innerErr) {
                 console.error('[Cloudinary Delete] Error processing URL for deletion:', innerErr);
             }
@@ -70,7 +56,6 @@ const deleteCloudinaryAssets = async (urls) => {
     }
 };
 
-// Helper function to upload files to Cloudinary
 const uploadToCloudinary = async (files, folder, resourceType = 'image') => {
     try {
         const { uploadBuffer, default: cloudinary } = await import('../utils/cloudinary.js');
@@ -98,7 +83,6 @@ const uploadToCloudinary = async (files, folder, resourceType = 'image') => {
     }
 };
 
-// 🏡 Add Property
 export const addProperty = async (req, res) => {
     let images = [];
     let video = '';
@@ -122,28 +106,12 @@ export const addProperty = async (req, res) => {
         }
 
         try {
-            // Debug logging
-            try {
-                console.log('[AddProperty] Request by user:', req.user ? { id: req.user.id, role: req.user.role } : 'anonymous');
-                console.log('[AddProperty] Body keys:', Object.keys(req.body || {}));
-                console.log('[AddProperty] Files:', Object.keys(req.files || {}).reduce((acc,k)=>{ acc[k]=(req.files[k]||[]).length; return acc; },{}));
-                
-                // DEBUG: Log the values
-                console.log('[AddProperty] propertyType value:', req.body.propertyType);
-                console.log('[AddProperty] listingType value:', req.body.listingType);
-            } catch(e) { console.error('[AddProperty] debug log failed', e); }
-            
-            const { propertyType, description, address, price, barangay, listingType, petFriendly, allowedPets, occupancy, parking, rules, landmarks, numberOfRooms, areaSqm, latitude, longitude } = req.body;
+            const { propertyType, address, price, barangay, listingType, petFriendly, allowedPets, occupancy, parking, rules, landmarks, numberOfRooms, areaSqm, latitude, longitude } = req.body;
 
-            // VALIDATION
             const validations = {
                 propertyType: {
                     required: true,
                     message: "Please select a property type"
-                },
-                description: {
-                    required: true,
-                    message: "Please add a description to help people understand your property better"
                 },
                 address: {
                     required: true,
@@ -163,12 +131,6 @@ export const addProperty = async (req, res) => {
                     required: true,
                     message: "Please select listing type"
                 },
-                occupancy: {
-                    required: true,
-                    message: "Please specify maximum occupancy",
-                    validate: value => !isNaN(Number(value)) && Number(value) > 0,
-                    errorMessage: "Maximum occupancy should be greater than 0"
-                },
                 areaSqm: {
                     required: true,
                     message: "Please provide the floor area (in square meters)",
@@ -177,40 +139,36 @@ export const addProperty = async (req, res) => {
                 }
             };
 
-            // Collect all validation errors
+            if (String(listingType).trim() === 'For Rent') {
+                validations.occupancy = {
+                    required: true,
+                    message: "Please specify maximum occupancy",
+                    validate: value => !isNaN(Number(value)) && Number(value) > 0,
+                    errorMessage: "Maximum occupancy should be greater than 0"
+                };
+            } else if (String(listingType).trim() === 'For Sale') {
+                validations.propertyCondition = {
+                    required: true,
+                    message: "Please select the property condition"
+                };
+            }
+
             const errors = [];
 
-            // Check required fields and validations
             for (const [field, validation] of Object.entries(validations)) {
                 const value = req.body[field];
                 
-                // Check required fields
                 if (validation.required && (!value || value.toString().trim() === '')) {
                     errors.push(validation.message);
                     continue;
                 }
 
-                // Check validations if value is provided
                 if (value && validation.validate && !validation.validate(value)) {
                     errors.push(validation.errorMessage || validation.message);
                 }
             }
 
-            // Return if there are any validation errors
             if (errors.length > 0) {
-                try { 
-                    console.log('[AddProperty] Validation errors:', errors); 
-                    console.log('[AddProperty] Received data:', {
-                        propertyType: req.body.propertyType,
-                        listingType: req.body.listingType,
-                        description: req.body.description ? 'present' : 'missing',
-                        address: req.body.address ? 'present' : 'missing',
-                        price: req.body.price,
-                        barangay: req.body.barangay,
-                        occupancy: req.body.occupancy,
-                        areaSqm: req.body.areaSqm
-                    });
-                } catch(e){}
                 return res.status(400).json({
                     errors: errors
                 });
@@ -218,11 +176,9 @@ export const addProperty = async (req, res) => {
 
             const landlord = req.user.id;
 
-            // Verification gating
             if (process.env.DISABLE_VERIFICATION !== 'true') {
                 if (req.user.role === 'landlord') {
                     if (req.user.landlordVerified === false || req.user.landlordVerified === undefined) {
-                        const { default: User } = await import('../models/User.js');
                         const landlordUser = await User.findById(landlord).select('landlordVerified');
                         if (!landlordUser || !landlordUser.landlordVerified) {
                             return res.status(403).json({ error: 'Landlord not verified. Please upload required IDs and wait for admin approval.' });
@@ -233,7 +189,6 @@ export const addProperty = async (req, res) => {
                 }
             }
 
-            // Handle media uploads
             if (req.files?.images && req.files.images.length > 0) {
                 try {
                     for (const file of req.files.images) {
@@ -253,7 +208,6 @@ export const addProperty = async (req, res) => {
                 }
             }
             
-            // Handle video upload
             if (req.files?.video && req.files.video.length > 0) {
                 try {
                     const videoFile = req.files.video[0];
@@ -272,7 +226,6 @@ export const addProperty = async (req, res) => {
                 }
             }
             
-            // Handle panorama upload
             if (req.files?.panorama360 && req.files.panorama360.length > 0) {
                 try {
                     const panoramaFile = req.files.panorama360[0];
@@ -305,22 +258,35 @@ export const addProperty = async (req, res) => {
 
             const totalUnitsNum = num(req.body.totalUnits, 1);
 
+            const normalizeList = (v) => {
+                if (!v && v !== 0) return [];
+                if (Array.isArray(v)) return v.map(s => String(s).trim()).filter(Boolean);
+                if (typeof v === 'string') return v.split(',').map(s => s.trim()).filter(Boolean);
+                return [];
+            };
+
+            const normalizedAllowedPets = normalizeList(allowedPets);
+            const normalizedBills = normalizeList(req.body.billsIncluded || req.body.bills);
+            const normalizedHighlights = normalizeList(req.body.marketHighlights || req.body.market_highlights || req.body.highlights);
+
             const newProperty = new Property({
                 landlord,
-                title: propertyType, // MAP: propertyType → title field in database
-                description,
+                title: propertyType,
                 address,
                 price: num(price),
                 barangay,
-                propertyType: listingType, // MAP: listingType → propertyType field in database
+                propertyType: listingType,
                 petFriendly: petFriendly === 'true' || petFriendly === true,
-                allowedPets,
+                allowedPets: normalizedAllowedPets,
                 occupancy: num(occupancy, 1),
                 parking: parking === 'true' || parking === true,
                 rules,
                 landmarks,
                 numberOfRooms: num(numberOfRooms, 0),
                 areaSqm: num(areaSqm, 0),
+                billsIncluded: normalizedBills,
+                marketHighlights: normalizedHighlights,
+                propertyCondition: req.body.propertyCondition || '',
                 images,
                 video,
                 panorama360,
@@ -363,7 +329,6 @@ export const addProperty = async (req, res) => {
     });
 };
 
-// 🏡 Get All Properties
 export const getAllProperties = async (req, res) => {
     try {
         const { propertyType } = req.query;
@@ -395,19 +360,10 @@ export const getAllProperties = async (req, res) => {
         })));
     } catch (error) {
         console.error('Get Properties Error:', error);
-        if (error instanceof mongoose.Error) {
-            console.error('Mongoose Error Details:', {
-                message: error.message,
-                name: error.name,
-                stack: error.stack,
-                errors: error.errors
-            });
-        }
         res.status(500).json({ error: 'Error fetching properties', details: error.message });
     }
 };
 
-// 🏡 Get Properties by Landlord
 export const getPropertiesByLandlord = async (req, res) => {
     try {
         const properties = await Property.find({ landlord: req.user.id }).populate('landlord', 'fullName username profilePic landlordVerified contactNumber');
@@ -431,7 +387,6 @@ export const getPropertiesByLandlord = async (req, res) => {
     }
 };
 
-// 🏡 Get Single Property
 export const getProperty = async (req, res) => {
     try {
         const property = await Property.findById(req.params.id).populate('landlord', 'fullName username profilePic address contactNumber landlordVerified');
@@ -457,7 +412,6 @@ export const getProperty = async (req, res) => {
     }
 };
 
-// 🏡 Update Property
 export const updateProperty = async (req, res) => {
     uploadMemory(req, res, async (err) => {
         if (err) {
@@ -480,16 +434,12 @@ export const updateProperty = async (req, res) => {
             
             delete updates.landlord;
             delete updates.status;
+            delete updates.description;
 
-            // VALIDATION
             const validations = {
                 propertyType: {
                     required: true,
                     message: "Please select a property type"
-                },
-                description: {
-                    required: true,
-                    message: "Please provide a description for your property"
                 },
                 address: {
                     required: true,
@@ -525,7 +475,6 @@ export const updateProperty = async (req, res) => {
 
             const errors = [];
 
-            // Handle boolean conversions first
             if (typeof updates.petFriendly === 'string') {
                 updates.petFriendly = updates.petFriendly === 'true';
             }
@@ -533,7 +482,18 @@ export const updateProperty = async (req, res) => {
                 updates.parking = updates.parking === 'true';
             }
 
-            // Validate fields that are being updated
+            const normalizeList = (v) => {
+                if (!v && v !== 0) return [];
+                if (Array.isArray(v)) return v.map(s => String(s).trim()).filter(Boolean);
+                if (typeof v === 'string') return v.split(',').map(s => s.trim()).filter(Boolean);
+                return [];
+            };
+
+            if ('allowedPets' in updates) updates.allowedPets = normalizeList(updates.allowedPets);
+            if ('billsIncluded' in updates) updates.billsIncluded = normalizeList(updates.billsIncluded);
+            if ('marketHighlights' in updates) updates.marketHighlights = normalizeList(updates.marketHighlights);
+            if ('propertyCondition' in updates) updates.propertyCondition = updates.propertyCondition || '';
+
             for (const [field, validation] of Object.entries(validations)) {
                 if (field in updates) {
                     const value = updates[field];
@@ -559,7 +519,6 @@ export const updateProperty = async (req, res) => {
             let updatedVideo = property.video || '';
             let updatedPanorama = property.panorama360 || '';
 
-            // Remove deleted images
             if (req.body.deletedImages) {
                 const imagesToDelete = updatedImages.filter(img => 
                     req.body.deletedImages.some(deleted => img.includes(deleted))
@@ -572,7 +531,6 @@ export const updateProperty = async (req, res) => {
                 );
             }
 
-            // Handle new image uploads
             if (req.files?.images && req.files.images.length > 0) {
                 const newImages = await uploadToCloudinary(req.files.images, 'images', 'image');
                 updatedImages = [...updatedImages, ...newImages];
@@ -585,7 +543,6 @@ export const updateProperty = async (req, res) => {
                 return res.status(400).json({ error: `Maximum of ${MAX_IMAGES} images allowed` });
             }
 
-            // Handle video upload / replacement
             if (req.files?.video && req.files.video.length > 0) {
                 if (updatedVideo) {
                     await deleteCloudinaryAssets([updatedVideo]);
@@ -593,13 +550,11 @@ export const updateProperty = async (req, res) => {
                 updatedVideo = await uploadToCloudinary(req.files.video, 'videos', 'video');
             }
 
-            // Allow explicit video removal
             if (req.body.removeVideo === 'true' && updatedVideo) {
                 await deleteCloudinaryAssets([updatedVideo]);
                 updatedVideo = '';
             }
 
-            // Handle panorama360 upload/replacement
             if (req.files?.panorama360 && req.files.panorama360.length > 0) {
                 if (updatedPanorama) {
                     await deleteCloudinaryAssets([updatedPanorama]);
@@ -608,16 +563,13 @@ export const updateProperty = async (req, res) => {
                 updatedPanorama = newPanorama[0] || '';
             }
 
-            // Allow explicit panorama removal
             if (req.body.removePanorama === 'true' && updatedPanorama) {
                 await deleteCloudinaryAssets([updatedPanorama]);
                 updatedPanorama = '';
             }
 
-            // Prevent landlords from arbitrarily changing admin workflow status
             if (req.body.status) delete req.body.status;
 
-            // Allow landlords to change availabilityStatus but validate values
             const allowedAvailability = ['Available','Not Available'];
             let availabilityStatus;
             if (req.body.availabilityStatus && allowedAvailability.includes(req.body.availabilityStatus)) {
@@ -627,8 +579,8 @@ export const updateProperty = async (req, res) => {
             const updatedData = {
                 ...req.body,
                 ...(availabilityStatus ? { availabilityStatus } : {}),
-                title: req.body.propertyType || property.title, // MAP: propertyType → title
-                propertyType: req.body.listingType || property.propertyType, // MAP: listingType → propertyType
+                title: req.body.propertyType || property.title,
+                propertyType: req.body.listingType || property.propertyType,
                 price: req.body.price !== undefined ? num(req.body.price) : property.price,
                 occupancy: req.body.occupancy !== undefined ? num(req.body.occupancy, 1) : property.occupancy,
                 petFriendly: req.body.petFriendly !== undefined ? (req.body.petFriendly === 'true' || req.body.petFriendly === true) : property.petFriendly,
@@ -661,7 +613,6 @@ export const updateProperty = async (req, res) => {
     });
 };
 
-// 🛡️ Admin: update status
 export const setPropertyStatus = async (req, res) => {
     try {
         if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
@@ -681,7 +632,6 @@ export const setPropertyStatus = async (req, res) => {
     }
 };
 
-// 🏡 Delete Property
 export const deleteProperty = async (req, res) => {
     try {
         const property = await Property.findById(req.params.id);
@@ -708,7 +658,6 @@ export const deleteProperty = async (req, res) => {
     }
 };
 
-// Landlord: adjust availability or availableUnits manually
 export const setPropertyAvailability = async (req, res) => {
     try {
         const property = await Property.findById(req.params.id);

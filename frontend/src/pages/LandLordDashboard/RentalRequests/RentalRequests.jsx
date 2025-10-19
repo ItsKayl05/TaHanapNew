@@ -104,7 +104,7 @@ const RentalRequests = () => {
                 <div className="actions">
                   <button 
                     onClick={() => handleApprove(a._id)} 
-                    disabled={property && property.availabilityStatus === 'Fully Occupied'}
+                    disabled={property && property.availabilityStatus === 'Not Available'}
                     className="approve-btn"
                   >
                     <FaCheckCircle /> Approve

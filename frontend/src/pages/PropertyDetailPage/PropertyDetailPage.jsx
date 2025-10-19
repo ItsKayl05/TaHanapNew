@@ -93,8 +93,8 @@ const PropertyDetailPage = () => {
         arrows: true,
     };
 
-    // Availability: rely on availabilityStatus determined server-side
-    const isAvailable = property.availabilityStatus !== 'Fully Occupied';
+    // Availability: rely on normalized availabilityStatus determined server-side ('Available'|'Not Available')
+    const isAvailable = property.availabilityStatus !== 'Not Available';
 
     return (
         <div className="property-detail-container">
@@ -105,7 +105,7 @@ const PropertyDetailPage = () => {
                 <div className="property-header">
                     <h1 className="gradient-text">{property.title}</h1>
                     <p className="property-location"><FaMapMarkerAlt /> {property.barangay}, San Jose Del Monte</p>
-                    <div className="status-remark">{ property.availabilityStatus ? property.availabilityStatus : (property.occupancy >= (property.numberOfRooms || 1) ? 'Fully Occupied' : (property.numberOfRooms>0 ? 'Available' : 'Not Yet Ready')) }</div>
+                    <div className="status-remark">{ property.availabilityStatus ?? (property.numberOfRooms>0 ? 'Available' : 'Not Yet Ready') }</div>
                 </div>
             </div>
 
@@ -170,6 +170,9 @@ const PropertyDetailPage = () => {
                                 <span className={`property-type-badge ${property.propertyType?.toLowerCase().replace(/\s+/g, '-')}`}>
                                     {property.propertyType || "For Rent"}
                                 </span>
+                                <span className={`property-badge availability-badge ${property.availabilityStatus === 'Not Available' ? 'not-available' : 'available'}`}>
+                                    {property.availabilityStatus || 'Available'}
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -191,12 +194,17 @@ const PropertyDetailPage = () => {
                                 <span>{property.areaSqm} sqm</span>
                             </div>
                         )}
-                        {property.petFriendly && (
-                            <div className="feature">
-                                <FaPaw className="feature-icon" />
-                                <span>Pet Friendly</span>
-                            </div>
-                        )}
+                                                {property.petFriendly && (
+                                                        <div className="feature">
+                                                                <FaPaw className="feature-icon" />
+                                                                <span>
+                                                                    Pet Friendly
+                                                                    {property.allowedPets && property.allowedPets.length > 0 ? (
+                                                                        <span style={{marginLeft:8,fontWeight:500,fontSize:'0.9rem'}}>{Array.isArray(property.allowedPets) ? property.allowedPets.join(', ') : property.allowedPets}</span>
+                                                                    ) : null}
+                                                                </span>
+                                                        </div>
+                                                )}
                         {property.parking && (
                             <div className="feature">
                                 <FaCar className="feature-icon" />
@@ -252,10 +260,31 @@ const PropertyDetailPage = () => {
                         )}
                     </div>
 
-                    {property.description && (
+                    {/* New structured fields replacing description */}
+                    {((property.billsIncluded && property.billsIncluded.length > 0) || property.propertyCondition || (property.marketHighlights && property.marketHighlights.length > 0)) && (
                         <div className="description-section">
-                            <h3>Description</h3>
-                            <p>{property.description}</p>
+                            <h3>Property Highlights</h3>
+                            {property.propertyCondition && (
+                                <div style={{marginBottom:8}}>
+                                    <strong>Condition:</strong> <span>{property.propertyCondition}</span>
+                                </div>
+                            )}
+                            {property.billsIncluded && property.billsIncluded.length > 0 && (
+                                <div style={{marginBottom:8}}>
+                                    <strong>Bills Included:</strong>
+                                    <div style={{marginTop:6}}>{Array.isArray(property.billsIncluded) ? property.billsIncluded.join(', ') : property.billsIncluded}</div>
+                                </div>
+                            )}
+                            {property.marketHighlights && property.marketHighlights.length > 0 && (
+                                <div style={{marginTop:6}}>
+                                    <strong>Market Highlights:</strong>
+                                    <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:8}}>
+                                        {(Array.isArray(property.marketHighlights) ? property.marketHighlights : String(property.marketHighlights).split(',').map(s=>s.trim())).map((mh,idx)=> (
+                                            <span key={idx} className="feature-tag" style={{background:'#eef', color:'#114'}}>{mh}</span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 

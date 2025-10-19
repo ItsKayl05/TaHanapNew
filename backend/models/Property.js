@@ -8,17 +8,10 @@ const propertySchema = new mongoose.Schema({
     ref: "User",
     required: true,
   },
-  // `title` stores the enumerated property kind (e.g. House, Apartment, Lot).
-  // This is intentionally separate from `propertyType` which stores the listing type (For Rent / For Sale).
   title: {
     type: String,
     required: true,
     enum: PROPERTY_TYPES,
-    trim: true,
-  },
-  description: {
-    type: String,
-    required: true,
     trim: true,
   },
   address: {
@@ -44,14 +37,13 @@ const propertySchema = new mongoose.Schema({
   numberOfRooms: {
     type: Number,
     min: 0,
-    default: 0, // 0 can represent studio / open layout
+    default: 0,
   },
   areaSqm: {
     type: Number,
     min: 0,
     default: 0,
   },
-  // Unit counts for multi-unit properties (e.g., dorms, apartments with multiple rentable units)
   totalUnits: {
     type: Number,
     min: 0,
@@ -62,8 +54,21 @@ const propertySchema = new mongoose.Schema({
     default: false,
   },
   allowedPets: {
+    type: [String],
+    default: []
+  },
+  billsIncluded: {
+    type: [String],
+    default: []
+  },
+  propertyCondition: {
     type: String,
-    default: "",
+    enum: ['Fully Furnished','Semi-Furnished','Unfurnished','Brand New','Pre-owned / Resale'],
+    default: ''
+  },
+  marketHighlights: {
+    type: [String],
+    default: []
   },
   occupancy: {
     type: Number,
@@ -83,7 +88,7 @@ const propertySchema = new mongoose.Schema({
     default: "",
   },
   images: {
-    type: [String], // Storing image URLs
+    type: [String],
     default: [],
   },
   latitude: {
@@ -94,24 +99,20 @@ const propertySchema = new mongoose.Schema({
     type: Number,
     default: null,
   },
-  // Optional single video clip for the property (e.g. walkthrough) – stored as relative path like /uploads/properties/12345.mp4
   video: {
     type: String,
     default: "",
   },
-  // Optional 360 panoramic image (equirectangular)
   panorama360: {
     type: String,
     default: "",
   },
-  // Admin workflow status (approved/pending/rejected) - kept separate from availability remark
   status: {
     type: String,
     enum: ['approved','pending','rejected','archived'],
     default: 'approved',
     index: true
   },
-  // Human-facing availability remark controlled by landlord: Available / Fully Occupied / Not Yet Ready
   availabilityStatus: {
     type: String,
     enum: ['Available','Not Available'],

@@ -286,6 +286,17 @@
   background: linear-gradient(135deg, #3b82f6, #2563eb);
 }
 
+.availability-badge.available {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+}
+.availability-badge.not-available {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #fff;
+}
+
+.pet-types label { font-weight:500; }
+
 /* Features */
 .property-features { 
   display:flex; 

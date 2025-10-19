@@ -13,7 +13,6 @@ import Sidebar from "../../Sidebar/Sidebar";
 import { buildApi, buildUpload } from '../../../../services/apiConfig';
 import { saveFormState, loadFormState, saveFiles, loadFiles, clearFormPersistence } from '../../../../utils/formPersistence';
 
-// Property types to choose from
 const PROPERTY_TYPES = ['House','House and Lot','Apartment','Condominium','Townhouse','Dormitory','Bedspace','Studio Unit','Lot','Land','Commercial Space','Office Space','Warehouse','Building','Bungalow','Duplex','Triplex','Inner Lot','Corner Lot'];
 
 const barangays = [
@@ -44,59 +43,37 @@ const EditProperty = () => {
     const { propertyId } = useParams();
     const navigate = useNavigate();
     const [property, setProperty] = useState(null);
+    
     const [formData, setFormData] = useState({
-        propertyType: "", description: "", address: "", price: "", barangay: "", listingType: "",
-        petFriendly: false, allowedPets: "", occupancy: "", parking: false, rules: "",
-        landmarks: "", availabilityStatus: "Available", numberOfRooms: "", areaSqm: "",
-        latitude: "", longitude: ""
+        propertyType: "", 
+        billsIncluded: [], 
+        propertyCondition: '', 
+        marketHighlights: [], 
+        address: "", 
+        price: "", 
+        barangay: "", 
+        listingType: "",
+        petFriendly: false, 
+        allowedPets: [], 
+        occupancy: "", 
+        parking: false, 
+        rules: "",
+        landmarks: "", 
+        availabilityStatus: "Available", 
+        numberOfRooms: "", 
+        areaSqm: "",
+        latitude: "", 
+        longitude: ""
     });
+    
     const FORM_KEY = `edit-property-${propertyId}-v1`;
 
-    // Restore persisted state for edit form (only after initial load)
-    useEffect(() => {
-        const saved = loadFormState(FORM_KEY);
-            if (saved) {
-                const allowed = [
-                    'propertyType','description','address','price','barangay','listingType','petFriendly','allowedPets','occupancy','parking','rules','landmarks','numberOfRooms','areaSqm','latitude','longitude','availabilityStatus'
-                ];
-                const toRestore = {};
-                for (const k of allowed) {
-                    if (saved.fields && Object.prototype.hasOwnProperty.call(saved.fields, k)) toRestore[k] = saved.fields[k];
-                }
-                setFormData(prev => ({ ...prev, ...toRestore }));
-            }
-        (async () => {
-            try {
-                const imgs = await loadFiles(FORM_KEY, 'images');
-                if (imgs && imgs.length) {
-                    // add blob previews to newImages
-                    setNewImages(prev => [...prev, ...imgs.filter(i=>i.blob).map(i=>i.blob)]);
-                }
-                const vid = await loadFiles(FORM_KEY, 'video');
-                if (vid && vid.length) {
-                    setVideoFile(vid[0].blob || null);
-                    setVideoPreview(vid[0].url);
-                }
-                const pan = await loadFiles(FORM_KEY, 'panorama');
-                if (pan && pan.length) {
-                    setPanorama(pan[0].blob || null);
-                    setPanoramaPreview(pan[0].url);
-                }
-            } catch (e) { console.error('restore edit persistence', e); }
-        })();
-    }, [propertyId]);
-
-    // Save form fields to localStorage
     useEffect(() => {
         const toSave = { fields: { ...formData } };
         const id = setTimeout(()=> saveFormState(FORM_KEY, toSave), 300);
         return () => clearTimeout(id);
     }, [formData]);
-
-    // Save file changes
-    useEffect(() => { if (newImages && newImages.length) saveFiles(FORM_KEY,'images', newImages.filter(f=> f instanceof File)).catch(()=>{}); }, [newImages]);
-    useEffect(() => { if (videoFile && videoFile instanceof File) saveFiles(FORM_KEY,'video',[videoFile]).catch(()=>{}); }, [videoFile]);
-    useEffect(() => { if (panorama && panorama instanceof File) saveFiles(FORM_KEY,'panorama',[panorama]).catch(()=>{}); }, [panorama]);
+    
     const [manualPin, setManualPin] = useState(false);
     const [images, setImages] = useState([]);
     const [newImages, setNewImages] = useState([]);
@@ -126,7 +103,7 @@ const EditProperty = () => {
 
                 const data = await response.json();
                 setProperty(data);
-                // Always convert landmarks to array for form
+                
                 let landmarksArr = [];
                 if (Array.isArray(data.landmarks)) {
                   landmarksArr = data.landmarks;
@@ -134,16 +111,17 @@ const EditProperty = () => {
                   landmarksArr = data.landmarks.split(',').map(l => l.trim()).filter(l => l);
                 }
                 
-                // IMPORTANT: Map the database fields to the new form fields
                 setFormData({
-                    propertyType: data.title, // Map: title → propertyType
-                    description: data.description,
+                    propertyType: data.title,
+                    billsIncluded: Array.isArray(data.billsIncluded) ? data.billsIncluded : (typeof data.billsIncluded === 'string' && data.billsIncluded.trim() ? data.billsIncluded.split(',').map(s=>s.trim()) : []),
+                    propertyCondition: data.propertyCondition || '',
+                    marketHighlights: Array.isArray(data.marketHighlights) ? data.marketHighlights : (typeof data.marketHighlights === 'string' && data.marketHighlights.trim() ? data.marketHighlights.split(',').map(s=>s.trim()) : []),
                     address: data.address,
                     price: data.price,
                     barangay: data.barangay,
-                    listingType: data.propertyType, // Map: propertyType → listingType
+                    listingType: data.propertyType,
                     petFriendly: data.petFriendly,
-                    allowedPets: data.allowedPets,
+                    allowedPets: Array.isArray(data.allowedPets) ? data.allowedPets : (typeof data.allowedPets === 'string' && data.allowedPets.trim() ? data.allowedPets.split(',').map(s=>s.trim()) : []),
                     occupancy: data.occupancy,
                     availabilityStatus: data.availabilityStatus ?? 'Available',
                     parking: data.parking,
@@ -155,6 +133,7 @@ const EditProperty = () => {
                     latitude: data.latitude ?? "",
                     longitude: data.longitude ?? ""
                 });
+                
                 setOriginalLatLng({
                     lat: data.latitude ?? "",
                     lng: data.longitude ?? ""
@@ -205,7 +184,7 @@ const EditProperty = () => {
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
         let newValue = value;
-        // Special handling for price: allow localized group/decimal while typing
+        
         if (name === 'price') {
             const parts = new Intl.NumberFormat(navigator.language).formatToParts(12345.6);
             const group = parts.find(p => p.type === 'group')?.value || ',';
@@ -220,11 +199,12 @@ const EditProperty = () => {
             }
             newValue = sanitized;
         }
-        // Normalize landmark value to match filter (trim, exact string)
+        
         if (name === 'landmarks') {
             const found = LANDMARKS.find(l => l === value);
             newValue = found || value;
         }
+        
         setFormData({
             ...formData,
             [name]: type === "checkbox" ? checked : newValue,
@@ -265,117 +245,176 @@ const EditProperty = () => {
         }
     };
 
+    useEffect(() => {
+        const saved = loadFormState(FORM_KEY);
+        if (saved) {
+            const allowed = [
+                'propertyType','billsIncluded','propertyCondition','marketHighlights','address','price','barangay','listingType','petFriendly','allowedPets','occupancy','parking','rules','landmarks','numberOfRooms','areaSqm','latitude','longitude','availabilityStatus'
+            ];
+            const toRestore = {};
+            for (const k of allowed) {
+                if (saved.fields && Object.prototype.hasOwnProperty.call(saved.fields, k)) toRestore[k] = saved.fields[k];
+            }
+            setFormData(prev => ({ ...prev, ...toRestore }));
+        }
+        
+        (async () => {
+            try {
+                const imgs = await loadFiles(FORM_KEY, 'images');
+                if (imgs && imgs.length) {
+                    setNewImages(prev => [...prev, ...imgs.filter(i=>i.blob).map(i=>i.blob)]);
+                }
+                const vid = await loadFiles(FORM_KEY, 'video');
+                if (vid && vid.length) {
+                    setVideoFile(vid[0].blob || null);
+                    setVideoPreview(vid[0].url);
+                }
+                const pan = await loadFiles(FORM_KEY, 'panorama');
+                if (pan && pan.length) {
+                    setPanorama(pan[0].blob || null);
+                    setPanoramaPreview(pan[0].url);
+                }
+            } catch (e) { console.error('restore edit persistence', e); }
+        })();
+    }, [propertyId]);
+
+    useEffect(() => {
+        const lt = formData.listingType;
+        setFormData(prev => {
+            const next = { ...prev };
+            if (lt === 'For Rent') {
+                next.propertyCondition = '';
+                next.marketHighlights = [];
+            } else if (lt === 'For Sale') {
+                next.occupancy = '';
+                next.petFriendly = false;
+                next.allowedPets = [];
+                next.rules = '';
+                next.billsIncluded = [];
+            }
+            return next;
+        });
+    }, [formData.listingType]);
+
+    useEffect(() => { if (newImages && newImages.length) saveFiles(FORM_KEY,'images', newImages.filter(f=> f instanceof File)).catch(()=>{}); }, [newImages]);
+    useEffect(() => { if (videoFile && videoFile instanceof File) saveFiles(FORM_KEY,'video',[videoFile]).catch(()=>{}); }, [videoFile]);
+    useEffect(() => { if (panorama && panorama instanceof File) saveFiles(FORM_KEY,'panorama',[panorama]).catch(()=>{}); }, [panorama]);
+
     const handleSubmit = async (e) => {
-  e.preventDefault();
-  if (submitting) return;
-  try {
-    const userToken = localStorage.getItem("user_token");
-    if (!userToken) throw new Error("Unauthorized access. Please log in.");
-    
-    // Client-side validation
-    const requiredChecks = [
-        { key: 'propertyType', ok: formData.propertyType && formData.propertyType.toString().trim() !== '', msg: "Please select a property type" },
-        { key: 'description', ok: formData.description && formData.description.toString().trim() !== '', msg: "Please provide a description for your property" },
-        { key: 'address', ok: formData.address && formData.address.toString().trim() !== '', msg: "The property address cannot be empty" },
-        { key: 'price', ok: formData.price && formData.price.toString().trim() !== '', msg: "Don't forget to set a price" },
-        { key: 'barangay', ok: formData.barangay && formData.barangay.toString().trim() !== '', msg: "Please select a barangay for your property" },
-        { key: 'listingType', ok: formData.listingType && formData.listingType.toString().trim() !== '', msg: "Please select listing type" },
-        { key: 'areaSqm', ok: formData.areaSqm !== undefined && formData.areaSqm !== '' && !isNaN(Number(formData.areaSqm)) && Number(formData.areaSqm) > 0, msg: "Please provide the floor area (in square meters)" },
-        { key: 'occupancy', ok: formData.occupancy && formData.occupancy.toString().trim() !== '', msg: "Please specify maximum occupancy" }
-    ];
-    
-    for (const chk of requiredChecks) {
-        if (!chk.ok) { toast.error(chk.msg); return; }
-    }
-
-    // Validate and convert price (locale-aware)
-    const parseLocaleNumber = (str) => {
-        if (str === undefined || str === null || String(str).trim() === '') return NaN;
-        const nfParts = new Intl.NumberFormat(navigator.language).formatToParts(12345.6);
-        const group = nfParts.find(p => p.type === 'group')?.value || ',';
-        const decimal = nfParts.find(p => p.type === 'decimal')?.value || '.';
-        const esc = s => s.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
-        let normalized = String(str).replace(new RegExp(esc(group), 'g'), '');
-        if (decimal !== '.') normalized = normalized.replace(new RegExp(esc(decimal)), '.');
-        normalized = normalized.replace(/\s/g, '');
-        normalized = normalized.replace(/[^0-9.\-]/g, '');
-        const num = Number(normalized);
-        return isNaN(num) ? NaN : num;
-    };
-    
-    const priceNum = parseLocaleNumber(formData.price);
-    if (isNaN(priceNum) || priceNum < 0) {
-        toast.error('Please enter a valid price');
-        return;
-    }
-
-    setSubmitting(true);
-
-    const formDataToSend = new FormData();
-    // Combine landmarks array and customLandmark into a single string
-    let landmarksArr = Array.isArray(formData.landmarks) ? [...formData.landmarks] : (formData.landmarks ? [formData.landmarks] : []);
-    // Always save as lowercase and trimmed
-    landmarksArr = landmarksArr.map(l => l.trim().toLowerCase()).filter(l => l);
-    if (formData.customLandmark && formData.customLandmark.trim()) {
-        landmarksArr.push(formData.customLandmark.trim().toLowerCase());
-    }
-    const landmarksString = landmarksArr.join(', ');
-
-    // Append all form data with the new field names
-    Object.entries(formData).forEach(([key, value]) => {
-        if (key === 'landmarks') {
-            formDataToSend.append('landmarks', landmarksString);
-        } else if (key === 'customLandmark') {
-            /* skip, already merged above */
-        } else if (key === 'price') {
-            // skip here; we'll append numeric price below
-        } else if (value !== undefined && value !== null && value !== "") {
-            formDataToSend.append(key, value);
-        }
-    });
-    
-    // append numeric price value
-    formDataToSend.append('price', priceNum);
-    images.forEach(img => formDataToSend.append('existingImages', img));
-    deletedImages.forEach(img => formDataToSend.append('deletedImages[]', img.split('/').pop()));
-    newImages.forEach(file => formDataToSend.append('images', file));
-    if (videoFile) formDataToSend.append('video', videoFile);
-    if (removeVideo) formDataToSend.append('removeVideo', 'true');
-    if (panorama) {
-        formDataToSend.append('panorama360', panorama);
-    } else if (existingPanorama === null && property && property.panorama360) {
-        formDataToSend.append('removePanorama', 'true');
-    }
-    
-    const response = await fetch(buildApi(`/properties/${propertyId}`), {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${userToken}` },
-        body: formDataToSend
-    });
-    const data = await response.json();
-    if (!response.ok) {
-        if (data.errors && Array.isArray(data.errors)) {
-            data.errors.forEach(error => toast.error(error));
-        } else if (data.error && typeof data.error === 'string') {
-            toast.error(data.error);
-        } else if (data.message) {
-            toast.error(data.message);
-        } else {
-            toast.error('Failed to update property');
-        }
-        return;
-    }
-    toast.success('Property updated successfully');
+        e.preventDefault();
+        if (submitting) return;
         try {
-            await clearFormPersistence(FORM_KEY);
-        } catch (e) { console.error('Failed to clear draft after update', e); }
-        navigate('/my-properties');
-    } catch (err) {
-        toast.error(err.message || 'Error updating property');
-    } finally {
-        setSubmitting(false);
-    }
-};
+            const userToken = localStorage.getItem("user_token");
+            if (!userToken) throw new Error("Unauthorized access. Please log in.");
+            
+            const requiredChecks = [
+                { key: 'propertyType', ok: formData.propertyType && formData.propertyType.toString().trim() !== '', msg: "Please select a property type" },
+                { key: 'propertyCondition', ok: formData.propertyCondition && formData.propertyCondition.toString().trim() !== '', msg: "Please select the property condition" },
+                { key: 'address', ok: formData.address && formData.address.toString().trim() !== '', msg: "The property address cannot be empty" },
+                { key: 'price', ok: formData.price && formData.price.toString().trim() !== '', msg: "Don't forget to set a price" },
+                { key: 'barangay', ok: formData.barangay && formData.barangay.toString().trim() !== '', msg: "Please select a barangay for your property" },
+                { key: 'listingType', ok: formData.listingType && formData.listingType.toString().trim() !== '', msg: "Please select listing type" },
+                { key: 'areaSqm', ok: formData.areaSqm !== undefined && formData.areaSqm !== '' && !isNaN(Number(formData.areaSqm)) && Number(formData.areaSqm) > 0, msg: "Please provide the floor area (in square meters)" },
+                { key: 'occupancy', ok: formData.occupancy && formData.occupancy.toString().trim() !== '', msg: "Please specify maximum occupancy" }
+            ];
+            
+            for (const chk of requiredChecks) {
+                if (!chk.ok) { toast.error(chk.msg); return; }
+            }
+
+            const parseLocaleNumber = (str) => {
+                if (str === undefined || str === null || String(str).trim() === '') return NaN;
+                const nfParts = new Intl.NumberFormat(navigator.language).formatToParts(12345.6);
+                const group = nfParts.find(p => p.type === 'group')?.value || ',';
+                const decimal = nfParts.find(p => p.type === 'decimal')?.value || '.';
+                const esc = s => s.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
+                let normalized = String(str).replace(new RegExp(esc(group), 'g'), '');
+                if (decimal !== '.') normalized = normalized.replace(new RegExp(esc(decimal)), '.');
+                normalized = normalized.replace(/\s/g, '');
+                normalized = normalized.replace(/[^0-9.\-]/g, '');
+                const num = Number(normalized);
+                return isNaN(num) ? NaN : num;
+            };
+            
+            const priceNum = parseLocaleNumber(formData.price);
+            if (isNaN(priceNum) || priceNum < 0) {
+                toast.error('Please enter a valid price');
+                return;
+            }
+
+            setSubmitting(true);
+
+            const formDataToSend = new FormData();
+            
+            let landmarksArr = Array.isArray(formData.landmarks) ? [...formData.landmarks] : (formData.landmarks ? [formData.landmarks] : []);
+            landmarksArr = landmarksArr.map(l => l.trim().toLowerCase()).filter(l => l);
+            if (formData.customLandmark && formData.customLandmark.trim()) {
+                landmarksArr.push(formData.customLandmark.trim().toLowerCase());
+            }
+            const landmarksString = landmarksArr.join(', ');
+
+            Object.entries(formData).forEach(([key, value]) => {
+                if (formData.listingType === 'For Sale' && key === 'billsIncluded') return;
+                if (key === 'landmarks') {
+                    formDataToSend.append('landmarks', landmarksString);
+                } else if (key === 'allowedPets') {
+                    formDataToSend.append('allowedPets', Array.isArray(value) ? value.join(', ') : (value || ''));
+                } else if (key === 'billsIncluded') {
+                    formDataToSend.append('billsIncluded', Array.isArray(value) ? value.join(', ') : '');
+                } else if (key === 'marketHighlights') {
+                    formDataToSend.append('marketHighlights', Array.isArray(value) ? value.join(', ') : '');
+                } else if (key === 'propertyCondition') {
+                    formDataToSend.append('propertyCondition', value || '');
+                } else if (key === 'customLandmark') {
+                } else if (key === 'price') {
+                } else if (value !== undefined && value !== null && value !== "") {
+                    formDataToSend.append(key, value);
+                }
+            });
+            
+            formDataToSend.append('price', priceNum);
+            images.forEach(img => formDataToSend.append('existingImages', img));
+            deletedImages.forEach(img => formDataToSend.append('deletedImages[]', img.split('/').pop()));
+            newImages.forEach(file => formDataToSend.append('images', file));
+            if (videoFile) formDataToSend.append('video', videoFile);
+            if (removeVideo) formDataToSend.append('removeVideo', 'true');
+            if (panorama) {
+                formDataToSend.append('panorama360', panorama);
+            } else if (existingPanorama === null && property && property.panorama360) {
+                formDataToSend.append('removePanorama', 'true');
+            }
+            
+            const response = await fetch(buildApi(`/properties/${propertyId}`), {
+                method: 'PUT',
+                headers: { Authorization: `Bearer ${userToken}` },
+                body: formDataToSend
+            });
+            
+            const data = await response.json();
+            if (!response.ok) {
+                if (data.errors && Array.isArray(data.errors)) {
+                    data.errors.forEach(error => toast.error(error));
+                } else if (data.error && typeof data.error === 'string') {
+                    toast.error(data.error);
+                } else if (data.message) {
+                    toast.error(data.message);
+                } else {
+                    toast.error('Failed to update property');
+                }
+                return;
+            }
+            
+            toast.success('Property updated successfully');
+            try {
+                await clearFormPersistence(FORM_KEY);
+            } catch (e) { console.error('Failed to clear draft after update', e); }
+            navigate('/my-properties');
+        } catch (err) {
+            toast.error(err.message || 'Error updating property');
+        } finally {
+            setSubmitting(false);
+        }
+    };
 
     return (
         <div className="dashboard-container landlord-dashboard">
@@ -444,8 +483,6 @@ const EditProperty = () => {
                             <p className="form-subtitle">Update your listing details and images. Changes go live immediately after saving.</p>
                         </div>
                         <div className="form-grid">
-                            
-                            {/* LISTING TYPE - For Rent/For Sale */}
                             <div className="field-group">
                                 <label className="required">Listing Type</label>
                                 <select className="ll-field" name="listingType" value={formData.listingType} onChange={handleChange} required>
@@ -455,7 +492,6 @@ const EditProperty = () => {
                                 </select>
                             </div>
 
-                            {/* PROPERTY TYPE - House, Apartment, etc. */}
                             <div className="field-group">
                                 <label className="required">Property Type</label>
                                 <select className="ll-field" name="propertyType" value={formData.propertyType} onChange={handleChange} required>
@@ -465,14 +501,89 @@ const EditProperty = () => {
                             </div>
 
                             <div className="field-group full">
-                                <label className="required">Description</label>
-                                <textarea className="ll-field" name="description" value={formData.description} onChange={handleChange} rows={5} maxLength={500} required />
-                                <div className="field-hint small">{formData.description.length}/500</div>
+                                <label>Bills Included</label>
+                                <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
+                                    {['Water','Electricity'].map(b => (
+                                        <label key={b} style={{display:'flex',alignItems:'center',gap:8,fontWeight:500}}>
+                                            <input 
+                                                type="checkbox" 
+                                                name="billsIncluded" 
+                                                value={b} 
+                                                checked={Array.isArray(formData.billsIncluded) ? formData.billsIncluded.includes(b) : false} 
+                                                onChange={(e)=>{
+                                                    const checked = e.target.checked;
+                                                    setFormData(prev => {
+                                                        const arr = Array.isArray(prev.billsIncluded) ? [...prev.billsIncluded] : [];
+                                                        if (checked) {
+                                                            if (!arr.includes(b)) arr.push(b);
+                                                        } else {
+                                                            const idx = arr.indexOf(b); if (idx>=0) arr.splice(idx,1);
+                                                        }
+                                                        return { ...prev, billsIncluded: arr };
+                                                    });
+                                                }} 
+                                                disabled={formData.listingType === 'For Sale'} 
+                                            />
+                                            {b}
+                                        </label>
+                                    ))}
+                                </div>
+                                <div className="field-hint small">{formData.listingType === 'For Sale' ? 'Not applicable for sale listings' : 'Check bills that are included in the rent (optional)'}</div>
                             </div>
+
+                            <div className="field-group">
+                                <label className={formData.listingType === 'For Sale' ? 'required' : ''}>Property Condition</label>
+                                <select 
+                                    className="ll-field" 
+                                    name="propertyCondition" 
+                                    value={formData.propertyCondition} 
+                                    onChange={handleChange} 
+                                    required={formData.listingType === 'For Sale'}
+                                >
+                                    <option value="">Select Property Condition</option>
+                                    <option value="Fully Furnished">Fully Furnished</option>
+                                    <option value="Semi-Furnished">Semi-Furnished</option>
+                                    <option value="Unfurnished">Unfurnished</option>
+                                    <option value="Brand New">Brand New</option>
+                                    <option value="Pre-owned / Resale">Pre-owned / Resale</option>
+                                </select>
+                            </div>
+
+                            <div className="field-group full">
+                                <label>Market Highlights</label>
+                                <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                                    {['Ready for Occupancy (RFO)','Pre-selling (under construction)','Negotiable Price','Clean Title','Inclusive of Taxes and Fees','Good Investment Opportunity','Rush Sale / Below Market Value'].map(mh => (
+                                        <label key={mh} style={{display:'flex',alignItems:'center',gap:8,fontWeight:500}}>
+                                            <input 
+                                                type="checkbox" 
+                                                name="marketHighlights" 
+                                                value={mh} 
+                                                checked={Array.isArray(formData.marketHighlights) ? formData.marketHighlights.includes(mh) : false} 
+                                                onChange={(e)=>{
+                                                    const checked = e.target.checked;
+                                                    setFormData(prev => {
+                                                        const arr = Array.isArray(prev.marketHighlights) ? [...prev.marketHighlights] : [];
+                                                        if (checked) {
+                                                            if (!arr.includes(mh)) arr.push(mh);
+                                                        } else {
+                                                            const idx = arr.indexOf(mh); if (idx>=0) arr.splice(idx,1);
+                                                        }
+                                                        return { ...prev, marketHighlights: arr };
+                                                    });
+                                                }} 
+                                            />
+                                            {mh}
+                                        </label>
+                                    ))}
+                                </div>
+                                <div className="field-hint small">Optional - check any market highlights that apply.</div>
+                            </div>
+
                             <div className="field-group">
                                 <label className="required">Address</label>
                                 <input className="ll-field" name="address" value={formData.address} onChange={handleChange} required />
                             </div>
+
                             <div className="field-group">
                                 <label className="required">Barangay</label>
                                 <select className="ll-field" name="barangay" value={formData.barangay} onChange={handleChange} required>
@@ -487,7 +598,6 @@ const EditProperty = () => {
                                     className="ll-field"
                                     type="text"
                                     name="price"
-                                    pattern="^\d+(\.\d{1,2})?$"
                                     value={formData.price}
                                     onChange={handleChange}
                                     onFocus={() => { setPriceFocused(true); setPriceError(''); }}
@@ -523,10 +633,12 @@ const EditProperty = () => {
                                 />
                                 {priceError && <div className="field-error small" style={{color:'var(--danger)', marginTop:6}}>{priceError}</div>}
                             </div>
+
                             <div className="field-group">
                                 <label>Number of Rooms</label>
                                 <input className="ll-field" type="number" min={0} name="numberOfRooms" value={formData.numberOfRooms} onChange={handleChange} placeholder="e.g. 2" />
                             </div>
+
                             <div className="field-group">
                                 <label className="required">Availability</label>
                                 <select className="ll-field" name="availabilityStatus" value={formData.availabilityStatus} onChange={handleChange} required>
@@ -535,28 +647,68 @@ const EditProperty = () => {
                                 </select>
                                 <div className="field-hint small">Choose the current availability for this listing.</div>
                             </div>
-                            {/* Total Units is now system-managed on the backend; landlords cannot edit it here */}
-                            <div className="field-group">
-                                <label>Availability (system-managed)</label>
-                                <div className="field-hint small">Available units are managed automatically by the system based on approved applications and the Total Units value.</div>
-                            </div>
+
                             <div className="field-group">
                                 <label className="required">Property Size (sqm)</label>
                                 <input className="ll-field" type="number" min={0} step={0.1} name="areaSqm" value={formData.areaSqm} onChange={handleChange} placeholder="e.g. 45" required />
                             </div>
+
                             <div className="field-group">
                                 <label className="required">Max Occupancy</label>
-                                <input className="ll-field" type="number" min={1} name="occupancy" value={formData.occupancy} onChange={handleChange} required />
+                                <input className="ll-field" type="number" min={1} name="occupancy" value={formData.occupancy} onChange={handleChange} required disabled={formData.listingType === 'For Sale'} />
+                                {formData.listingType === 'For Sale' && <div className="field-hint small" style={{color:'#666'}}>Disabled for For Sale listings</div>}
                             </div>
+
                             <div className="field-group toggle-field">
-                                <label className="checkbox-label"><input type="checkbox" name="petFriendly" checked={formData.petFriendly} onChange={handleChange} /> Pet Friendly</label>
-                                {formData.petFriendly && (
-                                    <input className="ll-field mt-6" name="allowedPets" placeholder="Allowed pets (e.g. Cats, Dogs)" value={formData.allowedPets} onChange={handleChange} />
+                                <label className="checkbox-label">
+                                    <input 
+                                        type="checkbox" 
+                                        name="petFriendly" 
+                                        checked={formData.petFriendly} 
+                                        onChange={handleChange} 
+                                        disabled={formData.listingType === 'For Sale'} 
+                                    /> 
+                                    Pet Friendly
+                                </label>
+                                {formData.petFriendly && formData.listingType !== 'For Sale' && (
+                                    <div className="ll-field mt-6 pet-types" style={{display:'flex',gap:12,flexWrap:'wrap'}}>
+                                        {['Cat','Dog','Bird','Fish'].map(p=> (
+                                            <label key={p} style={{display:'flex',alignItems:'center',gap:8,fontWeight:500}}>
+                                                <input 
+                                                    type="checkbox" 
+                                                    name="allowedPets" 
+                                                    value={p} 
+                                                    checked={Array.isArray(formData.allowedPets) ? formData.allowedPets.includes(p) : false} 
+                                                    onChange={(e)=>{
+                                                        const checked = e.target.checked;
+                                                        setFormData(prev=>{
+                                                            const arr = Array.isArray(prev.allowedPets) ? [...prev.allowedPets] : [];
+                                                            if (checked) { if (!arr.includes(p)) arr.push(p); }
+                                                            else { const idx = arr.indexOf(p); if (idx>=0) arr.splice(idx,1); }
+                                                            return { ...prev, allowedPets: arr };
+                                                        });
+                                                    }} 
+                                                />
+                                                {p}
+                                            </label>
+                                        ))}
+                                    </div>
                                 )}
+                                {formData.listingType === 'For Sale' && <div className="field-hint small" style={{color:'#666'}}>Pets not applicable for sale listings</div>}
                             </div>
+
                             <div className="field-group toggle-field">
-                                <label className="checkbox-label"><input type="checkbox" name="parking" checked={formData.parking} onChange={handleChange} /> Parking Available</label>
+                                <label className="checkbox-label">
+                                    <input 
+                                        type="checkbox" 
+                                        name="parking" 
+                                        checked={formData.parking} 
+                                        onChange={handleChange} 
+                                    /> 
+                                    Parking Available
+                                </label>
                             </div>
+
                             <div className="field-group full">
                                 <label>Nearby Landmarks</label>
                                 <div style={{
@@ -598,13 +750,14 @@ const EditProperty = () => {
                                 </div>
                                 <div className="field-hint small">Check all that apply.</div>
                             </div>
+
                             <div className="field-group full">
                                 <label>House Rules</label>
-                                <textarea className="ll-field" name="rules" value={formData.rules} onChange={handleChange} placeholder="No loud noises after 10 PM, No smoking inside" rows={3} />
+                                <textarea className="ll-field" name="rules" value={formData.rules} onChange={handleChange} placeholder="No loud noises after 10 PM, No smoking inside" rows={3} disabled={formData.listingType === 'For Sale'} />
+                                {formData.listingType === 'For Sale' && <div className="field-hint small" style={{color:'#666'}}>Not used for sale listings</div>}
                             </div>
                         </div>
 
-                        {/* 360° Panoramic Image Section - FIXED */}
                         <div className="panorama-section" style={{marginTop:'32px'}}>
                             <h3 className="section-title">360° Panoramic Image</h3>
                             <p className="field-hint">Optional: Add a panoramic 360° image (JPG/PNG/WebP, max 10MB, equirectangular projection).</p>
@@ -629,40 +782,41 @@ const EditProperty = () => {
                         </div>
 
                         <div className="images-section">
-    {(() => {
-        const existingCount = Array.isArray(images) ? images.length : 0;
-        const newCount = Array.isArray(newImages) ? newImages.length : 0;
-        return (<h3 className="section-title">Images <span style={{color:'red', marginLeft:'4px'}}>*</span> <span style={{fontWeight:400, fontSize:'0.7rem'}}>({existingCount + newCount}/8 total)</span></h3>);
-    })()}
-    <p className="field-hint">You can keep, remove, or add new images (max 8 total, JPG/PNG/WebP up to 10MB each).</p>
-    <div className="current-images-grid">
-        {images.length ? images.map((img, i) => {
-            const url = img.startsWith('http') ? img : buildUpload(img);
-            return (
-                <div key={i} className="image-chip">
-                    <img src={url} alt={`Property ${i}`} />
-                    <button type="button" aria-label="Remove image" onClick={() => handleDeleteImage(i, true)}>&times;</button>
-                </div>
-            );
-        }) : <div className="placeholder">No images</div>}
-    </div>
-    <div className="new-upload-block">
-        <label className="file-drop-modern">
-            <input type="file" multiple accept="image/*" onChange={handleImageChange} />
-            <span>Add Images</span>
-        </label>
-        {newImages.length > 0 && (
-            <div className="new-images-grid">
-                {newImages.map((file, i) => (
-                    <div key={i} className="image-chip pending">
-                        <img src={URL.createObjectURL(file)} alt={`New ${i}`} />
-                        <button type="button" aria-label="Remove pending image" onClick={() => handleDeleteImage(i, false)}>&times;</button>
-                    </div>
-                ))}
-            </div>
-        )}
-    </div>
-</div>
+                            {(() => {
+                                const existingCount = Array.isArray(images) ? images.length : 0;
+                                const newCount = Array.isArray(newImages) ? newImages.length : 0;
+                                return (<h3 className="section-title">Images <span style={{color:'red', marginLeft:'4px'}}>*</span> <span style={{fontWeight:400, fontSize:'0.7rem'}}>({existingCount + newCount}/8 total)</span></h3>);
+                            })()}
+                            <p className="field-hint">You can keep, remove, or add new images (max 8 total, JPG/PNG/WebP up to 10MB each).</p>
+                            <div className="current-images-grid">
+                                {images.length ? images.map((img, i) => {
+                                    const url = img.startsWith('http') ? img : buildUpload(img);
+                                    return (
+                                        <div key={i} className="image-chip">
+                                            <img src={url} alt={`Property ${i}`} />
+                                            <button type="button" aria-label="Remove image" onClick={() => handleDeleteImage(i, true)}>&times;</button>
+                                        </div>
+                                    );
+                                }) : <div className="placeholder">No images</div>}
+                            </div>
+                            <div className="new-upload-block">
+                                <label className="file-drop-modern">
+                                    <input type="file" multiple accept="image/*" onChange={handleImageChange} />
+                                    <span>Add Images</span>
+                                </label>
+                                {newImages.length > 0 && (
+                                    <div className="new-images-grid">
+                                        {newImages.map((file, i) => (
+                                            <div key={i} className="image-chip pending">
+                                                <img src={URL.createObjectURL(file)} alt={`New ${i}`} />
+                                                <button type="button" aria-label="Remove pending image" onClick={() => handleDeleteImage(i, false)}>&times;</button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
                         <div className="video-section">
                             <h3 className="section-title">Property Video <span style={{fontWeight:400, fontSize:'0.7rem'}}>({removeVideo ? 'will remove' : (videoFile ? 'new video selected' : (videoPreview ? 'existing' : 'none'))})</span></h3>
                             <p className="field-hint">Optional walkthrough clip (MP4/WebM/OGG, up to 50MB). Uploading a new one replaces the existing video.</p>
@@ -696,6 +850,7 @@ const EditProperty = () => {
                                 <div className="removed-note">Video will be removed. <button type="button" className="link-btn" onClick={()=>setRemoveVideo(false)}>Undo</button></div>
                             )}
                         </div>
+
                         <div className="form-actions">
                             <button type="button" className="ll-btn outline" onClick={() => navigate(-1)}>Cancel</button>
                             <button type="submit" className="ll-btn primary" disabled={submitting}>{submitting ? 'Saving...' : 'Save Changes'}</button>

@@ -186,23 +186,7 @@ const MyProperties = () => {
                                     <button onClick={() => requestDelete(property._id)} disabled={deletingId === property._id} className="ll-btn danger small">
                                         {deletingId === property._id ? 'Deleting...' : 'Delete'}
                                     </button>
-                                        <button onClick={async (e)=>{
-                                            e.stopPropagation();
-                                            try {
-                                                const newTotalStr = prompt('Enter new total units (leave blank to keep current):', String(property.totalUnits || 1));
-                                                if (newTotalStr === null) return; // cancelled
-                                                const payload = {};
-                                                if (newTotalStr.trim() !== '') payload.totalUnits = Number(newTotalStr);
-                                                const token = localStorage.getItem('user_token');
-                                                if(!token){ toast.error('Not authenticated'); return; }
-                                                const res = await setAvailability(property._id, payload);
-                                                // update local state
-                                                setProperties(prev => prev.map(p => p._id === property._id ? { ...p, ...res.property } : p));
-                                                toast.success('Availability updated');
-                                            } catch (err) {
-                                                toast.error(err.message || 'Failed to update availability');
-                                            }
-                                        }} className="ll-btn neutral small">Adjust Units</button>
+                                        {/* Unit adjustments are system-managed; manual adjustments removed */}
                                 </div>
                             </div>
                         </div>

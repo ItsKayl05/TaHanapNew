@@ -14,26 +14,18 @@ import 'leaflet/dist/leaflet.css';
 const barangayList = [
     'Assumption','Bagong Buhay I','Bagong Buhay II','Bagong Buhay III','Ciudad Real','Citrus','Dulong Bayan','Fatima I','Fatima II','Fatima III','Fatima IV','Fatima V','Francisco Homes – Guijo','Francisco Homes – Mulawin','Francisco Homes – Narra','Francisco Homes – Yakal','Gaya-gaya','Graceville','Gumaok Central','Gumaok East','Gumaok West','Kaybanban','Kaypian','Lawang Pare','Maharlika','Minuyan I','Minuyan II','Minuyan III','Minuyan IV','Minuyan V','Minuyan Proper','Muzon East','Muzon Proper','Muzon South','Muzon West','Paradise III','Poblacion','Poblacion 1','San Isidro','San Manuel','San Martin De Porres','San Martin I','San Martin II','San Martin III','San Martin IV','San Pedro','San Rafael I','San Rafael II','San Rafael III','San Rafael IV','San Rafael V','San Roque','Sapang Palay Proper','Sta. Cruz I','Sta. Cruz II','Sta. Cruz III','Sta. Cruz IV','Sta. Cruz V','Sto. Cristo','Sto. Nino I','Sto. Nino II','Tungkong Mangga'
 ];
-// Property types to choose from (replaces previous 'category' and free-text title)
+
 const PROPERTY_TYPES = ['House','House and Lot','Apartment','Condominium','Townhouse','Dormitory','Bedspace','Studio Unit','Lot','Land','Commercial Space','Office Space','Warehouse','Building','Bungalow','Duplex','Triplex','Inner Lot','Corner Lot'];
 
 const LANDMARKS = [
-          "park",
-          "church",
-          "public market",
-          "major highway",
-          "public transport stops",
-          "banks and atms",
-          "restaurant/food centers",
-          "convenience store/supermarket",
-          "school/university",
-          "hospital/health care"
+    "park", "church", "public market", "major highway", "public transport stops",
+    "banks and atms", "restaurant/food centers", "convenience store/supermarket",
+    "school/university", "hospital/health care"
 ];
 
 const AddProperties = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   
-  // Handle window resize
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768);
@@ -43,11 +35,9 @@ const AddProperties = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Panoramic image state
   const [panorama, setPanorama] = useState(null);
   const [panoramaPreview, setPanoramaPreview] = useState(null);
 
-  // Handle panoramic image upload
   const handlePanoramaChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -58,7 +48,7 @@ const AddProperties = () => {
       return; 
     }
     if (!sizeOk) { 
-      toast.error('360° Panorama upload failed: Image size exceeds 10MB limit. Please reduce the image resolution or compress the file.'); 
+      toast.error('360° Panorama upload failed: Image size exceeds 10MB limit.'); 
       return; 
     }
     if (panoramaPreview) URL.revokeObjectURL(panoramaPreview);
@@ -76,10 +66,49 @@ const AddProperties = () => {
   const SJDM_ZOOM = 13;
   const { logout } = useContext(AuthContext);
   const navigate = useNavigate();
+  
   const [propertyData, setPropertyData] = useState({
-  propertyType: '', description:'', address:'', price:'', barangay:'', listingType: '', petFriendly:false, allowedPets:'', occupancy:'', parking:false, rules:'', landmarks:'', numberOfRooms:'', areaSqm:'', images:[], video:null, latitude:'', longitude:'', availabilityStatus: 'Available'
+    propertyType: '', 
+    billsIncluded: [], 
+    propertyCondition: '', 
+    marketHighlights: [], 
+    address:'', 
+    price:'', 
+    barangay:'', 
+    listingType: '', 
+    petFriendly:false, 
+    allowedPets:[], 
+    occupancy:'', 
+    parking:false, 
+    rules:'', 
+    landmarks:'', 
+    numberOfRooms:'', 
+    areaSqm:'', 
+    images:[], 
+    video:null, 
+    latitude:'', 
+    longitude:'', 
+    availabilityStatus: 'Available'
   });
-  // Price input UI state
+
+  useEffect(() => {
+    const lt = propertyData.listingType;
+    setPropertyData(prev => {
+      const next = { ...prev };
+      if (lt === 'For Rent') {
+        next.propertyCondition = '';
+        next.marketHighlights = [];
+      } else if (lt === 'For Sale') {
+        next.occupancy = '';
+        next.petFriendly = false;
+        next.allowedPets = [];
+        next.rules = '';
+        next.billsIncluded = [];
+      }
+      return next;
+    });
+  }, [propertyData.listingType]);
+
   const [priceFocused, setPriceFocused] = useState(false);
   const [priceError, setPriceError] = useState('');
   const [imagePreviews, setImagePreviews] = useState([]);
@@ -87,7 +116,6 @@ const AddProperties = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const MAX_IMAGES = 8;
 
-  // Geocode address+barangay to get lat/lng
   const geocodeAddress = async (address, barangay) => {
     if (!address || !barangay) return;
     const query = encodeURIComponent(`${address}, ${barangay}, San Jose del Monte, Bulacan, Philippines`);
@@ -97,11 +125,10 @@ const AddProperties = () => {
       if (data && data.length > 0) {
         return { lat: data[0].lat, lon: data[0].lon };
       }
-    } catch (err) { /* ignore */ }
+    } catch (err) { }
     return null;
   };
 
-  // Manual pin placement handler
   function LocationSelector() {
     useMapEvents({
       click(e) {
@@ -115,17 +142,14 @@ const AddProperties = () => {
   const handleInputChange = async (e) => {
     const { name, value, type, checked } = e.target;
     let newValue = value;
-    // Special handling for price: allow decimals while typing, keep as string
+    
     if (name === 'price') {
-      // Determine locale group/decimal separators
       const parts = new Intl.NumberFormat(navigator.language).formatToParts(12345.6);
       const group = parts.find(p => p.type === 'group')?.value || ',';
       const decimal = parts.find(p => p.type === 'decimal')?.value || '.';
-      // escape for regex
       const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const allowedRegex = new RegExp(`[^0-9${esc(group)}${esc(decimal)}]`, 'g');
       let sanitized = (value || '').replace(allowedRegex, '');
-      // If multiple decimals, keep first and remove others
       const decCount = (sanitized.match(new RegExp(esc(decimal), 'g')) || []).length;
       if (decCount > 1) {
         const first = sanitized.indexOf(decimal);
@@ -133,14 +157,14 @@ const AddProperties = () => {
       }
       newValue = sanitized;
     }
-    // Normalize landmark value to match filter (trim, exact string)
+    
     if (name === 'landmarks') {
       const found = LANDMARKS.find(l => l === value);
       newValue = found || value;
     }
+    
     setPropertyData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : newValue }));
 
-    // If address or barangay changes, geocode
     if (name === 'address' || name === 'barangay') {
       const nextAddress = name === 'address' ? value : propertyData.address;
       const nextBarangay = name === 'barangay' ? value : propertyData.barangay;
@@ -178,7 +202,6 @@ const AddProperties = () => {
     setImagePreviews(p => p.filter((_,i)=>i!==index));
   };
   
-  // Cleanup blob URLs on unmount
   useEffect(()=>{
     return () => {
       imagePreviews.forEach(url => URL.revokeObjectURL(url));
@@ -196,7 +219,7 @@ const AddProperties = () => {
       return; 
     }
     if (file.size > 50*1024*1024) { 
-      toast.error('Video upload failed: File size exceeds 50MB limit. Please compress your video or choose a smaller file.'); 
+      toast.error('Video upload failed: File size exceeds 50MB limit.'); 
       return; 
     }
     if (propertyData.video) URL.revokeObjectURL(videoPreview);
@@ -211,115 +234,132 @@ const AddProperties = () => {
   };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  if (isSubmitting) return;
-  const token = localStorage.getItem('user_token');
-  if (!token) { toast.error('No token found. Please log in.'); navigate('/login'); return; }
-  // Specific client-side required field checks to provide friendly messages
-  const requiredChecks = [
-    { key: 'propertyType', ok: propertyData.propertyType && propertyData.propertyType.toString().trim() !== '', msg: "Please select a property type" },
-    { key: 'description', ok: propertyData.description && propertyData.description.toString().trim() !== '', msg: "Please add a description to help people understand your property better" },
-    { key: 'address', ok: propertyData.address && propertyData.address.toString().trim() !== '', msg: "Make sure to provide the complete address of your property" },
-    { key: 'price', ok: propertyData.price && propertyData.price.toString().trim() !== '', msg: "Don't forget to set a price for your property" },
-  { key: 'barangay', ok: propertyData.barangay && propertyData.barangay.toString().trim() !== '', msg: "Please select which barangay your property is located in" },
-    { key: 'listingType', ok: propertyData.listingType && propertyData.listingType.toString().trim() !== '', msg: "Please select listing type" },
-    { key: 'areaSqm', ok: propertyData.areaSqm !== undefined && propertyData.areaSqm !== '' && !isNaN(Number(propertyData.areaSqm)) && Number(propertyData.areaSqm) > 0, msg: "Please provide the floor area (in square meters)" },
-    { key: 'occupancy', ok: propertyData.occupancy && propertyData.occupancy.toString().trim() !== '', msg: "Please specify maximum occupancy" }
-  ];
-  for (const chk of requiredChecks) {
-    if (!chk.ok) { toast.error(chk.msg); return; }
-  }
+    e.preventDefault();
+    if (isSubmitting) return;
+    const token = localStorage.getItem('user_token');
+    if (!token) { toast.error('No token found. Please log in.'); navigate('/login'); return; }
+    
+    const requiredChecks = [];
+    requiredChecks.push({ key: 'propertyType', ok: propertyData.propertyType && propertyData.propertyType.toString().trim() !== '', msg: "Please select a property type" });
+    requiredChecks.push({ key: 'listingType', ok: propertyData.listingType && propertyData.listingType.toString().trim() !== '', msg: "Please select listing type" });
+    requiredChecks.push({ key: 'address', ok: propertyData.address && propertyData.address.toString().trim() !== '', msg: "Make sure to provide the complete address of your property" });
+    requiredChecks.push({ key: 'price', ok: propertyData.price && propertyData.price.toString().trim() !== '', msg: "Don't forget to set a price for your property" });
+    requiredChecks.push({ key: 'barangay', ok: propertyData.barangay && propertyData.barangay.toString().trim() !== '', msg: "Please select which barangay your property is located in" });
+    requiredChecks.push({ key: 'areaSqm', ok: propertyData.areaSqm !== undefined && propertyData.areaSqm !== '' && !isNaN(Number(propertyData.areaSqm)) && Number(propertyData.areaSqm) > 0, msg: "Please provide the floor area (in square meters)" });
+    
+    if (propertyData.listingType === 'For Rent') {
+      requiredChecks.push({ key: 'occupancy', ok: propertyData.occupancy && propertyData.occupancy.toString().trim() !== '', msg: "Please specify maximum occupancy" });
+    } else if (propertyData.listingType === 'For Sale') {
+      requiredChecks.push({ key: 'propertyCondition', ok: propertyData.propertyCondition && propertyData.propertyCondition.toString().trim() !== '', msg: "Please select the property condition" });
+    }
+    
+    for (const chk of requiredChecks) {
+      if (!chk.ok) { toast.error(chk.msg); return; }
+    }
 
-  if (!propertyData.images.length) {
-    toast.error('Please add at least one image');
-    return;
-  }
-  if (propertyData.images.length > MAX_IMAGES) {
-    toast.error(`Maximum of ${MAX_IMAGES} images allowed.`);
-    return;
-  }
-  // Validate geocoding
-  if (!propertyData.latitude || !propertyData.longitude || isNaN(Number(propertyData.latitude)) || isNaN(Number(propertyData.longitude))) {
-    toast.error('Map location not found. Please check the address and barangay, then wait for the map preview to update before submitting.');
-    return;
-  }
-  // Validate price before submit
-  const parseLocaleNumber = (str) => {
-    if (str === undefined || str === null || String(str).trim() === '') return NaN;
-    const nfParts = new Intl.NumberFormat(navigator.language).formatToParts(12345.6);
-    const group = nfParts.find(p => p.type === 'group')?.value || ',';
-    const decimal = nfParts.find(p => p.type === 'decimal')?.value || '.';
-    const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    let normalized = String(str).replace(new RegExp(esc(group), 'g'), '');
-    if (decimal !== '.') normalized = normalized.replace(new RegExp(esc(decimal)), '.');
-    normalized = normalized.replace(/\s/g, '');
-    normalized = normalized.replace(/[^0-9.\-]/g, '');
-    const num = Number(normalized);
-    return isNaN(num) ? NaN : num;
-  };
-
-  const priceNum = parseLocaleNumber(propertyData.price);
-  if (isNaN(priceNum) || priceNum < 0) {
-    setPriceError('Please enter a valid price');
-    return;
-  } else {
-    setPriceError('');
-  }
-
-  setIsSubmitting(true);
-  const formData = new FormData();
-  // Combine landmarks array and customLandmark into a single string
-  let landmarksArr = Array.isArray(propertyData.landmarks) ? [...propertyData.landmarks] : (propertyData.landmarks ? [propertyData.landmarks] : []);
-  // Always save as lowercase and trimmed
-  landmarksArr = landmarksArr.map(l => l.trim().toLowerCase()).filter(l => l);
-  if (propertyData.customLandmark && propertyData.customLandmark.trim()) {
-    landmarksArr.push(propertyData.customLandmark.trim().toLowerCase());
-  }
-  const landmarksString = landmarksArr.join(', ');
-
-  Object.entries(propertyData).forEach(([k,v]) => {
-    if (k==='images') v.forEach(img => formData.append('images', img));
-    else if (k==='video') { if (v) formData.append('video', v); }
-    else if (k==='landmarks') { formData.append('landmarks', landmarksString); }
-    else if (k==='customLandmark') { /* skip, already merged above */ }
-    else formData.append(k,v);
-  });
-  // Add panorama if exists
-  if (panorama) {
-    formData.append('panorama360', panorama);
-  }
-  try {
-    // Convert price to a numeric value before sending (use locale-aware parser)
-    const parseForSend = (val) => {
-      const num = parseLocaleNumber(val);
-      return isNaN(num) ? '' : num;
-    };
-    formData.set('price', parseForSend(propertyData.price));
-
-    const res = await fetch(buildApi('/properties/add'), { method:'POST', headers:{ Authorization:`Bearer ${token}` }, body:formData });
-    const data = await res.json().catch(()=>({}));
-    if (!res.ok) {
-      // Show detailed validation errors from backend
-      if (data.errors && Array.isArray(data.errors)) {
-        data.errors.forEach(error => toast.error(error));
-      } else if (data.error && typeof data.error === 'string') {
-        toast.error(data.error);
-      } else if (data.message) {
-        toast.error(data.message);
-      } else {
-        toast.error('Failed to add property');
-      }
-      setIsSubmitting(false);
+    if (!propertyData.images.length) {
+      toast.error('Please add at least one image');
       return;
     }
-    toast.success('Property added successfully');
-    navigate('/my-properties');
-  } catch (err) {
-    toast.error(err.message || 'Error adding property');
-  } finally {
-    setIsSubmitting(false);
+    
+    if (propertyData.images.length > MAX_IMAGES) {
+      toast.error(`Maximum of ${MAX_IMAGES} images allowed.`);
+      return;
+    }
+    
+    if (!propertyData.latitude || !propertyData.longitude || isNaN(Number(propertyData.latitude)) || isNaN(Number(propertyData.longitude))) {
+      toast.error('Map location not found. Please check the address and barangay, then wait for the map preview to update before submitting.');
+      return;
+    }
+    
+    const parseLocaleNumber = (str) => {
+      if (str === undefined || str === null || String(str).trim() === '') return NaN;
+      const nfParts = new Intl.NumberFormat(navigator.language).formatToParts(12345.6);
+      const group = nfParts.find(p => p.type === 'group')?.value || ',';
+      const decimal = nfParts.find(p => p.type === 'decimal')?.value || '.';
+      const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      let normalized = String(str).replace(new RegExp(esc(group), 'g'), '');
+      if (decimal !== '.') normalized = normalized.replace(new RegExp(esc(decimal)), '.');
+      normalized = normalized.replace(/\s/g, '');
+      normalized = normalized.replace(/[^0-9.\-]/g, '');
+      const num = Number(normalized);
+      return isNaN(num) ? NaN : num;
+    };
+
+    const priceNum = parseLocaleNumber(propertyData.price);
+    if (isNaN(priceNum) || priceNum < 0) {
+      setPriceError('Please enter a valid price');
+      return;
+    } else {
+      setPriceError('');
+    }
+
+    setIsSubmitting(true);
+    const formData = new FormData();
+    
+    let landmarksArr = Array.isArray(propertyData.landmarks) ? [...propertyData.landmarks] : (propertyData.landmarks ? [propertyData.landmarks] : []);
+    landmarksArr = landmarksArr.map(l => l.trim().toLowerCase()).filter(l => l);
+    if (propertyData.customLandmark && propertyData.customLandmark.trim()) {
+      landmarksArr.push(propertyData.customLandmark.trim().toLowerCase());
+    }
+    const landmarksString = landmarksArr.join(', ');
+
+    const listingType = propertyData.listingType;
+    
+    Object.entries(propertyData).forEach(([k,v]) => {
+      if (listingType === 'For Rent' && (k === 'propertyCondition' || k === 'marketHighlights')) return;
+      if (listingType === 'For Sale' && (k === 'occupancy' || k === 'petFriendly' || k === 'allowedPets' || k === 'rules' || k === 'billsIncluded')) return;
+      
+      if (k==='images') v.forEach(img => formData.append('images', img));
+      else if (k==='video') { if (v) formData.append('video', v); }
+      else if (k==='landmarks') { formData.append('landmarks', landmarksString); }
+      else if (k==='customLandmark') { }
+      else if (k==='allowedPets') { formData.append('allowedPets', Array.isArray(v) ? v.join(', ') : (v || '')); }
+      else if (k==='billsIncluded') { formData.append('billsIncluded', Array.isArray(v) ? v.join(', ') : ''); }
+      else if (k==='marketHighlights') { formData.append('marketHighlights', Array.isArray(v) ? v.join(', ') : ''); }
+      else if (k==='propertyCondition') { formData.append('propertyCondition', v || ''); }
+      else formData.append(k,v);
+    });
+    
+    if (panorama) {
+      formData.append('panorama360', panorama);
+    }
+    
+    try {
+      const parseForSend = (val) => {
+        const num = parseLocaleNumber(val);
+        return isNaN(num) ? '' : num;
+      };
+      formData.set('price', parseForSend(propertyData.price));
+
+      const res = await fetch(buildApi('/properties/add'), { 
+        method:'POST', 
+        headers:{ Authorization:`Bearer ${token}` }, 
+        body:formData 
+      });
+      
+      const data = await res.json().catch(()=>({}));
+      if (!res.ok) {
+        if (data.errors && Array.isArray(data.errors)) {
+          data.errors.forEach(error => toast.error(error));
+        } else if (data.error && typeof data.error === 'string') {
+          toast.error(data.error);
+        } else if (data.message) {
+          toast.error(data.message);
+        } else {
+          toast.error('Failed to add property');
+        }
+        setIsSubmitting(false);
+        return;
+      }
+      toast.success('Property added successfully');
+      navigate('/my-properties');
+    } catch (err) {
+      toast.error(err.message || 'Error adding property');
+    } finally {
+      setIsSubmitting(false);
+    }
   }
-}
 
   const handleLogout = () => {
     logout();
@@ -344,7 +384,6 @@ const AddProperties = () => {
           
           <div className={`ll-grid ${isMobile ? 'mobile-grid' : ''} ll-gap-md`}>
             <div className="ll-stack">
-              {/* Property Info Section */}
               <div className="form-group">
                 <label className="required">Listing Type</label>
                 <select className="ll-field" name="listingType" value={propertyData.listingType} onChange={handleInputChange} required>
@@ -363,14 +402,90 @@ const AddProperties = () => {
               </div>
 
               <div className="form-group full">
-                <label className="required">Description</label>
-                <textarea className="ll-field" name="description" value={propertyData.description} onChange={handleInputChange} rows={isMobile ? 3 : 5} maxLength={500} required />
-                <div className="field-hint small">{propertyData.description.length}/500</div>
+                <label>Bills Included</label>
+                <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
+                  {['Water','Electricity'].map(b => (
+                    <label key={b} style={{display:'flex',alignItems:'center',gap:8,fontWeight:500}}>
+                      <input 
+                        type="checkbox" 
+                        name="billsIncluded" 
+                        value={b} 
+                        checked={Array.isArray(propertyData.billsIncluded) ? propertyData.billsIncluded.includes(b) : false} 
+                        onChange={(e)=>{
+                          const checked = e.target.checked;
+                          setPropertyData(prev => {
+                            const arr = Array.isArray(prev.billsIncluded) ? [...prev.billsIncluded] : [];
+                            if (checked) {
+                              if (!arr.includes(b)) arr.push(b);
+                            } else {
+                              const idx = arr.indexOf(b); if (idx>=0) arr.splice(idx,1);
+                            }
+                            return { ...prev, billsIncluded: arr };
+                          });
+                        }} 
+                        disabled={propertyData.listingType === 'For Sale'} 
+                      />
+                      {b}
+                    </label>
+                  ))}
+                </div>
+                <div className="field-hint small">{propertyData.listingType === 'For Sale' ? 'Not applicable for sale listings' : 'Check bills that are included in the rent (optional)'}</div>
+              </div>
+
+              <div className="form-group">
+                <label className={propertyData.listingType === 'For Sale' ? 'required' : ''}>Property Condition</label>
+                <select 
+                  className="ll-field" 
+                  name="propertyCondition" 
+                  value={propertyData.propertyCondition} 
+                  onChange={handleInputChange} 
+                  required={propertyData.listingType === 'For Sale'}
+                  disabled={propertyData.listingType === 'For Rent'}
+                >
+                  <option value="">Select Property Condition</option>
+                  <option value="Fully Furnished">Fully Furnished</option>
+                  <option value="Semi-Furnished">Semi-Furnished</option>
+                  <option value="Unfurnished">Unfurnished</option>
+                  <option value="Brand New">Brand New</option>
+                  <option value="Pre-owned / Resale">Pre-owned / Resale</option>
+                </select>
+                {propertyData.listingType === 'For Rent' && <div className="field-hint small" style={{color:'#666'}}>Disabled for For Rent listings</div>}
+              </div>
+
+              <div className="form-group full">
+                <label>Market Highlights</label>
+                <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                  {['Ready for Occupancy (RFO)','Pre-selling (under construction)','Negotiable Price','Clean Title','Inclusive of Taxes and Fees','Good Investment Opportunity','Rush Sale / Below Market Value'].map(mh => (
+                    <label key={mh} style={{display:'flex',alignItems:'center',gap:8,fontWeight:500}}>
+                      <input 
+                        type="checkbox" 
+                        name="marketHighlights" 
+                        value={mh} 
+                        checked={Array.isArray(propertyData.marketHighlights) ? propertyData.marketHighlights.includes(mh) : false} 
+                        onChange={(e)=>{
+                          const checked = e.target.checked;
+                          setPropertyData(prev => {
+                            const arr = Array.isArray(prev.marketHighlights) ? [...prev.marketHighlights] : [];
+                            if (checked) {
+                              if (!arr.includes(mh)) arr.push(mh);
+                            } else {
+                              const idx = arr.indexOf(mh); if (idx>=0) arr.splice(idx,1);
+                            }
+                            return { ...prev, marketHighlights: arr };
+                          });
+                        }} 
+                        disabled={propertyData.listingType === 'For Rent'} 
+                      />
+                      {mh}
+                    </label>
+                  ))}
+                </div>
+                <div className="field-hint small">Optional - check any market highlights that apply.</div>
               </div>
 
               <div className="form-group">
                 <label className="required">Address</label>
-                <input className="ll-field" name="address" value={propertyData.address} onChange={handleInputChange} required placeholder="Street, Building, etc." />
+                <input className="ll-field" name="address" value={propertyData.address} onChange={handleInputChange} required placeholder="Street, Barangay, etc." />
               </div>
 
               <div className="form-group">
@@ -387,13 +502,11 @@ const AddProperties = () => {
                   className="ll-field"
                   type="text"
                   name="price"
-                  pattern="^\d+(\.\d{1,2})?$"
                   value={propertyData.price}
                   onChange={handleInputChange}
                   onFocus={() => { setPriceFocused(true); setPriceError(''); }}
                   onBlur={() => {
                     setPriceFocused(false);
-                    // format value using locale
                     const num = (function parseLocaleNumberLocal(str){
                       if (str === undefined || str === null || String(str).trim() === '') return NaN;
                       const nfParts = new Intl.NumberFormat(navigator.language).formatToParts(12345.6);
@@ -439,8 +552,6 @@ const AddProperties = () => {
                 </select>
               </div>
               
-              {/* availableUnits removed - availability is derived from totalUnits and server-side approvals */}
-              
               <div className="form-group">
                 <label className="required">Property Size (sqm)</label>
                 <input className="ll-field" type="number" min={0} step={0.1} name="areaSqm" value={propertyData.areaSqm} onChange={handleInputChange} placeholder="e.g. 45" required />
@@ -449,16 +560,61 @@ const AddProperties = () => {
               
               <div className="form-group">
                 <label className="required">Max Occupancy</label>
-                <input className="ll-field" type="number" min={1} name="occupancy" value={propertyData.occupancy} onChange={handleInputChange} required />
+                <input className="ll-field" type="number" min={1} name="occupancy" value={propertyData.occupancy} onChange={handleInputChange} required disabled={propertyData.listingType === 'For Sale'} />
+                {propertyData.listingType === 'For Sale' && <div className="field-hint small" style={{color:'#666'}}>Disabled for For Sale listings</div>}
               </div>
               
               <div className="form-group toggle-field">
-                <label className="checkbox-label"><input type="checkbox" name="parking" checked={propertyData.parking} onChange={handleInputChange} /> Parking Available</label>
+                <label className="checkbox-label">
+                  <input 
+                    type="checkbox" 
+                    name="parking" 
+                    checked={propertyData.parking} 
+                    onChange={handleInputChange} 
+                  /> 
+                  Parking Available
+                </label>
               </div>
               
               <div className="form-group toggle-field">
-                <label className="checkbox-label"><input type="checkbox" name="petFriendly" checked={propertyData.petFriendly} onChange={handleInputChange} /> Pet Friendly</label>
-                {propertyData.petFriendly && <input className="ll-field mt-6" name="allowedPets" value={propertyData.allowedPets} placeholder="Allowed pets (e.g. Cats, Dogs)" onChange={handleInputChange} />}
+                <label className="checkbox-label">
+                  <input 
+                    type="checkbox" 
+                    name="petFriendly" 
+                    checked={propertyData.petFriendly} 
+                    onChange={handleInputChange} 
+                    disabled={propertyData.listingType === 'For Sale'} 
+                  /> 
+                  Pet Friendly
+                </label>
+                {propertyData.petFriendly && propertyData.listingType !== 'For Sale' && (
+                  <div className="ll-field mt-6 pet-types" style={{display:'flex',gap:12,flexWrap:'wrap'}}>
+                    {['Cat','Dog','Bird','Fish'].map(p => (
+                      <label key={p} style={{display:'flex',alignItems:'center',gap:8,fontWeight:500}}>
+                        <input 
+                          type="checkbox" 
+                          name="allowedPets" 
+                          value={p} 
+                          checked={Array.isArray(propertyData.allowedPets) ? propertyData.allowedPets.includes(p) : false} 
+                          onChange={(e)=>{
+                            const checked = e.target.checked;
+                            setPropertyData(prev => {
+                              const arr = Array.isArray(prev.allowedPets) ? [...prev.allowedPets] : [];
+                              if (checked) {
+                                if (!arr.includes(p)) arr.push(p);
+                              } else {
+                                const idx = arr.indexOf(p); if (idx>=0) arr.splice(idx,1);
+                              }
+                              return { ...prev, allowedPets: arr };
+                            });
+                          }} 
+                        />
+                        {p}
+                      </label>
+                    ))}
+                  </div>
+                )}
+                {propertyData.listingType === 'For Sale' && <div className="field-hint small" style={{color:'#666'}}>Pets not applicable for sale listings</div>}
               </div>
               
               <div className="form-group full">
@@ -505,7 +661,8 @@ const AddProperties = () => {
               
               <div className="form-group full">
                 <label>House Rules</label>
-                <textarea className="ll-field" name="rules" value={propertyData.rules} onChange={handleInputChange} placeholder="No loud noises after 10 PM, No smoking inside" rows={isMobile ? 2 : 3} />
+                <textarea className="ll-field" name="rules" value={propertyData.rules} onChange={handleInputChange} placeholder="No loud noises after 10 PM, No smoking inside" rows={isMobile ? 2 : 3} disabled={propertyData.listingType === 'For Sale'} />
+                {propertyData.listingType === 'For Sale' && <div className="field-hint small" style={{color:'#666'}}>Not used for sale listings</div>}
               </div>
               
               <div className={`form-row ${isMobile ? 'mobile-column' : ''}`}>
@@ -521,27 +678,25 @@ const AddProperties = () => {
             </div>
             
             <div className="ll-stack">
-             {/* Images Section */}
-<div className="images-section" style={{marginTop:'0'}}>
-  <h3 className="section-title">Images <span style={{color:'red', marginLeft:'4px'}}>*</span> <span style={{fontWeight:400, fontSize:'0.7rem'}}>({propertyData.images.length}/8 total)</span></h3>
-  <p className="field-hint">Add up to 8 images (JPG/PNG/WebP, max 10MB each).</p>
-  <div className="current-images-grid">
-    {imagePreviews.length ? imagePreviews.map((url, i) => (
-      <div key={i} className="image-chip">
-        <img src={url} alt={`Property ${i}`} />
-        <button type="button" aria-label="Remove image" onClick={() => removeImage(i)}>&times;</button>
-      </div>
-    )) : <div className="placeholder">No images</div>}
-  </div>
-  <div className="new-upload-block">
-    <label className="file-drop-modern">
-      <input type="file" multiple accept="image/*" onChange={handleImageChange} />
-      <span>Add Images</span>
-    </label>
-  </div>
-</div>
+              <div className="images-section" style={{marginTop:'0'}}>
+                <h3 className="section-title">Images <span style={{color:'red', marginLeft:'4px'}}>*</span> <span style={{fontWeight:400, fontSize:'0.7rem'}}>({propertyData.images.length}/8 total)</span></h3>
+                <p className="field-hint">Add up to 8 images (JPG/PNG/WebP, max 10MB each).</p>
+                <div className="current-images-grid">
+                  {imagePreviews.length ? imagePreviews.map((url, i) => (
+                    <div key={i} className="image-chip">
+                      <img src={url} alt={`Property ${i}`} />
+                      <button type="button" aria-label="Remove image" onClick={() => removeImage(i)}>&times;</button>
+                    </div>
+                  )) : <div className="placeholder">No images</div>}
+                </div>
+                <div className="new-upload-block">
+                  <label className="file-drop-modern">
+                    <input type="file" multiple accept="image/*" onChange={handleImageChange} />
+                    <span>Add Images</span>
+                  </label>
+                </div>
+              </div>
 
-              {/* 360° Panoramic Image Section - FIXED */}
               <div className="panorama-section" style={{marginTop:'32px'}}>
                 <h3 className="section-title">360° Panoramic Image</h3>
                 <p className="field-hint">Optional: Add a panoramic 360° image (JPG/PNG/WebP, max 10MB, equirectangular projection).</p>
@@ -562,7 +717,6 @@ const AddProperties = () => {
                 )}
               </div>
               
-              {/* Video Section */}
               <div className="video-section" style={{marginTop:'32px'}}>
                 <h3 className="section-title">Property Video <span style={{fontWeight:400, fontSize:'0.7rem'}}>{propertyData.video ? 'selected' : 'none'}</span></h3>
                 <p className="field-hint">Optional walkthrough clip (MP4/WebM/OGG, up to 50MB). Uploading a new one replaces the existing video.</p>
@@ -582,7 +736,6 @@ const AddProperties = () => {
                 )}
               </div>
               
-              {/* Map Preview Section */}
               <div className="ll-card map-preview-section" style={{marginTop:'32px', padding:'24px', borderRadius:'12px', boxShadow:'0 2px 12px rgba(0,0,0,0.05)', background:'#fafafa'}}>
                 <h3 style={{marginBottom:'18px'}}>Map Preview (SJDM only)</h3>
                 <div style={{height: isMobile ? '220px' : '320px', width:'100%', border:'1px solid #ccc', borderRadius:'8px', overflow:'hidden'}}>
@@ -615,7 +768,6 @@ const AddProperties = () => {
                   Tip: You can manually set the pin by clicking on the map or dragging the marker. Zoom in/out and pan to adjust view.<br />
                   {propertyData.manualPin && (
                     <button type="button" className="ll-btn tiny outline" style={{marginTop:'8px'}} onClick={() => {
-                      // Reset pin to auto-geocoded value
                       setPropertyData(prev => ({ ...prev, latitude:'', longitude:'', manualPin: false }));
                       toast.info('Pin reset. Enter address and barangay to auto-fill location.');
                     }}>Reset Pin to Auto</button>
