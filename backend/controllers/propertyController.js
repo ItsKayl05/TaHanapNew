@@ -348,7 +348,8 @@ export const addProperty = async (req, res) => {
                 areaSqm: num(areaSqm, 0),
                 billsIncluded: normalizedBills,
                 marketHighlights: normalizedHighlights,
-                propertyCondition: propertyCondition || '',
+                // Only set propertyCondition for 'For Sale' listings. Avoid sending empty string which fails enum validation.
+                ...(actualListingType === 'For Sale' && propertyCondition ? { propertyCondition: propertyCondition } : {}),
                 images,
                 video,
                 panorama360,
@@ -588,7 +589,7 @@ export const updateProperty = async (req, res) => {
             if ('allowedPets' in updates) updates.allowedPets = normalizeList(updates.allowedPets);
             if ('billsIncluded' in updates) updates.billsIncluded = normalizeList(updates.billsIncluded);
             if ('marketHighlights' in updates) updates.marketHighlights = normalizeList(updates.marketHighlights);
-            if ('propertyCondition' in updates) updates.propertyCondition = updates.propertyCondition || '';
+            if ('propertyCondition' in updates) updates.propertyCondition = updates.propertyCondition || undefined;
 
             for (const [field, validation] of Object.entries(validations)) {
                 if (field in updates) {
@@ -704,6 +705,15 @@ export const updateProperty = async (req, res) => {
                 video: updatedVideo,
                 panorama360: updatedPanorama
             };
+
+            // If the listing is For Rent, ensure propertyCondition is not sent (prevents enum validation errors)
+            const incomingListingType = req.body.listingType || property.propertyType;
+            if (String(incomingListingType).trim() !== 'For Sale') {
+                // remove propertyCondition if present
+                if (Object.prototype.hasOwnProperty.call(updatedData, 'propertyCondition')) {
+                    delete updatedData.propertyCondition;
+                }
+            }
 
             const updatedProperty = await Property.findByIdAndUpdate(
                 req.params.id, 
