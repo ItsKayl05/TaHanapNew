@@ -58,12 +58,13 @@ const EditProperty = () => {
         occupancy: "", 
         parking: false, 
         rules: "",
-        landmarks: "", 
+        landmarks: [], 
         availabilityStatus: "Available", 
         numberOfRooms: "", 
         areaSqm: "",
         latitude: "", 
-        longitude: ""
+        longitude: "",
+        totalUnits: 1
     });
     
     const FORM_KEY = `edit-property-${propertyId}-v1`;
@@ -131,7 +132,8 @@ const EditProperty = () => {
                     numberOfRooms: data.numberOfRooms ?? "",
                     areaSqm: data.areaSqm ?? "",
                     latitude: data.latitude ?? "",
-                    longitude: data.longitude ?? ""
+                    longitude: data.longitude ?? "",
+                    totalUnits: data.totalUnits ?? 1
                 });
                 
                 setOriginalLatLng({
@@ -200,11 +202,6 @@ const EditProperty = () => {
             newValue = sanitized;
         }
         
-        if (name === 'landmarks') {
-            const found = LANDMARKS.find(l => l === value);
-            newValue = found || value;
-        }
-        
         setFormData({
             ...formData,
             [name]: type === "checkbox" ? checked : newValue,
@@ -249,7 +246,7 @@ const EditProperty = () => {
         const saved = loadFormState(FORM_KEY);
         if (saved) {
             const allowed = [
-                'propertyType','billsIncluded','propertyCondition','marketHighlights','address','price','barangay','listingType','petFriendly','allowedPets','occupancy','parking','rules','landmarks','numberOfRooms','areaSqm','latitude','longitude','availabilityStatus'
+                'propertyType','billsIncluded','propertyCondition','marketHighlights','address','price','barangay','listingType','petFriendly','allowedPets','occupancy','parking','rules','landmarks','numberOfRooms','areaSqm','latitude','longitude','availabilityStatus','totalUnits'
             ];
             const toRestore = {};
             for (const k of allowed) {
@@ -309,14 +306,18 @@ const EditProperty = () => {
             
             const requiredChecks = [
                 { key: 'propertyType', ok: formData.propertyType && formData.propertyType.toString().trim() !== '', msg: "Please select a property type" },
-                { key: 'propertyCondition', ok: formData.propertyCondition && formData.propertyCondition.toString().trim() !== '', msg: "Please select the property condition" },
                 { key: 'address', ok: formData.address && formData.address.toString().trim() !== '', msg: "The property address cannot be empty" },
                 { key: 'price', ok: formData.price && formData.price.toString().trim() !== '', msg: "Don't forget to set a price" },
                 { key: 'barangay', ok: formData.barangay && formData.barangay.toString().trim() !== '', msg: "Please select a barangay for your property" },
                 { key: 'listingType', ok: formData.listingType && formData.listingType.toString().trim() !== '', msg: "Please select listing type" },
-                { key: 'areaSqm', ok: formData.areaSqm !== undefined && formData.areaSqm !== '' && !isNaN(Number(formData.areaSqm)) && Number(formData.areaSqm) > 0, msg: "Please provide the floor area (in square meters)" },
-                { key: 'occupancy', ok: formData.occupancy && formData.occupancy.toString().trim() !== '', msg: "Please specify maximum occupancy" }
+                { key: 'areaSqm', ok: formData.areaSqm !== undefined && formData.areaSqm !== '' && !isNaN(Number(formData.areaSqm)) && Number(formData.areaSqm) > 0, msg: "Please provide the floor area (in square meters)" }
             ];
+            
+            if (formData.listingType === 'For Rent') {
+                requiredChecks.push({ key: 'occupancy', ok: formData.occupancy && formData.occupancy.toString().trim() !== '' && !isNaN(Number(formData.occupancy)) && Number(formData.occupancy) > 0, msg: "Please specify maximum occupancy (must be greater than 0)" });
+            } else if (formData.listingType === 'For Sale') {
+                requiredChecks.push({ key: 'propertyCondition', ok: formData.propertyCondition && formData.propertyCondition.toString().trim() !== '', msg: "Please select the property condition" });
+            }
             
             for (const chk of requiredChecks) {
                 if (!chk.ok) { toast.error(chk.msg); return; }
@@ -337,20 +338,31 @@ const EditProperty = () => {
             };
             
             const priceNum = parseLocaleNumber(formData.price);
-            if (isNaN(priceNum) || priceNum < 0) {
-                toast.error('Please enter a valid price');
+            if (isNaN(priceNum) || priceNum <= 0) {
+                toast.error('Please enter a valid price greater than 0');
                 return;
+            }
+
+            const areaSqmNum = parseLocaleNumber(formData.areaSqm);
+            if (isNaN(areaSqmNum) || areaSqmNum <= 0) {
+                toast.error('Please enter a valid floor area greater than 0');
+                return;
+            }
+
+            if (formData.listingType === 'For Rent') {
+                const occupancyNum = parseLocaleNumber(formData.occupancy);
+                if (isNaN(occupancyNum) || occupancyNum <= 0) {
+                    toast.error('Please enter a valid maximum occupancy greater than 0');
+                    return;
+                }
             }
 
             setSubmitting(true);
 
             const formDataToSend = new FormData();
             
-            let landmarksArr = Array.isArray(formData.landmarks) ? [...formData.landmarks] : (formData.landmarks ? [formData.landmarks] : []);
-            landmarksArr = landmarksArr.map(l => l.trim().toLowerCase()).filter(l => l);
-            if (formData.customLandmark && formData.customLandmark.trim()) {
-                landmarksArr.push(formData.customLandmark.trim().toLowerCase());
-            }
+            let landmarksArr = Array.isArray(formData.landmarks) ? [...formData.landmarks] : [];
+            landmarksArr = landmarksArr.map(l => l.trim()).filter(l => l);
             const landmarksString = landmarksArr.join(', ');
 
             Object.entries(formData).forEach(([key, value]) => {
@@ -366,18 +378,42 @@ const EditProperty = () => {
                 } else if (key === 'propertyCondition') {
                     formDataToSend.append('propertyCondition', value || '');
                 } else if (key === 'customLandmark') {
+                    // Skip custom landmark
                 } else if (key === 'price') {
+                    // Price handled separately
+                } else if (key === 'areaSqm') {
+                    // areaSqm handled separately
+                } else if (key === 'occupancy') {
+                    // occupancy handled separately
                 } else if (value !== undefined && value !== null && value !== "") {
                     formDataToSend.append(key, value);
                 }
             });
             
-            formDataToSend.append('price', priceNum);
-            images.forEach(img => formDataToSend.append('existingImages', img));
-            deletedImages.forEach(img => formDataToSend.append('deletedImages[]', img.split('/').pop()));
+            // Append parsed numeric values
+            formDataToSend.append('price', priceNum.toString());
+            formDataToSend.append('areaSqm', areaSqmNum.toString());
+            if (formData.listingType === 'For Rent') {
+                formDataToSend.append('occupancy', parseLocaleNumber(formData.occupancy).toString());
+            }
+            
+            // Handle totalUnits
+            formDataToSend.append('totalUnits', formData.totalUnits ? formData.totalUnits.toString() : '1');
+            
+            // Handle images
             newImages.forEach(file => formDataToSend.append('images', file));
+            if (deletedImages.length > 0) {
+                deletedImages.forEach(img => {
+                    const filename = img.split('/').pop();
+                    formDataToSend.append('deletedImages', filename);
+                });
+            }
+            
+            // Handle video
             if (videoFile) formDataToSend.append('video', videoFile);
             if (removeVideo) formDataToSend.append('removeVideo', 'true');
+            
+            // Handle panorama
             if (panorama) {
                 formDataToSend.append('panorama360', panorama);
             } else if (existingPanorama === null && property && property.panorama360) {
@@ -396,6 +432,8 @@ const EditProperty = () => {
                     data.errors.forEach(error => toast.error(error));
                 } else if (data.error && typeof data.error === 'string') {
                     toast.error(data.error);
+                } else if (data.details && Array.isArray(data.details)) {
+                    data.details.forEach(error => toast.error(error));
                 } else if (data.message) {
                     toast.error(data.message);
                 } else {
@@ -410,6 +448,7 @@ const EditProperty = () => {
             } catch (e) { console.error('Failed to clear draft after update', e); }
             navigate('/my-properties');
         } catch (err) {
+            console.error('Update property error:', err);
             toast.error(err.message || 'Error updating property');
         } finally {
             setSubmitting(false);
@@ -616,8 +655,8 @@ const EditProperty = () => {
                                             const num = Number(normalized);
                                             return isNaN(num) ? NaN : num;
                                         })(formData.price);
-                                        if (isNaN(num)) {
-                                            setPriceError('Please enter a valid price');
+                                        if (isNaN(num) || num <= 0) {
+                                            setPriceError('Please enter a valid price greater than 0');
                                         } else {
                                             try {
                                                 const formatted = new Intl.NumberFormat(navigator.language, { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(num);
@@ -640,6 +679,12 @@ const EditProperty = () => {
                             </div>
 
                             <div className="field-group">
+                                <label>Total Units</label>
+                                <input className="ll-field" type="number" min={1} name="totalUnits" value={formData.totalUnits} onChange={handleChange} placeholder="e.g. 1" />
+                                <div className="field-hint small">Number of available units</div>
+                            </div>
+
+                            <div className="field-group">
                                 <label className="required">Availability</label>
                                 <select className="ll-field" name="availabilityStatus" value={formData.availabilityStatus} onChange={handleChange} required>
                                     <option value="Available">Available</option>
@@ -650,12 +695,12 @@ const EditProperty = () => {
 
                             <div className="field-group">
                                 <label className="required">Property Size (sqm)</label>
-                                <input className="ll-field" type="number" min={0} step={0.1} name="areaSqm" value={formData.areaSqm} onChange={handleChange} placeholder="e.g. 45" required />
+                                <input className="ll-field" type="number" min={0.1} step={0.1} name="areaSqm" value={formData.areaSqm} onChange={handleChange} placeholder="e.g. 45" required />
                             </div>
 
                             <div className="field-group">
-                                <label className="required">Max Occupancy</label>
-                                <input className="ll-field" type="number" min={1} name="occupancy" value={formData.occupancy} onChange={handleChange} required disabled={formData.listingType === 'For Sale'} />
+                                <label className={formData.listingType === 'For Rent' ? 'required' : ''}>Max Occupancy</label>
+                                <input className="ll-field" type="number" min={1} name="occupancy" value={formData.occupancy} onChange={handleChange} required={formData.listingType === 'For Rent'} disabled={formData.listingType === 'For Sale'} />
                                 {formData.listingType === 'For Sale' && <div className="field-hint small" style={{color:'#666'}}>Disabled for For Sale listings</div>}
                             </div>
 
@@ -733,7 +778,7 @@ const EditProperty = () => {
                                                     onChange={e => {
                                                         const checked = e.target.checked;
                                                         setFormData(prev => {
-                                                            let landmarksArr = Array.isArray(prev.landmarks) ? [...prev.landmarks] : (prev.landmarks ? [prev.landmarks] : []);
+                                                            let landmarksArr = Array.isArray(prev.landmarks) ? [...prev.landmarks] : [];
                                                             if (checked) {
                                                                 if (!landmarksArr.includes(l)) landmarksArr.push(l);
                                                             } else {

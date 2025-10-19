@@ -81,14 +81,15 @@ const AddProperties = () => {
     occupancy:'', 
     parking:false, 
     rules:'', 
-    landmarks:'', 
+    landmarks:[], 
     numberOfRooms:'', 
     areaSqm:'', 
     images:[], 
     video:null, 
     latitude:'', 
     longitude:'', 
-    availabilityStatus: 'Available'
+    availabilityStatus: 'Available',
+    totalUnits: 1
   });
 
   useEffect(() => {
@@ -156,11 +157,6 @@ const AddProperties = () => {
         sanitized = sanitized.slice(0, first + 1) + sanitized.slice(first + 1).replace(new RegExp(esc(decimal), 'g'), '');
       }
       newValue = sanitized;
-    }
-    
-    if (name === 'landmarks') {
-      const found = LANDMARKS.find(l => l === value);
-      newValue = found || value;
     }
     
     setPropertyData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : newValue }));
@@ -239,6 +235,7 @@ const AddProperties = () => {
     const token = localStorage.getItem('user_token');
     if (!token) { toast.error('No token found. Please log in.'); navigate('/login'); return; }
     
+    // Enhanced validation
     const requiredChecks = [];
     requiredChecks.push({ key: 'propertyType', ok: propertyData.propertyType && propertyData.propertyType.toString().trim() !== '', msg: "Please select a property type" });
     requiredChecks.push({ key: 'listingType', ok: propertyData.listingType && propertyData.listingType.toString().trim() !== '', msg: "Please select listing type" });
@@ -248,7 +245,7 @@ const AddProperties = () => {
     requiredChecks.push({ key: 'areaSqm', ok: propertyData.areaSqm !== undefined && propertyData.areaSqm !== '' && !isNaN(Number(propertyData.areaSqm)) && Number(propertyData.areaSqm) > 0, msg: "Please provide the floor area (in square meters)" });
     
     if (propertyData.listingType === 'For Rent') {
-      requiredChecks.push({ key: 'occupancy', ok: propertyData.occupancy && propertyData.occupancy.toString().trim() !== '', msg: "Please specify maximum occupancy" });
+      requiredChecks.push({ key: 'occupancy', ok: propertyData.occupancy && propertyData.occupancy.toString().trim() !== '' && !isNaN(Number(propertyData.occupancy)) && Number(propertyData.occupancy) > 0, msg: "Please specify maximum occupancy (must be greater than 0)" });
     } else if (propertyData.listingType === 'For Sale') {
       requiredChecks.push({ key: 'propertyCondition', ok: propertyData.propertyCondition && propertyData.propertyCondition.toString().trim() !== '', msg: "Please select the property condition" });
     }
@@ -287,51 +284,84 @@ const AddProperties = () => {
     };
 
     const priceNum = parseLocaleNumber(propertyData.price);
-    if (isNaN(priceNum) || priceNum < 0) {
-      setPriceError('Please enter a valid price');
+    if (isNaN(priceNum) || priceNum <= 0) {
+      setPriceError('Please enter a valid price greater than 0');
+      toast.error('Please enter a valid price greater than 0');
       return;
     } else {
       setPriceError('');
     }
 
+    const areaSqmNum = parseLocaleNumber(propertyData.areaSqm);
+    if (isNaN(areaSqmNum) || areaSqmNum <= 0) {
+      toast.error('Please enter a valid floor area greater than 0');
+      return;
+    }
+
+    if (propertyData.listingType === 'For Rent') {
+      const occupancyNum = parseLocaleNumber(propertyData.occupancy);
+      if (isNaN(occupancyNum) || occupancyNum <= 0) {
+        toast.error('Please enter a valid maximum occupancy greater than 0');
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     const formData = new FormData();
     
-    let landmarksArr = Array.isArray(propertyData.landmarks) ? [...propertyData.landmarks] : (propertyData.landmarks ? [propertyData.landmarks] : []);
-    landmarksArr = landmarksArr.map(l => l.trim().toLowerCase()).filter(l => l);
-    if (propertyData.customLandmark && propertyData.customLandmark.trim()) {
-      landmarksArr.push(propertyData.customLandmark.trim().toLowerCase());
-    }
+    // Handle landmarks - ensure it's always an array
+    let landmarksArr = Array.isArray(propertyData.landmarks) ? [...propertyData.landmarks] : [];
+    landmarksArr = landmarksArr.map(l => l.trim()).filter(l => l);
     const landmarksString = landmarksArr.join(', ');
 
     const listingType = propertyData.listingType;
     
+    // Append all fields with proper field names
     Object.entries(propertyData).forEach(([k,v]) => {
+      // Skip fields that shouldn't be sent based on listing type
       if (listingType === 'For Rent' && (k === 'propertyCondition' || k === 'marketHighlights')) return;
       if (listingType === 'For Sale' && (k === 'occupancy' || k === 'petFriendly' || k === 'allowedPets' || k === 'rules' || k === 'billsIncluded')) return;
       
-      if (k==='images') v.forEach(img => formData.append('images', img));
-      else if (k==='video') { if (v) formData.append('video', v); }
-      else if (k==='landmarks') { formData.append('landmarks', landmarksString); }
-      else if (k==='customLandmark') { }
-      else if (k==='allowedPets') { formData.append('allowedPets', Array.isArray(v) ? v.join(', ') : (v || '')); }
-      else if (k==='billsIncluded') { formData.append('billsIncluded', Array.isArray(v) ? v.join(', ') : ''); }
-      else if (k==='marketHighlights') { formData.append('marketHighlights', Array.isArray(v) ? v.join(', ') : ''); }
-      else if (k==='propertyCondition') { formData.append('propertyCondition', v || ''); }
-      else formData.append(k,v);
+      if (k==='images') {
+        v.forEach(img => formData.append('images', img));
+      } else if (k==='video') { 
+        if (v) formData.append('video', v); 
+      } else if (k==='landmarks') { 
+        formData.append('landmarks', landmarksString); 
+      } else if (k==='allowedPets') { 
+        formData.append('allowedPets', Array.isArray(v) ? v.join(', ') : (v || '')); 
+      } else if (k==='billsIncluded') { 
+        formData.append('billsIncluded', Array.isArray(v) ? v.join(', ') : ''); 
+      } else if (k==='marketHighlights') { 
+        formData.append('marketHighlights', Array.isArray(v) ? v.join(', ') : ''); 
+      } else if (k==='propertyCondition') { 
+        formData.append('propertyCondition', v || ''); 
+      } else if (k === 'price') {
+        // Price will be handled separately with parsed value
+      } else if (k === 'areaSqm') {
+        // areaSqm will be handled separately with parsed value
+      } else if (k === 'occupancy') {
+        // occupancy will be handled separately with parsed value
+      } else {
+        formData.append(k, v);
+      }
     });
+    
+    // Append parsed numeric values
+    formData.append('price', priceNum.toString());
+    formData.append('areaSqm', areaSqmNum.toString());
+    if (propertyData.listingType === 'For Rent') {
+      formData.append('occupancy', parseLocaleNumber(propertyData.occupancy).toString());
+    }
+    
+    // Handle totalUnits - ensure it's always a number
+    formData.append('totalUnits', propertyData.totalUnits ? propertyData.totalUnits.toString() : '1');
     
     if (panorama) {
       formData.append('panorama360', panorama);
     }
     
     try {
-      const parseForSend = (val) => {
-        const num = parseLocaleNumber(val);
-        return isNaN(num) ? '' : num;
-      };
-      formData.set('price', parseForSend(propertyData.price));
-
       const res = await fetch(buildApi('/properties/add'), { 
         method:'POST', 
         headers:{ Authorization:`Bearer ${token}` }, 
@@ -344,6 +374,8 @@ const AddProperties = () => {
           data.errors.forEach(error => toast.error(error));
         } else if (data.error && typeof data.error === 'string') {
           toast.error(data.error);
+        } else if (data.details && Array.isArray(data.details)) {
+          data.details.forEach(error => toast.error(error));
         } else if (data.message) {
           toast.error(data.message);
         } else {
@@ -355,6 +387,7 @@ const AddProperties = () => {
       toast.success('Property added successfully');
       navigate('/my-properties');
     } catch (err) {
+      console.error('Add property error:', err);
       toast.error(err.message || 'Error adding property');
     } finally {
       setIsSubmitting(false);
@@ -520,8 +553,8 @@ const AddProperties = () => {
                       const num = Number(normalized);
                       return isNaN(num) ? NaN : num;
                     })(propertyData.price);
-                    if (isNaN(num)) {
-                      setPriceError('Please enter a valid price');
+                    if (isNaN(num) || num <= 0) {
+                      setPriceError('Please enter a valid price greater than 0');
                     } else {
                       try {
                         const formatted = new Intl.NumberFormat(navigator.language, { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(num);
@@ -545,6 +578,12 @@ const AddProperties = () => {
               </div>
               
               <div className="form-group">
+                <label>Total Units</label>
+                <input className="ll-field" type="number" min={1} name="totalUnits" value={propertyData.totalUnits} onChange={handleInputChange} placeholder="e.g. 1" />
+                <div className="field-hint small">Number of available units (default: 1)</div>
+              </div>
+              
+              <div className="form-group">
                 <label>Availability Status</label>
                 <select className="ll-field" name="availabilityStatus" value={propertyData.availabilityStatus} onChange={handleInputChange}>
                   <option value="Available">Available</option>
@@ -554,13 +593,22 @@ const AddProperties = () => {
               
               <div className="form-group">
                 <label className="required">Property Size (sqm)</label>
-                <input className="ll-field" type="number" min={0} step={0.1} name="areaSqm" value={propertyData.areaSqm} onChange={handleInputChange} placeholder="e.g. 45" required />
+                <input className="ll-field" type="number" min={0.1} step={0.1} name="areaSqm" value={propertyData.areaSqm} onChange={handleInputChange} placeholder="e.g. 45" required />
                 <div className="field-hint small">Enter the floor area in square meters (must be greater than 0)</div>
               </div>
               
               <div className="form-group">
-                <label className="required">Max Occupancy</label>
-                <input className="ll-field" type="number" min={1} name="occupancy" value={propertyData.occupancy} onChange={handleInputChange} required disabled={propertyData.listingType === 'For Sale'} />
+                <label className={propertyData.listingType === 'For Rent' ? 'required' : ''}>Max Occupancy</label>
+                <input 
+                  className="ll-field" 
+                  type="number" 
+                  min={1} 
+                  name="occupancy" 
+                  value={propertyData.occupancy} 
+                  onChange={handleInputChange} 
+                  required={propertyData.listingType === 'For Rent'}
+                  disabled={propertyData.listingType === 'For Sale'} 
+                />
                 {propertyData.listingType === 'For Sale' && <div className="field-hint small" style={{color:'#666'}}>Disabled for For Sale listings</div>}
               </div>
               
@@ -641,7 +689,7 @@ const AddProperties = () => {
                           onChange={e => {
                             const checked = e.target.checked;
                             setPropertyData(prev => {
-                              let landmarksArr = Array.isArray(prev.landmarks) ? [...prev.landmarks] : (prev.landmarks ? [prev.landmarks] : []);
+                              let landmarksArr = Array.isArray(prev.landmarks) ? [...prev.landmarks] : [];
                               if (checked) {
                                 if (!landmarksArr.includes(l)) landmarksArr.push(l);
                               } else {
