@@ -8,7 +8,7 @@ import Sidebar from '../Sidebar/Sidebar';
 import '../landlord-theme.css';
 import './AddProperties.css';
 import PhotoDomeViewer from '../../../components/PhotoDomeViewer';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 
 const barangayList = [
@@ -151,7 +151,7 @@ const AddProperties = () => {
         setMapZoom(16);
         return coords;
       } else {
-        toast.warn('Location not found. Try being more specific with the address.');
+        toast.warn('Finding location. Please wait...');
       }
     } catch (err) {
       if (err.name === 'AbortError') {
@@ -173,6 +173,20 @@ const AddProperties = () => {
         toast.info('Pin location set!');
       }
     });
+    return null;
+  }
+
+  // Sync map center to the property's marker whenever its coordinates change
+  function MapCenterSync({ lat, lng }) {
+    const map = useMap();
+    useEffect(() => {
+      if (!lat || !lng) return;
+      try {
+        map.setView([parseFloat(lat), parseFloat(lng)], Math.max(map.getZoom(), 15), { animate: true });
+      } catch (e) {
+        // ignore
+      }
+    }, [lat, lng, map]);
     return null;
   }
 
@@ -579,16 +593,16 @@ const AddProperties = () => {
               </div>
 
               <div className="form-group">
-                <label className="required">Address</label>
-                <input className="ll-field" name="address" value={propertyData.address} onChange={handleInputChange} required placeholder="Street, Barangay, etc." />
-              </div>
-
-              <div className="form-group">
                 <label className="required">Barangay</label>
                 <select className="ll-field" name="barangay" value={propertyData.barangay} onChange={handleInputChange} required>
                   <option value="">Select Barangay</option>
                   {barangayList.map(b => <option key={b} value={b}>{b}</option>)}
                 </select>
+              </div>
+
+              <div className="form-group">
+                <label className="required">Address</label>
+                <input className="ll-field" name="address" value={propertyData.address} onChange={handleInputChange} required placeholder="Street, Barangay, etc." />
               </div>
               
               <div className="form-group">
@@ -885,7 +899,7 @@ const AddProperties = () => {
                       <li>Fine-tune the location by either:
                         <ul style={{marginTop: '4px'}}>
                           <li>Clicking anywhere on the map to move the pin</li>
-                          <li>Dragging the red pin marker to the exact location</li>
+                          <li>Dragging the blue pin marker to the exact location</li>
                         </ul>
                       </li>
                       <li>Zoom in/out using the +/- buttons or mouse wheel for better accuracy</li>
@@ -896,6 +910,9 @@ const AddProperties = () => {
                   <MapContainer center={mapCenter} zoom={mapZoom} style={{height:'100%', width:'100%'}} scrollWheelZoom={true}>
                     <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap contributors" />
                     <LocationSelector />
+                    {propertyData.latitude && propertyData.longitude && (
+                      <MapCenterSync lat={propertyData.latitude} lng={propertyData.longitude} />
+                    )}
                     {propertyData.latitude && propertyData.longitude && (
                       <Marker
                         position={[parseFloat(propertyData.latitude), parseFloat(propertyData.longitude)]}
