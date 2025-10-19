@@ -91,6 +91,7 @@ const AddProperties = () => {
     availabilityStatus: 'Available'
   });
 
+  // Auto-clear fields when listing type changes
   useEffect(() => {
     const lt = propertyData.listingType;
     setPropertyData(prev => {

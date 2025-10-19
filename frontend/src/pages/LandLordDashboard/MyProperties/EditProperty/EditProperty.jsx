@@ -273,6 +273,7 @@ const EditProperty = () => {
         })();
     }, [propertyId]);
 
+    // Auto-clear fields when listing type changes
     useEffect(() => {
         const lt = formData.listingType;
         setFormData(prev => {

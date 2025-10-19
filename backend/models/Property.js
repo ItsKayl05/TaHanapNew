@@ -58,7 +58,7 @@ const propertySchema = new mongoose.Schema({
   },
   propertyCondition: {
     type: String,
-    enum: ['Fully Furnished','Semi-Furnished','Unfurnished','Brand New','Pre-owned / Resale'],
+    enum: ['Fully Furnished','Semi-Furnished','Unfurnished','Brand New','Pre-owned / Resale', ''],
     default: ''
   },
   marketHighlights: {
@@ -118,6 +118,34 @@ const propertySchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+});
+
+// Add pre-save middleware to handle propertyCondition based on listing type
+propertySchema.pre('save', function(next) {
+  // If listing type is "For Rent", clear propertyCondition
+  if (this.propertyType === 'For Rent') {
+    this.propertyCondition = '';
+  }
+  // If listing type is "For Sale" and propertyCondition is empty, set a default
+  if (this.propertyType === 'For Sale' && (!this.propertyCondition || this.propertyCondition.trim() === '')) {
+    this.propertyCondition = 'Brand New';
+  }
+  next();
+});
+
+propertySchema.pre('findOneAndUpdate', function(next) {
+  const update = this.getUpdate();
+  
+  if (update.propertyType === 'For Rent') {
+    update.propertyCondition = '';
+  }
+  
+  if (update.propertyType === 'For Sale' && (!update.propertyCondition || update.propertyCondition.trim() === '')) {
+    update.propertyCondition = 'Brand New';
+  }
+  
+  this.setUpdate(update);
+  next();
 });
 
 export default mongoose.model("Property", propertySchema);

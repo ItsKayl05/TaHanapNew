@@ -330,8 +330,8 @@ export const addProperty = async (req, res) => {
             const normalizedBills = normalizeList(billsIncluded);
             const normalizedHighlights = normalizeList(marketHighlights);
 
-            // Create the property object with proper field mapping
-            const newProperty = new Property({
+            // Create base property data
+            const propertyData = {
                 landlord,
                 title: actualPropertyType,
                 address: address ? address.trim() : '',
@@ -348,8 +348,6 @@ export const addProperty = async (req, res) => {
                 areaSqm: num(areaSqm, 0),
                 billsIncluded: normalizedBills,
                 marketHighlights: normalizedHighlights,
-                // Only set propertyCondition for 'For Sale' listings. Avoid sending empty string which fails enum validation.
-                ...(actualListingType === 'For Sale' && propertyCondition ? { propertyCondition: propertyCondition } : {}),
                 images,
                 video,
                 panorama360,
@@ -357,8 +355,18 @@ export const addProperty = async (req, res) => {
                 longitude: longitude ? parseFloat(longitude) : null,
                 status: 'approved',
                 availabilityStatus: finalAvailabilityStatus
-            });
+            };
 
+            // Only add propertyCondition for 'For Sale' listings
+            if (actualListingType === 'For Sale' && propertyCondition && propertyCondition.trim() !== '') {
+                propertyData.propertyCondition = propertyCondition;
+            }
+            // For 'For Rent' listings, explicitly set to empty string
+            else if (actualListingType === 'For Rent') {
+                propertyData.propertyCondition = '';
+            }
+
+            const newProperty = new Property(propertyData);
             await newProperty.save();
             
             // Populate landlord info for response
@@ -706,13 +714,18 @@ export const updateProperty = async (req, res) => {
                 panorama360: updatedPanorama
             };
 
-            // If the listing is For Rent, ensure propertyCondition is not sent (prevents enum validation errors)
+            // Handle propertyCondition based on listing type
             const incomingListingType = req.body.listingType || property.propertyType;
-            if (String(incomingListingType).trim() !== 'For Sale') {
-                // remove propertyCondition if present
-                if (Object.prototype.hasOwnProperty.call(updatedData, 'propertyCondition')) {
-                    delete updatedData.propertyCondition;
+            if (String(incomingListingType).trim() === 'For Sale') {
+                // Only set propertyCondition for 'For Sale' listings
+                if (req.body.propertyCondition && req.body.propertyCondition.trim() !== '') {
+                    updatedData.propertyCondition = req.body.propertyCondition;
+                } else {
+                    updatedData.propertyCondition = 'Brand New';
                 }
+            } else {
+                // For 'For Rent' listings, ensure propertyCondition is empty
+                updatedData.propertyCondition = '';
             }
 
             const updatedProperty = await Property.findByIdAndUpdate(
