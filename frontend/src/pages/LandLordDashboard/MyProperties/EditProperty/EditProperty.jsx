@@ -178,6 +178,7 @@ const EditProperty = () => {
     const handlePanoramaChange = (e) => {
         const files = Array.from(e.target.files || []);
         if (!files.length) return;
+        // Only allow one panorama file (backend only supports one)
         const validFiles = files.filter(file => {
             const validType = file.type.startsWith('image/');
             const sizeOk = file.size <= 10 * 1024 * 1024;
@@ -186,11 +187,13 @@ const EditProperty = () => {
             return validType && sizeOk;
         });
         if (!validFiles.length) return;
-        // Add new files, avoid duplicates by name
-        const existingNames = panoramas.map(f => f.name);
-        const newFiles = validFiles.filter(f => !existingNames.includes(f.name));
-        setPanoramas(prev => [...prev, ...newFiles]);
-        setPanoramaPreviews(prev => [...prev, ...newFiles.map(f => URL.createObjectURL(f))]);
+        // Only keep the first valid file
+        const file = validFiles[0];
+        setPanoramas([file]);
+        setPanoramaPreviews(prev => {
+            prev.forEach(url => URL.revokeObjectURL(url));
+            return [URL.createObjectURL(file)];
+        });
     };
 
     const removePanorama = (idx) => {
@@ -493,9 +496,9 @@ const EditProperty = () => {
             if (videoFile) formDataToSend.append('video', videoFile);
             if (removeVideo) formDataToSend.append('removeVideo', 'true');
             
-            // Handle panoramas
+            // Handle panorama (only one allowed by backend)
             if (panoramas.length) {
-                panoramas.forEach(file => formDataToSend.append('panorama360', file));
+                formDataToSend.append('panorama360', panoramas[0]);
             }
             
             const response = await fetch(buildApi(`/properties/${propertyId}`), {
@@ -942,19 +945,17 @@ const EditProperty = () => {
                             <h3 className="section-title">360° Panoramic Images</h3>
                             <p className="field-hint">Optional: Add one or more panoramic 360° images (JPG/PNG/WebP, max 10MB each, equirectangular projection).</p>
                             <label className="file-drop-modern">
-                                <input id="panorama-input" type="file" accept="image/*" multiple style={{display:'none'}} onChange={handlePanoramaChange} />
-                                <span onClick={()=>document.getElementById('panorama-input').click()}>Add 360° Panoramic Images</span>
+                                <input id="panorama-input" type="file" accept="image/*" style={{display:'none'}} onChange={handlePanoramaChange} />
+                                <span onClick={()=>document.getElementById('panorama-input').click()}>Add 360° Panoramic Image</span>
                             </label>
                             {panoramaPreviews.length > 0 && (
                                 <div style={{marginTop:'12px', display:'flex', gap:'16px', flexWrap:'wrap'}}>
-                                    {panoramaPreviews.map((url, idx) => (
-                                        <div key={idx} style={{position:'relative', width:'180px'}}>
-                                            <div className="panorama-preview-container">
-                                                <PhotoDomeViewer imageUrl={url} mode="MONOSCOPIC" />
-                                            </div>
-                                            <button type="button" className="ll-btn tiny danger" style={{position:'absolute',top:4,right:4}} onClick={()=>removePanorama(idx)}>Remove</button>
+                                    <div style={{position:'relative', width:'180px'}}>
+                                        <div className="panorama-preview-container">
+                                            <PhotoDomeViewer imageUrl={panoramaPreviews[0]} mode="MONOSCOPIC" />
                                         </div>
-                                    ))}
+                                        <button type="button" className="ll-btn tiny danger" style={{position:'absolute',top:4,right:4}} onClick={()=>removePanorama(0)}>Remove</button>
+                                    </div>
                                 </div>
                             )}
                         </div>
