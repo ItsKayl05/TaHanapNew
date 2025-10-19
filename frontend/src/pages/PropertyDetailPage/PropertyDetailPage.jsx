@@ -5,7 +5,7 @@ import { toast } from "react-toastify";
 import Slider from "react-slick";
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
-import { FaArrowLeft, FaHome, FaMapMarkerAlt, FaTag, FaPaw, FaCar, FaUsers, FaInfoCircle, FaDoorOpen, FaRulerCombined, FaFlag } from "react-icons/fa";
+import { FaArrowLeft, FaHome, FaMapMarkerAlt, FaTag, FaPaw, FaCar, FaUsers, FaInfoCircle, FaDoorOpen, FaRulerCombined, FaFlag, FaBolt, FaWater, FaChartLine } from "react-icons/fa";
 import { buildApi, buildUpload } from '../../services/apiConfig';
 import { AuthContext } from '../../context/AuthContext';
 import { createApplication } from '../../services/application/ApplicationService';
@@ -93,8 +93,15 @@ const PropertyDetailPage = () => {
         arrows: true,
     };
 
-    // Availability: rely on normalized availabilityStatus determined server-side ('Available'|'Not Available')
-    const isAvailable = property.availabilityStatus !== 'Not Available';
+    // Availability: normalize server value and treat variants like 'not available' / 'Not-Available' as unavailable
+    const availabilityRaw = String(property.availabilityStatus || '').toLowerCase();
+    const isAvailable = !(/not[\s-]*available/.test(availabilityRaw));
+
+    // Determine if it's For Rent or For Sale (accept either propertyType or listingType, be case-insensitive and tolerant)
+    const listingKindRaw = (property.propertyType || property.listingType || '').toString();
+    const listingKind = listingKindRaw.trim().toLowerCase();
+    const isForRent = listingKind.includes('rent') && !listingKind.includes('sale');
+    const isForSale = listingKind.includes('sale') && !listingKind.includes('rent');
 
     return (
         <div className="property-detail-container">
@@ -178,10 +185,7 @@ const PropertyDetailPage = () => {
                     </div>
 
                     <div className="property-features">
-                        <div className="feature">
-                            <FaUsers className="feature-icon" />
-                            <span>{property.occupancy} {property.occupancy === 1 ? 'Person' : 'People'}</span>
-                        </div>
+                        {/* Common Features for both Rent and Sale */}
                         {Number(property.numberOfRooms) > 0 && (
                             <div className="feature">
                                 <FaDoorOpen className="feature-icon" />
@@ -194,21 +198,28 @@ const PropertyDetailPage = () => {
                                 <span>{property.areaSqm} sqm</span>
                             </div>
                         )}
-                                                {property.petFriendly && (
-                                                        <div className="feature">
-                                                                <FaPaw className="feature-icon" />
-                                                                <span>
-                                                                    Pet Friendly
-                                                                    {property.allowedPets && property.allowedPets.length > 0 ? (
-                                                                        <span style={{marginLeft:8,fontWeight:500,fontSize:'0.9rem'}}>{Array.isArray(property.allowedPets) ? property.allowedPets.join(', ') : property.allowedPets}</span>
-                                                                    ) : null}
-                                                                </span>
-                                                        </div>
-                                                )}
                         {property.parking && (
                             <div className="feature">
                                 <FaCar className="feature-icon" />
                                 <span>Parking Available</span>
+                            </div>
+                        )}
+
+                        {/* For Rent Specific Features */}
+                        {isForRent && (
+                            <>
+                                <div className="feature">
+                                    <FaUsers className="feature-icon" />
+                                    <span>{property.occupancy} {property.occupancy === 1 ? 'Person' : 'People'}</span>
+                                </div>
+                            </>
+                        )}
+
+                        {/* For Sale Specific Features */}
+                        {isForSale && property.propertyCondition && (
+                            <div className="feature">
+                                <FaInfoCircle className="feature-icon" />
+                                <span>{property.propertyCondition}</span>
                             </div>
                         )}
                     </div>
@@ -249,7 +260,9 @@ const PropertyDetailPage = () => {
                                 </div>
                             </div>
                         )}
-                        {property.rules && (
+
+                        {/* For Rent Specific Details */}
+                        {isForRent && property.rules && (
                             <div className="detail-item">
                                 <FaInfoCircle className="detail-icon" />
                                 <div>
@@ -258,35 +271,108 @@ const PropertyDetailPage = () => {
                                 </div>
                             </div>
                         )}
+
+                        {/* For Sale Specific Details */}
+                        {isForSale && property.propertyCondition && (
+                            <div className="detail-item">
+                                <FaInfoCircle className="detail-icon" />
+                                <div>
+                                    <strong>Property Condition:</strong>
+                                    <p>{property.propertyCondition}</p>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
-                    {/* New structured fields replacing description */}
-                    {((property.billsIncluded && property.billsIncluded.length > 0) || property.propertyCondition || (property.marketHighlights && property.marketHighlights.length > 0)) && (
-                        <div className="description-section">
-                            <h3>Property Highlights</h3>
-                            {property.propertyCondition && (
-                                <div style={{marginBottom:8}}>
-                                    <strong>Condition:</strong> <span>{property.propertyCondition}</span>
-                                </div>
-                            )}
-                            {property.billsIncluded && property.billsIncluded.length > 0 && (
-                                <div style={{marginBottom:8}}>
-                                    <strong>Bills Included:</strong>
-                                    <div style={{marginTop:6}}>{Array.isArray(property.billsIncluded) ? property.billsIncluded.join(', ') : property.billsIncluded}</div>
-                                </div>
-                            )}
-                            {property.marketHighlights && property.marketHighlights.length > 0 && (
-                                <div style={{marginTop:6}}>
-                                    <strong>Market Highlights:</strong>
-                                    <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:8}}>
-                                        {(Array.isArray(property.marketHighlights) ? property.marketHighlights : String(property.marketHighlights).split(',').map(s=>s.trim())).map((mh,idx)=> (
-                                            <span key={idx} className="feature-tag" style={{background:'#eef', color:'#114'}}>{mh}</span>
-                                        ))}
+                    {/* Property Highlights Section */}
+                    <div className="description-section">
+                        <h3>Property Highlights</h3>
+                        
+                        {/* For Rent Highlights */}
+                        {isForRent && (
+                            <>
+                                {property.billsIncluded && property.billsIncluded.length > 0 && (
+                                    <div className="highlight-item">
+                                        <div className="highlight-header">
+                                            <FaBolt className="highlight-icon" />
+                                            <strong>Bills Included:</strong>
+                                        </div>
+                                        <div className="highlight-content">
+                                            {Array.isArray(property.billsIncluded) ? property.billsIncluded.join(', ') : property.billsIncluded}
+                                        </div>
                                     </div>
+                                )}
+                                {property.petFriendly && (
+                                    <div className="highlight-item">
+                                        <div className="highlight-header">
+                                            <FaPaw className="highlight-icon" />
+                                            <strong>Pet Policy:</strong>
+                                        </div>
+                                        <div className="highlight-content">
+                                            Pet Friendly
+                                            {property.allowedPets && property.allowedPets.length > 0 && (
+                                                <span> - Allowed: {Array.isArray(property.allowedPets) ? property.allowedPets.join(', ') : property.allowedPets}</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                                {property.occupancy && (
+                                    <div className="highlight-item">
+                                        <div className="highlight-header">
+                                            <FaUsers className="highlight-icon" />
+                                            <strong>Maximum Occupancy:</strong>
+                                        </div>
+                                        <div className="highlight-content">
+                                            {property.occupancy} {property.occupancy === 1 ? 'person' : 'people'}
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        )}
+
+                        {/* For Sale Highlights */}
+                        {isForSale && (
+                            <>
+                                {property.propertyCondition && (
+                                    <div className="highlight-item">
+                                        <div className="highlight-header">
+                                            <FaInfoCircle className="highlight-icon" />
+                                            <strong>Property Condition:</strong>
+                                        </div>
+                                        <div className="highlight-content">
+                                            {property.propertyCondition}
+                                        </div>
+                                    </div>
+                                )}
+                                {property.marketHighlights && property.marketHighlights.length > 0 && (
+                                    <div className="highlight-item">
+                                        <div className="highlight-header">
+                                            <FaChartLine className="highlight-icon" />
+                                            <strong>Market Highlights:</strong>
+                                        </div>
+                                        <div className="highlight-tags">
+                                            {(Array.isArray(property.marketHighlights) ? property.marketHighlights : String(property.marketHighlights).split(',').map(s=>s.trim())).map((mh,idx)=> (
+                                                <span key={idx} className="market-highlight-tag">{mh}</span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        )}
+
+                        {/* Common Highlights */}
+                        {property.parking && (
+                            <div className="highlight-item">
+                                <div className="highlight-header">
+                                    <FaCar className="highlight-icon" />
+                                    <strong>Parking:</strong>
                                 </div>
-                            )}
-                        </div>
-                    )}
+                                <div className="highlight-content">
+                                    Parking space available
+                                </div>
+                            </div>
+                        )}
+                    </div>
 
                     {property.landlordProfile && (
                         <div className="landlord-card">
@@ -305,7 +391,8 @@ const PropertyDetailPage = () => {
                     )}
 
                     <div className="detail-actions">
-                        {userRole === 'tenant' && isAvailable && (
+                        {/* Apply button: visible for all viewers when For Rent (click requires tenant login) */}
+                        {isForRent && isAvailable && (
                             <button
                                 className="apply-btn"
                                 disabled={applying}
@@ -314,8 +401,15 @@ const PropertyDetailPage = () => {
                                     try {
                                         const token = localStorage.getItem('user_token');
                                         if (!token) {
-                                            toast.error('Please login to apply');
+                                            // Not logged in -> prompt login
                                             navigate('/login');
+                                            setApplying(false);
+                                            return;
+                                        }
+                                        const role = localStorage.getItem('user_role');
+                                        if (role !== 'tenant') {
+                                            toast.error('Only tenants can apply for rentals');
+                                            setApplying(false);
                                             return;
                                         }
                                         const res = await createApplication(property._id || property.id || id, '');
@@ -331,10 +425,9 @@ const PropertyDetailPage = () => {
                                     }
                                 }}
                             >
-                                Apply
+                                {applying ? 'Applying...' : 'Apply for Rental'}
                             </button>
                         )}
-                        {/* totalUnits display removed per UX changes */}
                         
                         <button
                             className="contact-btn"
