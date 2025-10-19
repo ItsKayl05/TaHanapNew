@@ -323,7 +323,12 @@ export const addProperty = async (req, res) => {
                     console.error("Error cleaning up files:", cleanupError);
                 }
             }
-            
+
+            // Return helpful error details only in non-production environments to aid debugging
+            if (process.env.NODE_ENV !== 'production') {
+                return res.status(500).json({ error: 'Server error while adding property', detail: error.message, stack: error.stack });
+            }
+
             res.status(500).json({ error: "Server error while adding property" });
         }
     });
