@@ -90,6 +90,10 @@ const EditProperty = () => {
     // Multiple panoramas
     const [panoramas, setPanoramas] = useState([]); // array of File
     const [panoramaPreviews, setPanoramaPreviews] = useState([]); // array of URLs
+    // Single panorama fields used by form persistence / legacy flows
+    const [panorama, setPanorama] = useState(null);
+    const [panoramaPreview, setPanoramaPreview] = useState(null);
+    const [existingPanorama, setExistingPanorama] = useState(null);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [priceFocused, setPriceFocused] = useState(false);
@@ -166,9 +170,10 @@ const EditProperty = () => {
     useEffect(() => {
         return () => {
             if (videoFile && videoPreview?.startsWith('blob:')) URL.revokeObjectURL(videoPreview);
+            if (panoramaPreview && panoramaPreview.startsWith && panoramaPreview.startsWith('blob:')) URL.revokeObjectURL(panoramaPreview);
             panoramaPreviews.forEach(url => URL.revokeObjectURL(url));
         };
-    }, [videoFile, videoPreview, panoramaPreviews]);
+    }, [videoFile, videoPreview, panoramaPreviews, panoramaPreview]);
 
     const handlePanoramaChange = (e) => {
         const files = Array.from(e.target.files || []);

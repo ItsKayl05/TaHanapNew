@@ -153,10 +153,7 @@ const LoginPage = () => {
                                 {passwordVisible ? <AiOutlineEyeInvisible size={20} color="#777" /> : <AiOutlineEye size={20} color="#777" />}
                             </div>
                         </div>
-                        {/* Password requirement text added here */}
-                        <div className="password-requirement">
-                            Password must be at least 8 characters long and include an uppercase letter, a number, and a special character
-                        </div>
+                       
                     </div>
                     <div className="remember-forgot">
                         <label>

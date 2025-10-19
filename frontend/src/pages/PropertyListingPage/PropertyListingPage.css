@@ -18,6 +18,25 @@
     align-items: center;
 }
 
+/* Landscape filters on desktop: show inputs in more horizontal layout to avoid vertical space waste */
+@media (min-width: 1000px) {
+  .filters-container {
+    max-width: 1100px;
+    display: flex;
+    flex-direction: row;
+    gap: 1rem;
+    align-items: flex-start;
+    padding: 1.6rem;
+  }
+  .filters-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.85rem;
+    width: 100%;
+  }
+  .filters-container .reset-filters { align-self: flex-end; margin-left: 12px; }
+}
+
 .filters-bar {
     display: flex;
     align-items: center;

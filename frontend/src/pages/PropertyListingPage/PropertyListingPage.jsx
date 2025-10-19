@@ -32,7 +32,7 @@ const PropertyListingPage = () => {
     const [properties, setProperties] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filters, setFilters] = useState({
-        searchTerm:'', location:'', minPrice:'', maxPrice:'', petFriendly:false, occupancy:'', parking:false, landmarks:[], minRooms:'', maxRooms:'', minArea:'', maxArea:'', hasVideo:false, customLandmark:'', propertyType:''
+        searchTerm:'', category:'', location:'', minPrice:'', maxPrice:'', petFriendly:false, occupancy:'', parking:false, landmarks:[], minRooms:'', maxRooms:'', minArea:'', maxArea:'', hasVideo:false, customLandmark:'', propertyType:'', propertyCondition:'', marketHighlights:[]
     });
     const [sortOption, setSortOption] = useState('newest');
     const [showFilters, setShowFilters] = useState(false);
@@ -75,9 +75,9 @@ const PropertyListingPage = () => {
     },[fetchProperties]);
 
     const updateFilter = (k,v)=> setFilters(p=>({...p,[k]:v}));
-    const resetFilters = ()=> setFilters({ searchTerm:'', location:'', minPrice:'', maxPrice:'', petFriendly:false, occupancy:'', parking:false, landmarks:[], minRooms:'', maxRooms:'', minArea:'', maxArea:'', hasVideo:false, customLandmark:'' });
+    const resetFilters = ()=> setFilters({ searchTerm:'', category:'', location:'', minPrice:'', maxPrice:'', petFriendly:false, occupancy:'', parking:false, landmarks:[], minRooms:'', maxRooms:'', minArea:'', maxArea:'', hasVideo:false, customLandmark:'', propertyType:'', propertyCondition:'', marketHighlights:[] });
 
-    const matches = ({ title='', barangay='', price=0, petFriendly, occupancy=0, parking, landmarks='', numberOfRooms=0, areaSqm=0, video='', propertyType='For Rent' }) => {
+    const matches = ({ title='', category='', barangay='', price=0, petFriendly, occupancy=0, parking, landmarks='', numberOfRooms=0, areaSqm=0, video='', propertyType='For Rent', propertyCondition='', marketHighlights='' }) => {
         const s = filters.searchTerm.toLowerCase().trim();
         // Split property landmarks string into array
         const propertyLandmarksArr = typeof landmarks === 'string' ? landmarks.split(',').map(l => l.trim().toLowerCase()).filter(l => l) : [];
@@ -88,7 +88,7 @@ const PropertyListingPage = () => {
         // Custom landmark filter is now ignored to enforce dropdown-only
         return (
             (s ? title.toLowerCase().includes(s) || barangay.toLowerCase().includes(s) : true) &&
-            true &&
+            (filters.category ? category===filters.category : true) &&
             (filters.location ? barangay===filters.location : true) &&
             (filters.minPrice ? price >= Number(filters.minPrice) : true) &&
             (filters.maxPrice ? price <= Number(filters.maxPrice) : true) &&
@@ -101,7 +101,8 @@ const PropertyListingPage = () => {
             (filters.minArea ? areaSqm >= Number(filters.minArea) : true) &&
             (filters.maxArea ? areaSqm <= Number(filters.maxArea) : true) &&
             (filters.hasVideo ? !!video : true) &&
-            (filters.propertyType ? propertyType === filters.propertyType : true)
+            (filters.propertyType ? String(propertyType).toLowerCase() === String(filters.propertyType).toLowerCase() : true) &&
+            (filters.propertyCondition ? String(propertyCondition).toLowerCase() === String(filters.propertyCondition).toLowerCase() : true)
         );
     };
 
@@ -156,13 +157,42 @@ const PropertyListingPage = () => {
                     <div className="controls-wrapper">
                     <div className="search-input-container controls-align-left">
                         <FaSearch className="search-icon" />
-                    <input className="property-search" placeholder="Search by name..." value={filters.searchTerm} onChange={e=>updateFilter('searchTerm', e.target.value)} />
-                        <button className={`toggle-filters-btn ${showFilters?'active':''}`} onClick={()=>setShowFilters(s=>!s)}>{showFilters?'Hide Filters':'Show Filters'}</button>
+                        <input className="property-search" placeholder="Search by name or category..." value={filters.searchTerm} onChange={e=>updateFilter('searchTerm', e.target.value)} />
+                        <div style={{display:'flex', gap:12, alignItems:'center'}}>
+                            <div style={{display:'flex', gap:8, alignItems:'center'}}>
+                                <label style={{color:'#cbd5e1', fontSize:'0.78rem', fontWeight:600, marginRight:6}}>Listing Type</label>
+                                <select value={filters.propertyType} onChange={e=>updateFilter('propertyType', e.target.value)} style={{padding:'8px 10px', borderRadius:10, background:'rgba(15,23,42,0.7)', color:'#fff', border:'1px solid rgba(255,255,255,0.08)'}}>
+                                    <option value="">All</option>
+                                    <option value="For Rent">For Rent</option>
+                                    <option value="For Sale">For Sale</option>
+                                </select>
+                            </div>
+                            <div style={{display:'flex', gap:8, alignItems:'center'}}>
+                                <label style={{color:'#cbd5e1', fontSize:'0.78rem', fontWeight:600, marginRight:6}}>Sort</label>
+                                <select value={sortOption} onChange={e=>setSortOption(e.target.value)} style={{padding:'8px 10px', borderRadius:10, background:'rgba(15,23,42,0.7)', color:'#fff', border:'1px solid rgba(255,255,255,0.08)'}}>
+                                    <option value="newest">Newest</option>
+                                    <option value="oldest">Oldest</option>
+                                    <option value="priceDesc">Price High-Low</option>
+                                    <option value="priceAsc">Price Low-High</option>
+                                    <option value="roomsDesc">Rooms High-Low</option>
+                                    <option value="roomsAsc">Rooms Low-High</option>
+                                    <option value="areaDesc">Area High-Low</option>
+                                    <option value="areaAsc">Area Low-High</option>
+                                </select>
+                            </div>
+                            <button className={`toggle-filters-btn ${showFilters?'active':''}`} onClick={()=>setShowFilters(s=>!s)}>{showFilters?'Hide Filters':'Show Filters'}</button>
+                        </div>
                     </div>
                     {showFilters && (
                         <div className="filters-container controls-align-left">
                             <div className="filters-grid">
-                                            {/* Category filter removed - replaced by propertyType (Listing Type) */}
+                                <div className="filter-group">
+                                    <label><FaHome/> Property Type</label>
+                                    <select value={filters.category} onChange={e=>updateFilter('category', e.target.value)}>
+                                        <option value="">All Categories</option>
+                                        {categories.map(c=> <option key={c} value={c}>{c}</option>)}
+                                    </select>
+                                </div>
                                 <div className="filter-group">
                                     <label><FaMapMarkerAlt/> Location</label>
                                     <select value={filters.location} onChange={e=>updateFilter('location', e.target.value)}>
@@ -178,6 +208,37 @@ const PropertyListingPage = () => {
                                         <input type="number" placeholder="Max" value={filters.maxPrice} onChange={e=>updateFilter('maxPrice', e.target.value)} className="price-input" />
                                     </div>
                                 </div>
+                                    {/* Rent vs Sale-specific filters */}
+                                    {(!filters.propertyType || filters.propertyType === 'For Rent') && (
+                                        <>
+                                            <div className="filter-group"><label><FaBed/> Min Occupancy</label><input type="number" placeholder="e.g. 2" value={filters.occupancy} onChange={e=>updateFilter('occupancy', e.target.value)} /></div>
+                                            <div className="filter-group"><label><FaDoorOpen/> Min Rooms</label><input type="number" placeholder="e.g. 1" value={filters.minRooms} onChange={e=>updateFilter('minRooms', e.target.value)} /></div>
+                                            <div className="filter-group"><label><FaDoorOpen/> Max Rooms</label><input type="number" placeholder="e.g. 5" value={filters.maxRooms} onChange={e=>updateFilter('maxRooms', e.target.value)} /></div>
+                                        </>
+                                    )}
+                                    {(!filters.propertyType || filters.propertyType === 'For Sale') && (
+                                        <>
+                                            <div className="filter-group"><label>Property Condition</label>
+                                                <select value={filters.propertyCondition} onChange={e=>updateFilter('propertyCondition', e.target.value)}>
+                                                    <option value="">Any</option>
+                                                    <option value="Fully Furnished">Fully Furnished</option>
+                                                    <option value="Semi-Furnished">Semi-Furnished</option>
+                                                    <option value="Unfurnished">Unfurnished</option>
+                                                    <option value="Brand New">Brand New</option>
+                                                </select>
+                                            </div>
+                                            <div className="filter-group"><label>Market Highlights</label>
+                                                <select multiple value={filters.marketHighlights} onChange={e=>{
+                                                    const opts = Array.from(e.target.selectedOptions).map(o=>o.value);
+                                                    updateFilter('marketHighlights', opts);
+                                                }}>
+                                                    <option value="Ready for Occupancy (RFO)">Ready for Occupancy (RFO)</option>
+                                                    <option value="Pre-selling (under construction)">Pre-selling (under construction)</option>
+                                                    <option value="Negotiable Price">Negotiable Price</option>
+                                                </select>
+                                            </div>
+                                        </>
+                                    )}
                                 <div className="filter-group"><label><FaBed/> Min Occupancy</label><input type="number" placeholder="e.g. 2" value={filters.occupancy} onChange={e=>updateFilter('occupancy', e.target.value)} /></div>
                                 <div className="filter-group"><label><FaDoorOpen/> Min Rooms</label><input type="number" placeholder="e.g. 1" value={filters.minRooms} onChange={e=>updateFilter('minRooms', e.target.value)} /></div>
                                 <div className="filter-group"><label><FaDoorOpen/> Max Rooms</label><input type="number" placeholder="e.g. 5" value={filters.maxRooms} onChange={e=>updateFilter('maxRooms', e.target.value)} /></div>
@@ -243,13 +304,13 @@ const PropertyListingPage = () => {
                         </div>
                         <div className="filters-bar">
                             <div className="filter-item">
-                                <label htmlFor="propertyTypeSelect">Listing Type:</label>
+                                <label htmlFor="propertyTypeSelect">Type:</label>
                                 <select 
                                     id="propertyTypeSelect" 
                                     value={filters.propertyType} 
                                     onChange={e => setFilters(prev => ({...prev, propertyType: e.target.value}))}
                                 >
-                                    <option value="">All Listing Types</option>
+                                    <option value="">All Types</option>
                                     <option value="For Rent">For Rent</option>
                                     <option value="For Sale">For Sale</option>
                                 </select>
@@ -274,10 +335,11 @@ const PropertyListingPage = () => {
             </div>
             <div className="properties-grid">
                 {sorted.length ? sorted.map(p=>{
-                    const {_id,title,barangay,price,images,petFriendly,parking,occupancy,landmarks,numberOfRooms,areaSqm,video, landlordProfile, createdAt, propertyType}=p;
+                    const {_id,title,category,barangay,price,images,petFriendly,parking,occupancy,landmarks,numberOfRooms,areaSqm,video, landlordProfile, createdAt, propertyType}=p;
                     return (
                         <div key={_id} className="property-card" onClick={()=>navigate(`/property/${_id}`)}>
                             <div className="property-badges">
+                                <span className="property-badge">{category}</span>
                                 <span className={`property-type-badge ${(propertyType || "For Rent")?.toLowerCase().replace(/\s+/g, '-')}`}>
                                     {propertyType || "For Rent"}
                                 </span>
@@ -293,10 +355,10 @@ const PropertyListingPage = () => {
                                 <div className="property-price-row">
                                     <div className="property-price">₱{(price||0).toLocaleString()}</div>
                                     {(() => {
-                                        // Normalize status to only 'Available' or 'Not Available'
-                                        const raw = p.availabilityStatus;
-                                        const status = raw ? (raw === 'Available' ? 'Available' : 'Not Available') : (numberOfRooms > 0 ? 'Available' : 'Not Available');
-                                        const className = `property-availability ${status === 'Available' ? 'available' : 'not-available'}`;
+                                        const status = p.availabilityStatus ? p.availabilityStatus : (occupancy >= (numberOfRooms || 1) ? 'Fully Occupied' : (numberOfRooms>0 ? 'Available' : 'Not Yet Ready'));
+                                        let className = 'property-availability';
+                                        if (/unavail|full/i.test(status)) className += ' unavailable';
+                                        else if (/not yet ready/i.test(status)) className += ' not-ready';
                                         return <div className={className}>{status}</div>;
                                     })()}
                                 </div>
@@ -304,7 +366,15 @@ const PropertyListingPage = () => {
                             <div className="property-details">
                                 <h3>{title}</h3>
                                 {createdAt && <span className="property-date" title={new Date(createdAt).toLocaleString()}>{formatCreatedAt(createdAt)}</span>}
-                                {/* Units display removed - availability shown via badges and server-side logic */}
+                                {(typeof p.availableUnits !== 'undefined' || typeof p.totalUnits !== 'undefined') && (
+                                    <div className="card-units-pill-row">
+                                        <div className="card-units-pill">
+                                            <svg width="15" height="15" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style={{verticalAlign:'middle',marginRight:'5px'}}><rect x="3" y="7" width="14" height="8" rx="2.5" fill="#38bdf8"/><rect x="7" y="3" width="6" height="4" rx="2" fill="#60aaff"/></svg>
+                                            {p.availableUnits !== undefined ? p.availableUnits : '0'}{p.totalUnits ? ` / ${p.totalUnits}` : ''}
+                                        </div>
+                                        <span className="card-units-label">Available units</span>
+                                    </div>
+                                )}
                                 {landlordProfile && (
                                     <div className="landlord-mini" onClick={(e)=>{e.stopPropagation(); navigate(`/landlord/${landlordProfile.id}`);}} role="button" tabIndex={0} onKeyDown={(e)=>{if(e.key==='Enter'){ e.preventDefault(); e.stopPropagation(); navigate(`/landlord/${landlordProfile.id}`);} }}>
                                         <img src={landlordProfile.profilePic || '/default-avatar.png'} alt={landlordProfile.fullName} className="landlord-avatar" loading="lazy" />

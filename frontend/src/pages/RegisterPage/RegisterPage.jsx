@@ -109,7 +109,7 @@ const RegisterPage = () => {
 
         // Validate password length
         if (formData.password.length < MIN_PASSWORD_LENGTH) {
-            toast.error(`Password must be at least ${MIN_PASSWORD_LENGTH} characters long.`);
+            toast.error(`Password must be at least ${MIN_PASSWORD_LENGTH} characters long and include an uppercase letter, a number, and a special character`);
             setLoading(false);
             return;
         }

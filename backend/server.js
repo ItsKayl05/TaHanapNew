@@ -279,6 +279,55 @@ app.use("/api/favorites", favoriteRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/applications", applicationRoutes);
 
+// Simple geocoding proxy to avoid CORS issues with external providers (e.g., Nominatim)
+// This forwards a q=... query to OpenStreetMap Nominatim and returns the JSON result.
+// It intentionally adds a User-Agent header as required by Nominatim usage policy.
+app.get('/api/geocode', async (req, res) => {
+    const q = req.query.q;
+    if (!q || String(q).trim() === '') return res.status(400).json({ message: 'Missing query parameter q' });
+
+    const target = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&q=${encodeURIComponent(q)}`;
+
+    try {
+        // Use global fetch when available (Node 18+). Fallback to dynamic import of node-fetch if needed.
+        let fetchFn = globalThis.fetch;
+        if (!fetchFn) {
+            try {
+                const mod = await import('node-fetch');
+                fetchFn = mod.default || mod;
+            } catch (err) {
+                console.error('Fetch is not available and node-fetch could not be loaded:', err);
+                return res.status(500).json({ message: 'Server missing fetch capability' });
+            }
+        }
+
+        const response = await fetchFn(target, {
+            headers: {
+                // Nominatim requires a valid User-Agent identifying the application and contact info
+                'User-Agent': process.env.NOMINATIM_USER_AGENT || 'TaHanap/1.0 (+https://tahanap.xyz)',
+                'Accept-Language': 'en'
+            },
+            // keep default redirect and other options
+        });
+
+        if (!response.ok) {
+            const text = await response.text().catch(() => '');
+            console.error('Nominatim responded with non-OK status', response.status, text);
+            return res.status(502).json({ message: 'Failed to fetch geocoding data', status: response.status });
+        }
+
+        const data = await response.json().catch(() => null);
+
+        // Cache response for short time to reduce external calls (public caching)
+        res.set('Cache-Control', 'public, max-age=300, s-maxage=600');
+        // Echo CORS headers are handled by existing middleware
+        return res.json(data);
+    } catch (error) {
+        console.error('Geocode proxy error:', error);
+        return res.status(502).json({ message: 'Error proxying geocode request' });
+    }
+});
+
 // Health check route
 app.get('/', (req, res) => {
     res.json({

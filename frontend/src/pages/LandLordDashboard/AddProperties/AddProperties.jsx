@@ -132,20 +132,34 @@ const AddProperties = () => {
   const geocodeAddress = async (address, barangay) => {
     if (!address || !barangay) return;
     setIsGeocoding(true);
-    const query = encodeURIComponent(`${address}, ${barangay}, San Jose del Monte, Bulacan, Philippines`);
+    const query = `${address}, ${barangay}, San Jose del Monte, Bulacan, Philippines`;
     try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}`);
-      const data = await res.json();
-      if (data && data.length > 0) {
+      // Use backend proxy to avoid CORS issues
+      const url = buildApi(`/geocode?q=${encodeURIComponent(query)}`);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeout);
+      if (!res.ok) {
+        toast.error('Failed to retrieve location from server');
+        return null;
+      }
+      const data = await res.json().catch(() => null);
+      if (data && Array.isArray(data) && data.length > 0) {
         const coords = { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
         setMapCenter([coords.lat, coords.lon]);
-        setMapZoom(16); // Zoom in closer to show the area better
+        setMapZoom(16);
         return coords;
       } else {
         toast.warn('Location not found. Try being more specific with the address.');
       }
     } catch (err) {
-      toast.error('Error finding location. Please try again.');
+      if (err.name === 'AbortError') {
+        toast.error('Geocoding request timed out. Try again.');
+      } else {
+        console.error('Geocode error:', err);
+        toast.error('Error finding location. Please try again.');
+      }
     } finally {
       setIsGeocoding(false);
     }
