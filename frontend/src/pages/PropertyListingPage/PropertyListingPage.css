@@ -87,9 +87,14 @@
   filter:brightness(1.35) drop-shadow(0 2px 8px rgba(71, 88, 95, 0.18));
 }
 .subtitle { font-size:clamp(.9rem,.85rem + .25vw,1.05rem); color:#cbd5e1; margin:0 0 1.6rem; }
-.search-input-container { position:relative; max-width:760px; margin:0 auto 1.4rem; display:flex; align-items:center; gap:.9rem; flex-wrap:wrap; }
+.search-input-container { position:relative; max-width:760px; margin:0 auto 1.4rem; display:flex; flex-direction:column; align-items:stretch; gap:.7rem; width:100%; }
 .search-icon { position:absolute; left:16px; font-size:1.1rem; color:#f3f3f3; }
-.property-search { flex:1; padding:1rem 1.1rem 1rem 2.9rem; border:1px solid rgba(247, 245, 245, 0.18); background:linear-gradient(135deg,rgba(255,255,255,.09),rgba(255, 255, 255, 0.04)); color:#f1f5f9; border-radius:16px; font-size:.85rem; letter-spacing:.4px; outline:none; box-shadow:0 0 0 0 rgba(99,102,241,0); transition:box-shadow .45s,border-color .45s, background .45s; backdrop-filter:blur(6px); }
+.property-search { flex:1; padding:1rem 1.1rem 1rem 2.9rem; border:1px solid rgba(247, 245, 245, 0.18); background:linear-gradient(135deg,rgba(255,255,255,.09),rgba(255, 255, 255, 0.04)); color:#f1f5f9; border-radius:16px; font-size:.85rem; letter-spacing:.4px; outline:none; box-shadow:0 0 0 0 rgba(99,102,241,0); transition:box-shadow .45s,border-color .45s, background .45s; backdrop-filter:blur(6px); width:100%; min-width:0; }
+/* Listing type and sort row below search */
+.listing-sort-row { width:100%; display:flex; flex-wrap:wrap; gap:1.2rem; align-items:center; margin-top:0.2rem; }
+@media (max-width: 700px) {
+  .listing-sort-row { flex-direction:column; gap:0.7rem; align-items:stretch; }
+}
 .property-search::placeholder { color:#94a3b8; opacity:.95; }
 .property-search:focus { border-color:#6366f1; box-shadow:0 0 0 4px rgba(99,102,241,.25); background:linear-gradient(135deg,rgba(255,255,255,.13),rgba(43, 103, 172, 0.07)); }
 .toggle-filters-btn { padding:.95rem 1.2rem; font-size:.7rem; font-weight:600; letter-spacing:.09em; text-transform:uppercase; background:linear-gradient(135deg,#6366f1,#3b82f6); border:1px solid rgba(255,255,255,.2); color:#fff; border-radius:14px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:.45rem; min-width:140px; box-shadow:0 6px 24px -8px rgba(99,102,241,.6); transition:transform .4s,box-shadow .4s,filter .4s; }

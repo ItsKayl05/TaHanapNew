@@ -155,34 +155,36 @@ const PropertyListingPage = () => {
                     <h1 className="listing-title gradient-text">Find Your Perfect Home</h1>
                     <p className="subtitle">Browse verified rentals across San Jose Del Monte.</p>
                     <div className="controls-wrapper">
-                    <div className="search-input-container controls-align-left">
-                        <FaSearch className="search-icon" />
-                        <input className="property-search" placeholder="Search by name or category..." value={filters.searchTerm} onChange={e=>updateFilter('searchTerm', e.target.value)} />
-                        <div style={{display:'flex', gap:12, alignItems:'center'}}>
-                            <div style={{display:'flex', gap:8, alignItems:'center'}}>
-                                <label style={{color:'#cbd5e1', fontSize:'0.78rem', fontWeight:600, marginRight:6}}>Listing Type</label>
-                                <select value={filters.propertyType} onChange={e=>updateFilter('propertyType', e.target.value)} style={{padding:'8px 10px', borderRadius:10, background:'rgba(15,23,42,0.7)', color:'#fff', border:'1px solid rgba(255,255,255,0.08)'}}>
-                                    <option value="">All</option>
-                                    <option value="For Rent">For Rent</option>
-                                    <option value="For Sale">For Sale</option>
-                                </select>
+                        <div className="search-input-container controls-align-left" style={{flexDirection:'column',alignItems:'stretch',gap:'0.7rem'}}>
+                            <div style={{position:'relative',width:'100%'}}>
+                                <FaSearch className="search-icon" />
+                                <input className="property-search" placeholder="Search by name or category..." value={filters.searchTerm} onChange={e=>updateFilter('searchTerm', e.target.value)} style={{width:'100%'}} />
                             </div>
-                            <div style={{display:'flex', gap:8, alignItems:'center'}}>
-                                <label style={{color:'#cbd5e1', fontSize:'0.78rem', fontWeight:600, marginRight:6}}>Sort</label>
-                                <select value={sortOption} onChange={e=>setSortOption(e.target.value)} style={{padding:'8px 10px', borderRadius:10, background:'rgba(15,23,42,0.7)', color:'#fff', border:'1px solid rgba(255,255,255,0.08)'}}>
-                                    <option value="newest">Newest</option>
-                                    <option value="oldest">Oldest</option>
-                                    <option value="priceDesc">Price High-Low</option>
-                                    <option value="priceAsc">Price Low-High</option>
-                                    <option value="roomsDesc">Rooms High-Low</option>
-                                    <option value="roomsAsc">Rooms Low-High</option>
-                                    <option value="areaDesc">Area High-Low</option>
-                                    <option value="areaAsc">Area Low-High</option>
-                                </select>
+                            <div className="listing-sort-row" style={{display:'flex',flexWrap:'wrap',gap:'1.2rem',alignItems:'center',marginTop:'0.2rem'}}>
+                                <div style={{display:'flex', gap:8, alignItems:'center'}}>
+                                    <label style={{color:'#cbd5e1', fontSize:'0.78rem', fontWeight:600, marginRight:6}}>Listing Type</label>
+                                    <select value={filters.propertyType} onChange={e=>updateFilter('propertyType', e.target.value)} style={{padding:'8px 10px', borderRadius:10, background:'rgba(15,23,42,0.7)', color:'#fff', border:'1px solid rgba(255,255,255,0.08)'}}>
+                                        <option value="">All</option>
+                                        <option value="For Rent">For Rent</option>
+                                        <option value="For Sale">For Sale</option>
+                                    </select>
+                                </div>
+                                <div style={{display:'flex', gap:8, alignItems:'center'}}>
+                                    <label style={{color:'#cbd5e1', fontSize:'0.78rem', fontWeight:600, marginRight:6}}>Sort</label>
+                                    <select value={sortOption} onChange={e=>setSortOption(e.target.value)} style={{padding:'8px 10px', borderRadius:10, background:'rgba(15,23,42,0.7)', color:'#fff', border:'1px solid rgba(255,255,255,0.08)'}}>
+                                        <option value="newest">Newest</option>
+                                        <option value="oldest">Oldest</option>
+                                        <option value="priceDesc">Price High-Low</option>
+                                        <option value="priceAsc">Price Low-High</option>
+                                        <option value="roomsDesc">Rooms High-Low</option>
+                                        <option value="roomsAsc">Rooms Low-High</option>
+                                        <option value="areaDesc">Area High-Low</option>
+                                        <option value="areaAsc">Area Low-High</option>
+                                    </select>
+                                </div>
+                                <button className={`toggle-filters-btn ${showFilters?'active':''}`} onClick={()=>setShowFilters(s=>!s)}>{showFilters?'Hide Filters':'Show Filters'}</button>
                             </div>
-                            <button className={`toggle-filters-btn ${showFilters?'active':''}`} onClick={()=>setShowFilters(s=>!s)}>{showFilters?'Hide Filters':'Show Filters'}</button>
                         </div>
-                    </div>
                     {showFilters && (
                         <div className="filters-container controls-align-left">
                             <div className="filters-grid">
@@ -235,6 +237,10 @@ const PropertyListingPage = () => {
                                                     <option value="Ready for Occupancy (RFO)">Ready for Occupancy (RFO)</option>
                                                     <option value="Pre-selling (under construction)">Pre-selling (under construction)</option>
                                                     <option value="Negotiable Price">Negotiable Price</option>
+                                                    <option value="Clean Title">Clean Title</option>
+                                                    <option value="Inclusive of Taxes and Fees">Inclusive of Taxes and Fees</option>
+                                                    <option value="Good Investment Opportunity">Good Investment Opportunity</option>
+                                                    <option value="Rush Sale / Below Market Value">Rush Sale / Below Market Value</option>
                                                 </select>
                                             </div>
                                         </>
