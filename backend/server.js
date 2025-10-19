@@ -149,6 +149,10 @@ io.on('connection', (socket) => {
         socket.join(roomId);
         console.log(`User ${socket.id} joined room: ${roomId}`);
     });
+    socket.on('leaveRoom', ({ roomId }) => {
+        socket.leave(roomId);
+        console.log(`User ${socket.id} left room: ${roomId}`);
+    });
 
     socket.on('sendMessage', async (data) => {
         // data may contain: { roomId, message OR content, senderId, receiverId, propertyId?, timestamp }
@@ -395,3 +399,6 @@ server.listen(port, '0.0.0.0', () => {
     console.log(`📡 Socket.IO server initialized`);
     console.log(`🌐 CORS allowed origins: ${ALLOWED_ORIGINS.join(', ')}` + (ALLOW_ALL ? ' (ALLOW_ALL_ORIGINS=true)' : ''));
 });
+
+// Make io available via the express app so controllers can emit events
+app.set('io', io);

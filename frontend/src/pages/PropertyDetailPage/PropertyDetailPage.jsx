@@ -8,6 +8,7 @@ import "slick-carousel/slick/slick-theme.css";
 import { FaArrowLeft, FaHome, FaMapMarkerAlt, FaTag, FaPaw, FaCar, FaUsers, FaInfoCircle, FaDoorOpen, FaRulerCombined, FaFlag, FaBolt, FaWater, FaChartLine } from "react-icons/fa";
 import { buildApi, buildUpload } from '../../services/apiConfig';
 import { AuthContext } from '../../context/AuthContext';
+import { useSocket } from '../../context/SocketContext';
 import { createApplication } from '../../services/application/ApplicationService';
 import "./PropertyDetailPage.css";
 
@@ -19,6 +20,7 @@ const PropertyDetailPage = () => {
     const [applying, setApplying] = useState(false);
     const { userRole } = useContext(AuthContext);
     const currentUserId = localStorage.getItem('user_id') || null;
+    const { socket } = useSocket();
 
     useEffect(() => {
         const fetchProperty = async () => {
@@ -49,7 +51,67 @@ const PropertyDetailPage = () => {
             }
         };
         fetchProperty();
+        // Join socket room for this property to receive realtime updates
+        try {
+            if (socket && socket.connected) {
+                socket.emit('joinRoom', { roomId: `property:${id}` });
+            }
+        } catch (e) { /* ignore */ }
+
+        return () => {
+            try { if (socket && socket.connected) socket.emit('leaveRoom', { roomId: `property:${id}` }); } catch(e){}
+        };
     }, [id]);
+
+    // Listen for realtime updates to this property (availability changes)
+    useEffect(() => {
+        if (!socket) return;
+        const handlePropertyUpdated = (payload) => {
+            try {
+                if (!payload || !payload.propertyId) return;
+                const pid = String(payload.propertyId);
+                if (pid === String(property?._id || property?.id || id)) {
+                    // merge availabilityStatus and other updated fields
+                    setProperty(prev => ({ ...(prev||{}), ...(payload || {}) }));
+                    // optionally show a toast
+                    if (payload.availabilityStatus) {
+                        toast.info(`Property status updated: ${payload.availabilityStatus}`);
+                    }
+                }
+            } catch (e) { console.warn('handlePropertyUpdated error', e); }
+        };
+
+        const handleApplicationUpdated = (payload) => {
+            try {
+                // if application affects this property, re-fetch property to get latest counts
+                if (payload && payload.application && payload.application.property) {
+                    const pid = String(payload.application.property);
+                    if (pid === String(property?._id || property?.id || id)) {
+                        // re-fetch property to ensure full normalization
+                        (async ()=>{
+                            try {
+                                const resp = await fetch(buildApi(`/properties/${id}`));
+                                if (resp.ok) {
+                                    const data = await resp.json();
+                                    if(data.images) data.images = data.images.map(img => buildUpload(img));
+                                    if(data.video) data.video = buildUpload(data.video);
+                                    setProperty(data);
+                                }
+                            } catch(e) { console.warn('refetch after application update failed', e); }
+                        })();
+                    }
+                }
+            } catch (e) { console.warn('handleApplicationUpdated error', e); }
+        };
+
+        socket.on('propertyUpdated', handlePropertyUpdated);
+        socket.on('applicationUpdated', handleApplicationUpdated);
+
+        return () => {
+            socket.off('propertyUpdated', handlePropertyUpdated);
+            socket.off('applicationUpdated', handleApplicationUpdated);
+        };
+    }, [socket, property, id]);
 
     const landmarkHints = (p)=>{
         if(p.landmarks && p.landmarks.trim()) return p.landmarks;
@@ -112,7 +174,7 @@ const PropertyDetailPage = () => {
                 <div className="property-header">
                     <h1 className="gradient-text">{property.title}</h1>
                     <p className="property-location"><FaMapMarkerAlt /> {property.barangay}, San Jose Del Monte</p>
-                    <div className="status-remark">{ property.availabilityStatus ?? (property.numberOfRooms>0 ? 'Available' : 'Not Yet Ready') }</div>
+                    <div className={`status-remark ${isAvailable ? 'available' : 'not-available'}`}>{ property.availabilityStatus ?? (property.numberOfRooms>0 ? 'Available' : 'Not Yet Ready') }</div>
                 </div>
             </div>
 
@@ -177,8 +239,8 @@ const PropertyDetailPage = () => {
                                 <span className={`property-type-badge ${property.propertyType?.toLowerCase().replace(/\s+/g, '-')}`}>
                                     {property.propertyType || "For Rent"}
                                 </span>
-                                <span className={`property-badge availability-badge ${property.availabilityStatus === 'Not Available' ? 'not-available' : 'available'}`}>
-                                    {property.availabilityStatus || 'Available'}
+                                <span className={`property-badge availability-badge ${isAvailable ? 'available' : 'not-available'}`}>
+                                    {property.availabilityStatus || (isAvailable ? 'Available' : 'Not Available')}
                                 </span>
                             </div>
                         </div>
@@ -392,11 +454,15 @@ const PropertyDetailPage = () => {
 
                     <div className="detail-actions">
                         {/* Apply button: visible for all viewers when For Rent (click requires tenant login) */}
-                        {isForRent && isAvailable && (
+                        {isForRent && (
                             <button
                                 className="apply-btn"
-                                disabled={applying}
+                                disabled={applying || !isAvailable}
                                 onClick={async () => {
+                                    if (!isAvailable) {
+                                        toast.error('This property is no longer available');
+                                        return;
+                                    }
                                     setApplying(true);
                                     try {
                                         const token = localStorage.getItem('user_token');
@@ -425,7 +491,7 @@ const PropertyDetailPage = () => {
                                     }
                                 }}
                             >
-                                {applying ? 'Applying...' : 'Apply for Rental'}
+                                {applying ? 'Applying...' : (isAvailable ? 'Apply for Rental' : 'Not Available')}
                             </button>
                         )}
                         

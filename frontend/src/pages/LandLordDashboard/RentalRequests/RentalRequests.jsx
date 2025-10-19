@@ -4,7 +4,7 @@ import { useParams } from 'react-router-dom';
 import { fetchApplicationsByProperty, approveApplication, rejectApplication } from '../../../services/application/ApplicationService';
 import { normalizePayload, buildApi } from '../../../services/apiConfig';
 import { toast } from 'react-toastify';
-import { FaUserCircle, FaCheckCircle, FaTimesCircle, FaClock, FaArrowLeft } from 'react-icons/fa';
+import { FaUserCircle, FaCheckCircle, FaTimesCircle, FaClock, FaArrowLeft, FaPhone, FaEnvelope } from 'react-icons/fa';
 
 const RentalRequests = () => {
   const { propertyId } = useParams();
@@ -14,10 +14,8 @@ const RentalRequests = () => {
   const load = async () => {
     try {
       const res = await fetchApplicationsByProperty(propertyId);
-      // Normalize response using helper (accepts common keys like data/result/applications/messages)
       const appsPayload = normalizePayload(res, ['applications', 'data', 'result', 'messages']);
       setApps(appsPayload || []);
-      // Fetch property details to get availableUnits/totalUnits
       try {
         const pRes = await fetch(buildApi(`/properties/${propertyId}`));
         if (pRes.ok) {
@@ -40,9 +38,7 @@ const RentalRequests = () => {
     try {
       const res = await approveApplication(id);
       toast.success('Approved');
-      // If backend returned updated property, update local property state
       if (res && res.property) setProperty(res.property);
-      // reload applications list
       load();
     } catch (e) { toast.error('Approve failed'); }
   };
@@ -55,7 +51,6 @@ const RentalRequests = () => {
     } catch (e) { toast.error('Reject failed'); }
   };
 
-  // Make filters null-safe in case status is missing
   const safePending = Array.isArray(apps) ? apps.filter(a => (a.status || '').toLowerCase() === 'pending') : [];
   const safeApproved = Array.isArray(apps) ? apps.filter(a => (a.status || '').toLowerCase() === 'approved') : [];
   const safeRejected = Array.isArray(apps) ? apps.filter(a => (a.status || '').toLowerCase() === 'rejected') : [];
@@ -88,6 +83,7 @@ const RentalRequests = () => {
         )}
 
         <div className="requests-sections">
+          {/* Pending Applications Section */}
           <section className="request-section">
             <h3>Pending Applications ({safePending.length})</h3>
             {safePending.map(a => (
@@ -95,12 +91,41 @@ const RentalRequests = () => {
                 <div className="app-row-header">
                   <FaClock className="status-icon pending" />
                   <span className="status pending">Pending</span>
-                  <strong className="tenant-name">{a.tenant?.fullName || 'Property Seeker'}</strong>
                 </div>
-                <p className="app-message">
-                  {a.message ? a.message : <span className="no-message">No message</span>}
-                </p>
-                <span className="date">Applied on: {a.createdAt ? new Date(a.createdAt).toLocaleDateString() : ''}</span>
+
+                <div className="tenant-info-row">
+                  {a.tenant?.profilePic ? (
+                    <img src={a.tenant.profilePic} alt={a.tenant.fullName} className="tenant-avatar" />
+                  ) : (
+                    <FaUserCircle className="tenant-avatar-placeholder" />
+                  )}
+                  <div className="tenant-meta">
+                    <strong className="tenant-name">{a.tenant?.fullName || 'Property Seeker'}</strong>
+                    <div className="tenant-contacts">
+                      {a.tenant?.contactNumber && (
+                        <a href={`tel:${a.tenant.contactNumber}`} className="tenant-contact">
+                          <FaPhone className="contact-icon" /> {a.tenant.contactNumber}
+                        </a>
+                      )}
+                      {a.tenant?.email && (
+                        <a href={`mailto:${a.tenant.email}`} className="tenant-contact">
+                          <FaEnvelope className="contact-icon" /> {a.tenant.email}
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {a.message && (
+                  <p className="app-message">{a.message}</p>
+                )}
+
+                <div className="date-container">
+                  <span className="date-line">
+                    <span className="date-label">Applied on:</span> {a.createdAt ? new Date(a.createdAt).toLocaleDateString() : ''}
+                  </span>
+                </div>
+
                 <div className="actions">
                   <button 
                     onClick={() => handleApprove(a._id)} 
@@ -120,6 +145,7 @@ const RentalRequests = () => {
             )}
           </section>
 
+          {/* Approved Applications Section */}
           <section className="request-section">
             <h3>Approved Applications ({safeApproved.length})</h3>
             {safeApproved.map(a => (
@@ -127,16 +153,43 @@ const RentalRequests = () => {
                 <div className="app-row-header">
                   <FaCheckCircle className="status-icon approved" />
                   <span className="status approved">Approved</span>
-                  <strong className="tenant-name">{a.tenant?.fullName || 'Property Seeker'}</strong>
                 </div>
-                <p className="app-message">
-                  {a.message ? a.message : <span className="no-message">No message</span>}
-                </p>
-                <span className="date">
-                  Applied on: {a.createdAt ? new Date(a.createdAt).toLocaleDateString() : ''}
-                  <br />
-                  Approved on: {a.actedAt ? new Date(a.actedAt).toLocaleDateString() : ''}
-                </span>
+
+                <div className="tenant-info-row">
+                  {a.tenant?.profilePic ? (
+                    <img src={a.tenant.profilePic} alt={a.tenant.fullName} className="tenant-avatar" />
+                  ) : (
+                    <FaUserCircle className="tenant-avatar-placeholder" />
+                  )}
+                  <div className="tenant-meta">
+                    <strong className="tenant-name">{a.tenant?.fullName || 'Property Seeker'}</strong>
+                    <div className="tenant-contacts">
+                      {a.tenant?.contactNumber && (
+                        <a href={`tel:${a.tenant.contactNumber}`} className="tenant-contact">
+                          <FaPhone className="contact-icon" /> {a.tenant.contactNumber}
+                        </a>
+                      )}
+                      {a.tenant?.email && (
+                        <a href={`mailto:${a.tenant.email}`} className="tenant-contact">
+                          <FaEnvelope className="contact-icon" /> {a.tenant.email}
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {a.message && (
+                  <p className="app-message">{a.message}</p>
+                )}
+
+                <div className="date-container">
+                  <span className="date-line">
+                    <span className="date-label">Applied on:</span> {a.createdAt ? new Date(a.createdAt).toLocaleDateString() : ''}
+                  </span>
+                  <span className="date-line">
+                    <span className="date-label">Approved on:</span> {a.actedAt ? new Date(a.actedAt).toLocaleDateString() : ''}
+                  </span>
+                </div>
               </div>
             ))}
             {safeApproved.length === 0 && (
@@ -144,6 +197,7 @@ const RentalRequests = () => {
             )}
           </section>
 
+          {/* Rejected Applications Section */}
           <section className="request-section">
             <h3>Rejected Applications ({safeRejected.length})</h3>
             {safeRejected.map(a => (
@@ -151,16 +205,43 @@ const RentalRequests = () => {
                 <div className="app-row-header">
                   <FaTimesCircle className="status-icon rejected" />
                   <span className="status rejected">Rejected</span>
-                  <strong className="tenant-name">{a.tenant?.fullName || 'Property Seeker'}</strong>
                 </div>
-                <p className="app-message">
-                  {a.message ? a.message : <span className="no-message">No message</span>}
-                </p>
-                <span className="date">
-                  Applied on: {a.createdAt ? new Date(a.createdAt).toLocaleDateString() : ''}
-                  <br />
-                  Rejected on: {a.actedAt ? new Date(a.actedAt).toLocaleDateString() : ''}
-                </span>
+
+                <div className="tenant-info-row">
+                  {a.tenant?.profilePic ? (
+                    <img src={a.tenant.profilePic} alt={a.tenant.fullName} className="tenant-avatar" />
+                  ) : (
+                    <FaUserCircle className="tenant-avatar-placeholder" />
+                  )}
+                  <div className="tenant-meta">
+                    <strong className="tenant-name">{a.tenant?.fullName || 'Property Seeker'}</strong>
+                    <div className="tenant-contacts">
+                      {a.tenant?.contactNumber && (
+                        <a href={`tel:${a.tenant.contactNumber}`} className="tenant-contact">
+                          <FaPhone className="contact-icon" /> {a.tenant.contactNumber}
+                        </a>
+                      )}
+                      {a.tenant?.email && (
+                        <a href={`mailto:${a.tenant.email}`} className="tenant-contact">
+                          <FaEnvelope className="contact-icon" /> {a.tenant.email}
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {a.message && (
+                  <p className="app-message">{a.message}</p>
+                )}
+
+                <div className="date-container">
+                  <span className="date-line">
+                    <span className="date-label">Applied on:</span> {a.createdAt ? new Date(a.createdAt).toLocaleDateString() : ''}
+                  </span>
+                  <span className="date-line">
+                    <span className="date-label">Rejected on:</span> {a.actedAt ? new Date(a.actedAt).toLocaleDateString() : ''}
+                  </span>
+                </div>
               </div>
             ))}
             {safeRejected.length === 0 && (

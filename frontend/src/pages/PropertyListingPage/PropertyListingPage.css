@@ -227,7 +227,8 @@
   filter: brightness(1.15) drop-shadow(0 1px 4px rgba(34,197,94,0.13));
 }
 /* Unavailable style */
-.property-availability.unavailable {
+.property-availability.unavailable,
+.property-availability.not-available {
   background: linear-gradient(135deg,#f87171,#ef4444);
   box-shadow: 0 2px 8px -2px rgba(239,68,68,.18);
 }

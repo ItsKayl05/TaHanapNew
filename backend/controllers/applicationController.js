@@ -21,6 +21,12 @@ export const createApplication = async (req, res) => {
     const existing = await Application.findOne({ property: propertyId, tenant: tenantId, status: 'Pending' });
     if (existing) return res.status(409).json({ error: 'You already have a pending application for this property' });
 
+    // Validate tenant profile: require fullName and contactNumber (cannot be blank)
+    const tenant = await User.findById(tenantId);
+    if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
+    if (!tenant.fullName || !tenant.fullName.trim()) return res.status(400).json({ error: 'Tenant full name is required' });
+    if (!tenant.contactNumber || !tenant.contactNumber.trim()) return res.status(400).json({ error: 'Tenant contact number is required' });
+
     const app = new Application({
       property: propertyId,
       tenant: tenantId,
@@ -28,7 +34,19 @@ export const createApplication = async (req, res) => {
       message: message || ''
     });
     await app.save();
-    res.status(201).json({ message: 'Application submitted', application: app });
+
+    // Populate tenant details for response
+    const populated = await Application.findById(app._id).populate('tenant', 'fullName email profilePic contactNumber');
+
+    // Emit a realtime event so landlord dashboards update
+    try {
+      const io = req.app.get('io');
+      if (io) io.to(String(property.landlord._id)).emit('applicationCreated', { application: populated });
+    } catch (err) {
+      console.warn('Failed to emit applicationCreated event', err && err.message ? err.message : err);
+    }
+
+    res.status(201).json({ message: 'Application submitted', application: populated });
   } catch (e) {
     console.error('createApplication error', e);
     res.status(500).json({ error: e.message });
@@ -86,13 +104,26 @@ export const approveApplication = async (req, res) => {
     app.actedAt = new Date();
     await app.save();
 
-    // re-fetch property to reflect any status change
-    updatedProperty = await Property.findById(app.property._id);
+  // re-fetch property to reflect any status change
+  updatedProperty = await Property.findById(app.property._id);
     // If approved applications now meet/exceed totalUnits, mark Fully Occupied
     const approvedAfter = await Application.countDocuments({ property: app.property._id, status: 'Approved' });
     if ((updatedProperty.totalUnits || 1) <= approvedAfter) {
       updatedProperty.availabilityStatus = 'Not Available';
       await updatedProperty.save();
+    }
+
+    // Emit realtime events: notify tenant and landlord and update property listing
+    try {
+      const io = req.app.get('io');
+      if (io) {
+  io.to(String(app.tenant)).emit('applicationUpdated', { application: app });
+  io.to(String(app.landlord)).emit('applicationUpdated', { application: app });
+  // Notify clients watching this property room
+  io.to(`property:${String(updatedProperty._id)}`).emit('propertyUpdated', { propertyId: updatedProperty._id, availabilityStatus: updatedProperty.availabilityStatus });
+      }
+    } catch (err) {
+      console.warn('Failed to emit realtime events for approval', err && err.message ? err.message : err);
     }
 
     res.json({ message: 'Application approved', application: app, property: updatedProperty });
@@ -114,6 +145,16 @@ export const rejectApplication = async (req, res) => {
     app.status = 'Rejected';
     app.actedAt = new Date();
     await app.save();
+    try {
+      const io = req.app.get('io');
+      if (io) {
+        io.to(String(app.tenant)).emit('applicationUpdated', { application: app });
+        io.to(String(app.landlord)).emit('applicationUpdated', { application: app });
+      }
+    } catch (err) {
+      console.warn('Failed to emit realtime events for rejection', err && err.message ? err.message : err);
+    }
+
     res.json({ message: 'Application rejected', application: app });
   } catch (e) {
     console.error('rejectApplication error', e);
