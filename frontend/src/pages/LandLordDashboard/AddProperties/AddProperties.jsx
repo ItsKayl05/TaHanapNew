@@ -368,6 +368,8 @@ const AddProperties = () => {
       if (!res.ok) {
         if (data.errors && Array.isArray(data.errors)) {
           data.errors.forEach(error => toast.error(error));
+        } else if (data.detail) {
+          toast.error(data.detail);
         } else if (data.error && typeof data.error === 'string') {
           toast.error(data.error);
         } else if (data.details && Array.isArray(data.details)) {

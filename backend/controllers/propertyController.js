@@ -403,17 +403,10 @@ export const addProperty = async (req, res) => {
                 }
             }
 
-            // Return detailed error for development
-            if (process.env.NODE_ENV !== 'production') {
-                return res.status(500).json({ 
-                    error: 'Server error while adding property', 
-                    detail: error.message,
-                    stack: error.stack 
-                });
-            }
-
-            res.status(500).json({ 
-                error: "Server error while adding property. Please try again." 
+            // Always return a concise error message to the client (include detail for debugging)
+            return res.status(500).json({ 
+                error: 'Server error while adding property', 
+                detail: error && error.message ? String(error.message) : 'Internal server error'
             });
         }
     });
