@@ -127,7 +127,7 @@ export const addProperty = async (req, res) => {
                 price,
                 barangay,
                 listingType,
-                propertyType: listingTypeAlt, // Handle both field names
+                listingTypeAlt, // Handle both field names (removed incorrect mapping)
                 petFriendly,
                 allowedPets,
                 occupancy,
@@ -173,9 +173,9 @@ export const addProperty = async (req, res) => {
                 }
             });
 
-            // Determine the actual listing type (handle both field names)
-            const actualListingType = String(listingType || listingTypeAlt || '').trim();
-            const actualPropertyType = String(propertyType || title || '').trim();
+            // Determine the listing type and property type
+            const actualListingType = String(listingType || '').trim();
+            const actualPropertyType = String(propertyType || '').trim();
 
             // Enhanced validation with better error handling
             const errors = [];
