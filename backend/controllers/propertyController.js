@@ -156,9 +156,21 @@ export const addProperty = async (req, res) => {
                 listingType,
                 listingTypeAlt,
                 propertyCondition,
-                floorArea,
-                lotArea,
-                numberOfFloors
+                floorArea: {
+                    raw: floorArea,
+                    isArray: Array.isArray(floorArea),
+                    value: Array.isArray(floorArea) ? floorArea[0] : floorArea
+                },
+                lotArea: {
+                    raw: lotArea,
+                    isArray: Array.isArray(lotArea),
+                    value: Array.isArray(lotArea) ? lotArea[0] : lotArea
+                },
+                numberOfFloors: {
+                    raw: numberOfFloors,
+                    isArray: Array.isArray(numberOfFloors),
+                    value: Array.isArray(numberOfFloors) ? numberOfFloors[0] : numberOfFloors
+                }
             });
 
             // Determine the actual listing type (handle both field names)
@@ -208,7 +220,7 @@ export const addProperty = async (req, res) => {
                 // NEW: Validation for floorArea, lotArea, and numberOfFloors
                 floorArea: {
                     required: true,
-                    value: floorArea,
+                    value: Array.isArray(floorArea) ? floorArea[0] : floorArea,
                     message: "Please provide the floor area",
                     validate: value => {
                         const num = parseFloat(String(value).replace(/,/g, ''));
@@ -218,7 +230,7 @@ export const addProperty = async (req, res) => {
                 },
                 lotArea: {
                     required: true,
-                    value: lotArea,
+                    value: Array.isArray(lotArea) ? lotArea[0] : lotArea,
                     message: "Please provide the lot area",
                     validate: value => {
                         const num = parseFloat(String(value).replace(/,/g, ''));
@@ -228,7 +240,7 @@ export const addProperty = async (req, res) => {
                 },
                 numberOfFloors: {
                     required: true,
-                    value: numberOfFloors,
+                    value: Array.isArray(numberOfFloors) ? numberOfFloors[0] : numberOfFloors,
                     message: "Please specify the number of floors",
                     validate: value => {
                         const num = parseInt(String(value), 10);
