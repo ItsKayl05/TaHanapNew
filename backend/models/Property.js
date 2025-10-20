@@ -44,6 +44,21 @@ const propertySchema = new mongoose.Schema({
     min: 0,
     default: 0,
   },
+  floorArea: {
+    type: Number,
+    min: 0,
+    default: 0,
+  },
+  lotArea: {
+    type: Number,
+    min: 0,
+    default: 0,
+  },
+  numberOfFloors: {
+    type: Number,
+    min: 0,
+    default: 0,
+  },
   petFriendly: {
     type: Boolean,
     default: false,

@@ -9,20 +9,23 @@ import { getToken } from '../../services/auth/getToken';
 import './PropertyListingPage.css';
 
 const landmarkOptions = [
-    "park",
-    "church",
-    "public market",
-    "major highway",
-    "public transport stops",
-    "banks and atms",
-    "restaurant/food centers",
-    "convenience store/supermarket",
-    "school/university",
-    "hospital/health care"
+    "park", "church", "public market", "major highway", "public transport stops", 
+    "banks and atms", "restaurant/food centers", "convenience store/supermarket", 
+    "school/university", "hospital/health care"
 ];
 
 const barangayList = [
-    'Assumption','Bagong Buhay I','Bagong Buhay II','Bagong Buhay III','Ciudad Real','Citrus','Dulong Bayan','Fatima I','Fatima II','Fatima III','Fatima IV','Fatima V','Francisco Homes – Guijo','Francisco Homes – Mulawin','Francisco Homes – Narra','Francisco Homes – Yakal','Gaya-gaya','Graceville','Gumaok Central','Gumaok East','Gumaok West','Kaybanban','Kaypian','Lawang Pare','Maharlika','Minuyan I','Minuyan II','Minuyan III','Minuyan IV','Minuyan V','Minuyan Proper','Muzon East','Muzon Proper','Muzon South','Muzon West','Paradise III','Poblacion','Poblacion 1','San Isidro','San Manuel','San Martin De Porres','San Martin I','San Martin II','San Martin III','San Martin IV','San Pedro','San Rafael I','San Rafael II','San Rafael III','San Rafael IV','San Rafael V','San Roque','Sapang Palay Proper','Sta. Cruz I','Sta. Cruz II','Sta. Cruz III','Sta. Cruz IV','Sta. Cruz V','Sto. Cristo','Sto. Nino I','Sto. Nino II','Tungkong Mangga'
+    'Assumption','Bagong Buhay I','Bagong Buhay II','Bagong Buhay III','Ciudad Real','Citrus',
+    'Dulong Bayan','Fatima I','Fatima II','Fatima III','Fatima IV','Fatima V',
+    'Francisco Homes – Guijo','Francisco Homes – Mulawin','Francisco Homes – Narra','Francisco Homes – Yakal',
+    'Gaya-gaya','Graceville','Gumaok Central','Gumaok East','Gumaok West','Kaybanban','Kaypian',
+    'Lawang Pare','Maharlika','Minuyan I','Minuyan II','Minuyan III','Minuyan IV','Minuyan V',
+    'Minuyan Proper','Muzon East','Muzon Proper','Muzon South','Muzon West','Paradise III',
+    'Poblacion','Poblacion 1','San Isidro','San Manuel','San Martin De Porres','San Martin I',
+    'San Martin II','San Martin III','San Martin IV','San Pedro','San Rafael I','San Rafael II',
+    'San Rafael III','San Rafael IV','San Rafael V','San Roque','Sapang Palay Proper',
+    'Sta. Cruz I','Sta. Cruz II','Sta. Cruz III','Sta. Cruz IV','Sta. Cruz V','Sto. Cristo',
+    'Sto. Nino I','Sto. Nino II','Tungkong Mangga'
 ];
 const categories = ['Apartment','Dorm','House','Studio'];
 
@@ -32,7 +35,11 @@ const PropertyListingPage = () => {
     const [properties, setProperties] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filters, setFilters] = useState({
-        searchTerm:'', category:'', location:'', minPrice:'', maxPrice:'', petFriendly:false, occupancy:'', parking:false, landmarks:[], minRooms:'', maxRooms:'', minArea:'', maxArea:'', hasVideo:false, customLandmark:'', propertyType:'', propertyCondition:'', marketHighlights:[]
+        searchTerm:'', category:'', location:'', minPrice:'', maxPrice:'', petFriendly:false, 
+        occupancy:'', parking:false, landmarks:[], minRooms:'', maxRooms:'', minArea:'', 
+        maxArea:'', hasVideo:false, customLandmark:'', propertyType:'', propertyCondition:'', 
+        marketHighlights:[],
+        minFloorArea:'', maxFloorArea:'', minLotArea:'', maxLotArea:'', minFloors:'', maxFloors:''
     });
     const [sortOption, setSortOption] = useState('newest');
     const [showFilters, setShowFilters] = useState(false);
@@ -68,24 +75,36 @@ const PropertyListingPage = () => {
 
     useEffect(()=>{
         const fetchFavorites = async ()=>{
-            try { const token = getToken(); if(!token) return; const r= await FavoriteService.getFavorites(token); setFavorites(r.data.favorites.map(f=>f.property._id)); } catch(err){ if(err.response && err.response.status!==401) toast.error('Error fetching favorites'); }
+            try { 
+                const token = getToken(); 
+                if(!token) return; 
+                const r= await FavoriteService.getFavorites(token); 
+                setFavorites(r.data.favorites.map(f=>f.property._id)); 
+            } catch(err){ 
+                if(err.response && err.response.status!==401) toast.error('Error fetching favorites'); 
+            }
         };
         fetchFavorites();
         fetchProperties();
     },[fetchProperties]);
 
     const updateFilter = (k,v)=> setFilters(p=>({...p,[k]:v}));
-    const resetFilters = ()=> setFilters({ searchTerm:'', category:'', location:'', minPrice:'', maxPrice:'', petFriendly:false, occupancy:'', parking:false, landmarks:[], minRooms:'', maxRooms:'', minArea:'', maxArea:'', hasVideo:false, customLandmark:'', propertyType:'', propertyCondition:'', marketHighlights:[] });
+    const resetFilters = ()=> setFilters({ 
+        searchTerm:'', category:'', location:'', minPrice:'', maxPrice:'', petFriendly:false, 
+        occupancy:'', parking:false, landmarks:[], minRooms:'', maxRooms:'', minArea:'', 
+        maxArea:'', hasVideo:false, customLandmark:'', propertyType:'', propertyCondition:'', 
+        marketHighlights:[],
+        minFloorArea:'', maxFloorArea:'', minLotArea:'', maxLotArea:'', minFloors:'', maxFloors:''
+    });
 
-    const matches = ({ title='', category='', barangay='', price=0, petFriendly, occupancy=0, parking, landmarks='', numberOfRooms=0, areaSqm=0, video='', propertyType='For Rent', propertyCondition='', marketHighlights='' }) => {
+    const matches = ({ title='', category='', barangay='', price=0, petFriendly, occupancy=0, 
+        parking, landmarks='', numberOfRooms=0, areaSqm=0, floorArea=0, lotArea=0, numberOfFloors=0, video='', propertyType='For Rent', 
+        propertyCondition='', marketHighlights='' }) => {
         const s = filters.searchTerm.toLowerCase().trim();
-        // Split property landmarks string into array
         const propertyLandmarksArr = typeof landmarks === 'string' ? landmarks.split(',').map(l => l.trim().toLowerCase()).filter(l => l) : [];
-        // Check if any selected filter landmark is included in propertyLandmarksArr
         const landmarkMatch = filters.landmarks.length > 0
             ? filters.landmarks.some(l => propertyLandmarksArr.includes(l.trim().toLowerCase()))
             : true;
-        // Custom landmark filter is now ignored to enforce dropdown-only
         return (
             (s ? title.toLowerCase().includes(s) || barangay.toLowerCase().includes(s) : true) &&
             (filters.category ? category===filters.category : true) &&
@@ -100,6 +119,13 @@ const PropertyListingPage = () => {
             (filters.maxRooms ? numberOfRooms <= Number(filters.maxRooms) : true) &&
             (filters.minArea ? areaSqm >= Number(filters.minArea) : true) &&
             (filters.maxArea ? areaSqm <= Number(filters.maxArea) : true) &&
+            // NEW: floorArea / lotArea / numberOfFloors filters
+            (filters.minFloorArea ? (floorArea || 0) >= Number(filters.minFloorArea) : true) &&
+            (filters.maxFloorArea ? (floorArea || 0) <= Number(filters.maxFloorArea) : true) &&
+            (filters.minLotArea ? (lotArea || 0) >= Number(filters.minLotArea) : true) &&
+            (filters.maxLotArea ? (lotArea || 0) <= Number(filters.maxLotArea) : true) &&
+            (filters.minFloors ? (numberOfFloors || 0) >= Number(filters.minFloors) : true) &&
+            (filters.maxFloors ? (numberOfFloors || 0) <= Number(filters.maxFloors) : true) &&
             (filters.hasVideo ? !!video : true) &&
             (filters.propertyType ? String(propertyType).toLowerCase() === String(filters.propertyType).toLowerCase() : true) &&
             (filters.propertyCondition ? String(propertyCondition).toLowerCase() === String(filters.propertyCondition).toLowerCase() : true)
@@ -117,21 +143,44 @@ const PropertyListingPage = () => {
             case 'areaDesc': return (b.areaSqm||0)-(a.areaSqm||0);
             case 'oldest': return new Date(a.createdAt||0)-new Date(b.createdAt||0);
             case 'newest': default: return new Date(b.createdAt||0)-new Date(a.createdAt||0);
+            // NEW: Sorting options for new fields
+            case 'floorAreaDesc': return (b.floorArea||0)-(a.floorArea||0);
+            case 'floorAreaAsc': return (a.floorArea||0)-(b.floorArea||0);
+            case 'lotAreaDesc': return (b.lotArea||0)-(a.lotArea||0);
+            case 'lotAreaAsc': return (a.lotArea||0)-(b.lotArea||0);
+            case 'floorsDesc': return (b.numberOfFloors||0)-(a.numberOfFloors||0);
+            case 'floorsAsc': return (a.numberOfFloors||0)-(b.numberOfFloors||0);
         }
     });
     const avgArea = sorted.length ? sorted.reduce((s,p)=>s+(p.areaSqm||0),0)/sorted.length : 0;
     const avgPricePerSqm = sorted.filter(p=>p.areaSqm>0).length ? sorted.reduce((s,p)=> s + ((p.price||0)/(p.areaSqm||1)),0)/sorted.filter(p=>p.areaSqm>0).length : 0;
 
     const toggleFavorite = async (id)=>{
-        const token = getToken(); if(!token){ toast.info('Please log in to use favorites.'); return; }
+        const token = getToken(); 
+        if(!token){ toast.info('Please log in to use favorites.'); return; }
         if(userRole !== 'tenant') return;
         try {
-            if(favorites.includes(id)) { await FavoriteService.removeFromFavorites(id, token); setFavorites(f=>f.filter(x=>x!==id)); toast.dismiss(); toast.info('Removed from favorites'); }
-            else { await FavoriteService.addToFavorites(id, token); setFavorites(f=>[...f,id]); toast.dismiss(); toast.success('Added to favorites'); }
+            if(favorites.includes(id)) { 
+                await FavoriteService.removeFromFavorites(id, token); 
+                setFavorites(f=>f.filter(x=>x!==id)); 
+                toast.dismiss(); 
+                toast.info('Removed from favorites'); 
+            } else { 
+                await FavoriteService.addToFavorites(id, token); 
+                setFavorites(f=>[...f,id]); 
+                toast.dismiss(); 
+                toast.success('Added to favorites'); 
+            }
         } catch(err){ toast.error('Failed to update favorites.'); }
     };
 
-    // helper: infer nearby landmarks from barangay/address using simple keyword matching
+    const formatArea = (v) => {
+        if (v === undefined || v === null) return '';
+        const num = Number(v);
+        if (isNaN(num)) return '';
+        return Number.isInteger(num) ? String(num) : String(Math.round(num * 10) / 10);
+    };
+
     const landmarkHints = (p)=>{
         if(p.landmarks && p.landmarks.trim()) return p.landmarks;
         const text = `${p.title||''} ${p.barangay||''} ${p.address||''}`.toLowerCase();
@@ -140,7 +189,7 @@ const PropertyListingPage = () => {
             'school': ['school','elementary','high school','university','college'],
             'mall': ['mall','market','plaza','shopping'],
             'hospital': ['hospital','clinic','medical','health'],
-            'transport': ['terminal','terminal','station','bus','jeepney','lrt','metro']
+            'transport': ['terminal','station','bus','jeepney','lrt','metro']
         };
         Object.entries(mapping).forEach(([k,arr])=>{ if(arr.some(w=> text.includes(w))) hints.push(k); });
         return hints.length? hints.map(h=> ({school:'School',mall:'Mall',hospital:'Hospital',transport:'Transport Hub'}[h] )).join(', ') : '';
@@ -155,23 +204,23 @@ const PropertyListingPage = () => {
                     <h1 className="listing-title gradient-text">Find Your Perfect Home</h1>
                     <p className="subtitle">Browse verified rentals across San Jose Del Monte.</p>
                     <div className="controls-wrapper">
-                        <div className="search-input-container controls-align-left" style={{flexDirection:'column',alignItems:'stretch',gap:'0.7rem'}}>
-                            <div style={{position:'relative',width:'100%'}}>
+                        <div className="search-input-container controls-align-left">
+                            <div className="search-field-wrapper">
                                 <FaSearch className="search-icon" />
-                                <input className="property-search" placeholder="Search by name or category..." value={filters.searchTerm} onChange={e=>updateFilter('searchTerm', e.target.value)} style={{width:'100%'}} />
+                                <input className="property-search" placeholder="Search by name or category..." value={filters.searchTerm} onChange={e=>updateFilter('searchTerm', e.target.value)} />
                             </div>
-                            <div className="listing-sort-row" style={{display:'flex',flexWrap:'wrap',gap:'1.2rem',alignItems:'center',marginTop:'0.2rem'}}>
-                                <div style={{display:'flex', gap:8, alignItems:'center'}}>
-                                    <label style={{color:'#cbd5e1', fontSize:'0.78rem', fontWeight:600, marginRight:6}}>Listing Type</label>
-                                    <select value={filters.propertyType} onChange={e=>updateFilter('propertyType', e.target.value)} style={{padding:'8px 10px', borderRadius:10, background:'rgba(15,23,42,0.7)', color:'#fff', border:'1px solid rgba(255,255,255,0.08)'}}>
+                            <div className="listing-sort-row">
+                                <div className="filter-control-group">
+                                    <label>Listing Type</label>
+                                    <select value={filters.propertyType} onChange={e=>updateFilter('propertyType', e.target.value)}>
                                         <option value="">All</option>
                                         <option value="For Rent">For Rent</option>
                                         <option value="For Sale">For Sale</option>
                                     </select>
                                 </div>
-                                <div style={{display:'flex', gap:8, alignItems:'center'}}>
-                                    <label style={{color:'#cbd5e1', fontSize:'0.78rem', fontWeight:600, marginRight:6}}>Sort</label>
-                                    <select value={sortOption} onChange={e=>setSortOption(e.target.value)} style={{padding:'8px 10px', borderRadius:10, background:'rgba(15,23,42,0.7)', color:'#fff', border:'1px solid rgba(255,255,255,0.08)'}}>
+                                <div className="filter-control-group">
+                                    <label>Sort</label>
+                                    <select value={sortOption} onChange={e=>setSortOption(e.target.value)}>
                                         <option value="newest">Newest</option>
                                         <option value="oldest">Oldest</option>
                                         <option value="priceDesc">Price High-Low</option>
@@ -180,47 +229,77 @@ const PropertyListingPage = () => {
                                         <option value="roomsAsc">Rooms Low-High</option>
                                         <option value="areaDesc">Area High-Low</option>
                                         <option value="areaAsc">Area Low-High</option>
+                                        {/* NEW: Sorting options for new fields */}
+                                        <option value="floorAreaDesc">Floor Area High-Low</option>
+                                        <option value="floorAreaAsc">Floor Area Low-High</option>
+                                        <option value="lotAreaDesc">Lot Area High-Low</option>
+                                        <option value="lotAreaAsc">Lot Area Low-High</option>
+                                        <option value="floorsDesc">Floors High-Low</option>
+                                        <option value="floorsAsc">Floors Low-High</option>
                                     </select>
                                 </div>
-                                <button className={`toggle-filters-btn ${showFilters?'active':''}`} onClick={()=>setShowFilters(s=>!s)}>{showFilters?'Hide Filters':'Show Filters'}</button>
+                                <button className={`toggle-filters-btn ${showFilters?'active':''}`} onClick={()=>setShowFilters(s=>!s)}>
+                                    {showFilters?'Hide Filters':'Show Filters'}
+                                </button>
                             </div>
                         </div>
-                    {showFilters && (
-                        <div className="filters-container controls-align-left">
-                            <div className="filters-grid">
-                                <div className="filter-group">
-                                    <label><FaHome/> Property Type</label>
-                                    <select value={filters.category} onChange={e=>updateFilter('category', e.target.value)}>
-                                        <option value="">All Categories</option>
-                                        {categories.map(c=> <option key={c} value={c}>{c}</option>)}
-                                    </select>
-                                </div>
-                                <div className="filter-group">
-                                    <label><FaMapMarkerAlt/> Location</label>
-                                    <select value={filters.location} onChange={e=>updateFilter('location', e.target.value)}>
-                                        <option value="">All Locations</option>
-                                        {barangayList.map(b=> <option key={b} value={b}>{b}</option>)}
-                                    </select>
-                                </div>
-                                <div className="filter-group">
-                                    <label><FaTag/> Price Range</label>
-                                    <div className="price-range">
-                                        <input type="number" placeholder="Min" value={filters.minPrice} onChange={e=>updateFilter('minPrice', e.target.value)} className="price-input" />
-                                        <span>to</span>
-                                        <input type="number" placeholder="Max" value={filters.maxPrice} onChange={e=>updateFilter('maxPrice', e.target.value)} className="price-input" />
+                        
+                        {showFilters && (
+                            <div className="filters-container">
+                                <div className="filters-grid">
+                                    <div className="filter-group">
+                                        <label><FaHome/> Property Type</label>
+                                        <select value={filters.category} onChange={e=>updateFilter('category', e.target.value)}>
+                                            <option value="">All Categories</option>
+                                            {categories.map(c=> <option key={c} value={c}>{c}</option>)}
+                                        </select>
                                     </div>
-                                </div>
-                                    {/* Rent vs Sale-specific filters */}
+                                    <div className="filter-group">
+                                        <label><FaMapMarkerAlt/> Location</label>
+                                        <select value={filters.location} onChange={e=>updateFilter('location', e.target.value)}>
+                                            <option value="">All Locations</option>
+                                            {barangayList.map(b=> <option key={b} value={b}>{b}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="filter-group">
+                                        <label><FaTag/> Price Range</label>
+                                        <div className="price-range">
+                                            <input type="number" placeholder="Min" value={filters.minPrice} onChange={e=>updateFilter('minPrice', e.target.value)} className="price-input" />
+                                            <span>to</span>
+                                            <input type="number" placeholder="Max" value={filters.maxPrice} onChange={e=>updateFilter('maxPrice', e.target.value)} className="price-input" />
+                                        </div>
+                                    </div>
+                                    
                                     {(!filters.propertyType || filters.propertyType === 'For Rent') && (
                                         <>
-                                            <div className="filter-group"><label><FaBed/> Min Occupancy</label><input type="number" placeholder="e.g. 2" value={filters.occupancy} onChange={e=>updateFilter('occupancy', e.target.value)} /></div>
-                                            <div className="filter-group"><label><FaDoorOpen/> Min Rooms</label><input type="number" placeholder="e.g. 1" value={filters.minRooms} onChange={e=>updateFilter('minRooms', e.target.value)} /></div>
-                                            <div className="filter-group"><label><FaDoorOpen/> Max Rooms</label><input type="number" placeholder="e.g. 5" value={filters.maxRooms} onChange={e=>updateFilter('maxRooms', e.target.value)} /></div>
+                                            <div className="filter-group">
+                                                <label><FaBed/> Min Occupancy</label>
+                                                <select value={filters.occupancy} onChange={e=>updateFilter('occupancy', e.target.value)}>
+                                                    <option value="">Any</option>
+                                                    {[1,2,3,4,5].map(n => <option key={n} value={n}>{n} {n===1? 'person':'people'}</option>)}
+                                                </select>
+                                            </div>
+                                            <div className="filter-group">
+                                                <label><FaDoorOpen/> Min Rooms</label>
+                                                <select value={filters.minRooms} onChange={e=>updateFilter('minRooms', e.target.value)}>
+                                                    <option value="">Any</option>
+                                                    {[1,2,3,4,5].map(n => <option key={n} value={n}>{n}</option>)}
+                                                </select>
+                                            </div>
+                                            <div className="filter-group">
+                                                <label><FaDoorOpen/> Max Rooms</label>
+                                                <select value={filters.maxRooms} onChange={e=>updateFilter('maxRooms', e.target.value)}>
+                                                    <option value="">Any</option>
+                                                    {[1,2,3,4,5].map(n => <option key={n} value={n}>{n}</option>)}
+                                                </select>
+                                            </div>
                                         </>
                                     )}
+                                    
                                     {(!filters.propertyType || filters.propertyType === 'For Sale') && (
                                         <>
-                                            <div className="filter-group"><label>Property Condition</label>
+                                            <div className="filter-group">
+                                                <label>Property Condition</label>
                                                 <select value={filters.propertyCondition} onChange={e=>updateFilter('propertyCondition', e.target.value)}>
                                                     <option value="">Any</option>
                                                     <option value="Fully Furnished">Fully Furnished</option>
@@ -229,11 +308,17 @@ const PropertyListingPage = () => {
                                                     <option value="Brand New">Brand New</option>
                                                 </select>
                                             </div>
-                                            <div className="filter-group"><label>Market Highlights</label>
-                                                <select multiple value={filters.marketHighlights} onChange={e=>{
-                                                    const opts = Array.from(e.target.selectedOptions).map(o=>o.value);
-                                                    updateFilter('marketHighlights', opts);
-                                                }}>
+                                            <div className="filter-group market-highlights-filter">
+                                                <label>Market Highlights</label>
+                                                <select 
+                                                    multiple 
+                                                    value={filters.marketHighlights} 
+                                                    onChange={e=>{
+                                                        const opts = Array.from(e.target.selectedOptions).map(o=>o.value);
+                                                        updateFilter('marketHighlights', opts);
+                                                    }}
+                                                    className="market-highlights-select"
+                                                >
                                                     <option value="Ready for Occupancy (RFO)">Ready for Occupancy (RFO)</option>
                                                     <option value="Pre-selling (under construction)">Pre-selling (under construction)</option>
                                                     <option value="Negotiable Price">Negotiable Price</option>
@@ -245,81 +330,107 @@ const PropertyListingPage = () => {
                                             </div>
                                         </>
                                     )}
-                                <div className="filter-group"><label><FaBed/> Min Occupancy</label><input type="number" placeholder="e.g. 2" value={filters.occupancy} onChange={e=>updateFilter('occupancy', e.target.value)} /></div>
-                                <div className="filter-group"><label><FaDoorOpen/> Min Rooms</label><input type="number" placeholder="e.g. 1" value={filters.minRooms} onChange={e=>updateFilter('minRooms', e.target.value)} /></div>
-                                <div className="filter-group"><label><FaDoorOpen/> Max Rooms</label><input type="number" placeholder="e.g. 5" value={filters.maxRooms} onChange={e=>updateFilter('maxRooms', e.target.value)} /></div>
-                                <div className="filter-group"><label><FaRulerCombined/> Min Size (sqm)</label><input type="number" placeholder="e.g. 30" value={filters.minArea} onChange={e=>updateFilter('minArea', e.target.value)} /></div>
-                                <div className="filter-group"><label><FaRulerCombined/> Max Size (sqm)</label><input type="number" placeholder="e.g. 120" value={filters.maxArea} onChange={e=>updateFilter('maxArea', e.target.value)} /></div>
-                                <div className="filter-group amenities">
-                                    <label>Amenities</label>
-                                    <div className="amenity-checkbox">
-                                        <input type="checkbox" id="petFriendly" checked={filters.petFriendly} onChange={()=>updateFilter('petFriendly', !filters.petFriendly)} />
-                                        <label htmlFor="petFriendly"><FaDog/> Pet Friendly</label>
+                                    
+                                    <div className="filter-group">
+                                        <label><FaRulerCombined/> Min Size (sqm)</label>
+                                        <input type="number" placeholder="e.g. 30" value={filters.minArea} onChange={e=>updateFilter('minArea', e.target.value)} />
                                     </div>
-                                    <div className="amenity-checkbox">
-                                        <input type="checkbox" id="parking" checked={filters.parking} onChange={()=>updateFilter('parking', !filters.parking)} />
-                                        <label htmlFor="parking"><FaParking/> Parking</label>
+                                    <div className="filter-group">
+                                        <label><FaRulerCombined/> Max Size (sqm)</label>
+                                        <input type="number" placeholder="e.g. 120" value={filters.maxArea} onChange={e=>updateFilter('maxArea', e.target.value)} />
                                     </div>
-                                    <div className="amenity-checkbox">
-                                        <input type="checkbox" id="hasVideo" checked={filters.hasVideo} onChange={()=>updateFilter('hasVideo', !filters.hasVideo)} />
-                                        <label htmlFor="hasVideo">🎥 Has Video</label>
+                                    
+                                    {/* NEW: Floor Area, Lot Area, and Floors Filters */}
+                                    <div className="filter-group">
+                                        <label>Min Floor Area (sqm)</label>
+                                        <input type="number" placeholder="e.g. 30" value={filters.minFloorArea || ''} onChange={e=>updateFilter('minFloorArea', e.target.value)} />
                                     </div>
-                                </div>
+                                    <div className="filter-group">
+                                        <label>Max Floor Area (sqm)</label>
+                                        <input type="number" placeholder="e.g. 120" value={filters.maxFloorArea || ''} onChange={e=>updateFilter('maxFloorArea', e.target.value)} />
+                                    </div>
+                                    <div className="filter-group">
+                                        <label>Min Lot Area (sqm)</label>
+                                        <input type="number" placeholder="e.g. 30" value={filters.minLotArea || ''} onChange={e=>updateFilter('minLotArea', e.target.value)} />
+                                    </div>
+                                    <div className="filter-group">
+                                        <label>Max Lot Area (sqm)</label>
+                                        <input type="number" placeholder="e.g. 120" value={filters.maxLotArea || ''} onChange={e=>updateFilter('maxLotArea', e.target.value)} />
+                                    </div>
+                                    <div className="filter-group">
+                                        <label>Min Floors</label>
+                                        <select value={filters.minFloors || ''} onChange={e=>updateFilter('minFloors', e.target.value)}>
+                                            <option value="">Any</option>
+                                            {[1,2,3,4,5].map(n => <option key={n} value={n}>{n}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="filter-group">
+                                        <label>Max Floors</label>
+                                        <select value={filters.maxFloors || ''} onChange={e=>updateFilter('maxFloors', e.target.value)}>
+                                            <option value="">Any</option>
+                                            {[1,2,3,4,5].map(n => <option key={n} value={n}>{n}</option>)}
+                                        </select>
+                                    </div>
+                                    
+                                    <div className="filter-group amenities">
+                                        <label>Amenities</label>
+                                        <div className="amenity-checkbox">
+                                            <input type="checkbox" id="petFriendly" checked={filters.petFriendly} onChange={()=>updateFilter('petFriendly', !filters.petFriendly)} />
+                                            <label htmlFor="petFriendly"><FaDog/> Pet Friendly</label>
+                                        </div>
+                                        <div className="amenity-checkbox">
+                                            <input type="checkbox" id="parking" checked={filters.parking} onChange={()=>updateFilter('parking', !filters.parking)} />
+                                            <label htmlFor="parking"><FaParking/> Parking</label>
+                                        </div>
+                                        <div className="amenity-checkbox">
+                                            <input type="checkbox" id="hasVideo" checked={filters.hasVideo} onChange={()=>updateFilter('hasVideo', !filters.hasVideo)} />
+                                            <label htmlFor="hasVideo">🎥 Has Video</label>
+                                        </div>
+                                    </div>
 
-                                <div className="filter-group">
-                                    <label>Nearby Landmarks</label>
-                                    <div className="landmarks-grid">
-                                        {[
-                                            { value: "park", label: "Park" },
-                                            { value: "church", label: "Church" },
-                                            { value: "public market", label: "Public Market" },
-                                            { value: "major highway", label: "Major Highway" },
-                                            { value: "public transport stops", label: "Public Transportation Stops" },
-                                            { value: "banks and atms", label: "Banks and ATMs" },
-                                            { value: "restaurant/food centers", label: "Restaurants/Food Centers" },
-                                            { value: "convenience store/supermarket", label: "Convenience Store/Supermarket" },
-                                            { value: "school/university", label: "School/University" },
-                                            { value: "hospital/health care", label: "Hospital/Health Care" }
-                                        ].map(l => (
-                                            <div key={l.value} className="amenity-checkbox landmark-option">
-                                                <input
-                                                    type="checkbox"
-                                                    id={l.value}
-                                                    checked={filters.landmarks.includes(l.value)}
-                                                    onChange={() => {
-                                                        if (filters.landmarks.includes(l.value)) {
-                                                            updateFilter("landmarks", filters.landmarks.filter(x => x !== l.value));
-                                                        } else {
-                                                            updateFilter("landmarks", [...filters.landmarks, l.value]);
-                                                        }
-                                                    }}
-                                                />
-                                                <label htmlFor={l.value}>{l.label}</label>
-                                            </div>
-                                        ))}
+                                    <div className="filter-group landmarks-filter">
+                                        <label>Nearby Landmarks</label>
+                                        <div className="landmarks-grid">
+                                            {landmarkOptions.map(l => (
+                                                <div key={l} className="amenity-checkbox landmark-option">
+                                                    <input
+                                                        type="checkbox"
+                                                        id={l}
+                                                        checked={filters.landmarks.includes(l)}
+                                                        onChange={() => {
+                                                            if (filters.landmarks.includes(l)) {
+                                                                updateFilter("landmarks", filters.landmarks.filter(x => x !== l));
+                                                            } else {
+                                                                updateFilter("landmarks", [...filters.landmarks, l]);
+                                                            }
+                                                        }}
+                                                    />
+                                                    <label htmlFor={l}>{l}</label>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
+                                <button className="reset-filters" onClick={resetFilters}>Reset Filters</button>
                             </div>
-                            <button className="reset-filters" onClick={resetFilters}>Reset Filters</button>
+                        )}
+                        
+                        <div className="results-row">
+                            <div className="results-count">
+                                {filtered.length} {filtered.length===1?'property':'properties'} found
+                                {filtered.length>0 && <span className="results-metrics"> • Avg Size {avgArea.toFixed(1)} sqm {avgPricePerSqm>0 && `• Avg ₱${Math.round(avgPricePerSqm).toLocaleString()}/sqm`}</span>}
+                            </div>
                         </div>
-                    )}
-                    <div className="results-row controls-align-left">
-                        <div className="results-count">
-                            {filtered.length} {filtered.length===1?'property':'properties'} found
-                            {filtered.length>0 && <span className="results-metrics"> • Avg Size {avgArea.toFixed(1)} sqm {avgPricePerSqm>0 && `• Avg ₱${Math.round(avgPricePerSqm).toLocaleString()}/sqm`}</span>}
-                        </div>
-                        {/* header now contains listing type + sort controls; removed duplicate controls here */}
-                    </div>
                     </div>
                 </div>
             </div>
+            
             <div className="properties-grid">
                 {sorted.length ? sorted.map(p=>{
                     const {_id,title,category,barangay,price,images,petFriendly,parking,occupancy,landmarks,numberOfRooms,areaSqm,video, landlordProfile, createdAt, propertyType}=p;
                     return (
                         <div key={_id} className="property-card" onClick={()=>navigate(`/property/${_id}`)}>
                             <div className="property-badges">
-                                <span className="property-badge">{category}</span>
                                 <span className={`property-type-badge ${(propertyType || "For Rent")?.toLowerCase().replace(/\s+/g, '-')}`}>
                                     {propertyType || "For Rent"}
                                 </span>
@@ -331,7 +442,6 @@ const PropertyListingPage = () => {
                             )}
                             <div className="property-images">
                                 <img src={images?.[0] || '/default-property.jpg'} alt={title} className="property-image" loading="lazy" />
-                                {/* video badge intentionally removed */}
                                 <div className="property-price-row">
                                     <div className="property-price">₱{(price||0).toLocaleString()}</div>
                                     {(() => {
@@ -345,6 +455,7 @@ const PropertyListingPage = () => {
                             </div>
                             <div className="property-details">
                                 <h3>{title}</h3>
+                                <span className="property-category">{category}</span>
                                 {createdAt && <span className="property-date" title={new Date(createdAt).toLocaleString()}>{formatCreatedAt(createdAt)}</span>}
                                 {(typeof p.availableUnits !== 'undefined' || typeof p.totalUnits !== 'undefined') && (
                                     <div className="card-units-pill-row">
@@ -368,6 +479,10 @@ const PropertyListingPage = () => {
                                     {!!occupancy && <span className="feature-tag"><FaBed/> {occupancy} pax</span>}
                                     {numberOfRooms>0 && <span className="feature-tag"><FaDoorOpen/> {numberOfRooms} {numberOfRooms===1?'room':'rooms'}</span>}
                                     {areaSqm>0 && <span className="feature-tag"><FaRulerCombined/> {areaSqm} sqm</span>}
+                                    {/* NEW: Display floorArea, lotArea, and numberOfFloors */}
+                                    {p.floorArea>0 && <span className="feature-tag"><FaRulerCombined/> Floor: {formatArea(p.floorArea)} sqm</span>}
+                                    {p.lotArea>0 && <span className="feature-tag"><FaRulerCombined/> Lot: {formatArea(p.lotArea)} sqm</span>}
+                                    {p.numberOfFloors>0 && <span className="feature-tag">🏢 {p.numberOfFloors} {p.numberOfFloors===1?'floor':'floors'}</span>}
                                 </div>
                                 { (landmarks || landmarkHints(p)) && <p className="property-landmarks"><strong>Near:</strong> {landmarks || landmarkHints(p)}</p>}
                                 <button className="view-btn" onClick={(e)=>{e.stopPropagation(); navigate(`/property/${_id}`);}}>View Details</button>

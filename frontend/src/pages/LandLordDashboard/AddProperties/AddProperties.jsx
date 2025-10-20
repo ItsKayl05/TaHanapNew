@@ -42,10 +42,9 @@ const AddProperties = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-
   // Multiple panoramas
-  const [panoramas, setPanoramas] = useState([]); // array of File
-  const [panoramaPreviews, setPanoramaPreviews] = useState([]); // array of URLs
+  const [panoramas, setPanoramas] = useState([]);
+  const [panoramaPreviews, setPanoramaPreviews] = useState([]);
 
   const handlePanoramaChange = (e) => {
     const files = Array.from(e.target.files || []);
@@ -58,7 +57,6 @@ const AddProperties = () => {
       return validType && sizeOk;
     });
     if (!validFiles.length) return;
-    // Add new files, avoid duplicates by name
     const existingNames = panoramas.map(f => f.name);
     const newFiles = validFiles.filter(f => !existingNames.includes(f.name));
     setPanoramas(prev => [...prev, ...newFiles]);
@@ -129,19 +127,35 @@ const AddProperties = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const MAX_IMAGES = 8;
 
+  const GEOCODE_TOAST_WARN_ID = 'geocode-warn';
+  const GEOCODE_TOAST_ERROR_ID = 'geocode-error';
+  const GEOCODE_TOAST_TIMEOUT_ID = 'geocode-timeout';
+
   const geocodeAddress = async (address, barangay) => {
-    if (!address || !barangay) return;
+    if (!address || !barangay) return null;
     setIsGeocoding(true);
     const query = `${address}, ${barangay}, San Jose del Monte, Bulacan, Philippines`;
     try {
-      // Use backend proxy to avoid CORS issues
       const url = buildApi(`/geocode?q=${encodeURIComponent(query)}`);
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 8000);
       const res = await fetch(url, { signal: controller.signal });
       clearTimeout(timeout);
       if (!res.ok) {
-        toast.error('Failed to retrieve location from server');
+        try {
+          const nomUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`;
+          const nomRes = await fetch(nomUrl, { headers: { Accept: 'application/json' } });
+          if (nomRes.ok) {
+            const nomData = await nomRes.json().catch(() => null);
+            if (nomData && Array.isArray(nomData) && nomData.length > 0) {
+              const coords = { lat: parseFloat(nomData[0].lat), lon: parseFloat(nomData[0].lon) };
+              setMapCenter([coords.lat, coords.lon]);
+              setMapZoom(16);
+              return coords;
+            }
+          }
+        } catch (e) {}
+        toast.warn('Please include commas ( , ) in your address to get the correct location.', { toastId: GEOCODE_TOAST_ERROR_ID, autoClose: 5000 });
         return null;
       }
       const data = await res.json().catch(() => null);
@@ -150,20 +164,45 @@ const AddProperties = () => {
         setMapCenter([coords.lat, coords.lon]);
         setMapZoom(16);
         return coords;
-      } else {
-        toast.warn('Finding location. Please wait...');
       }
+      return null;
     } catch (err) {
       if (err.name === 'AbortError') {
-        toast.error('Geocoding request timed out. Try again.');
+        try {
+          const nomUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`;
+          const nomRes = await fetch(nomUrl, { headers: { Accept: 'application/json' } });
+          if (nomRes.ok) {
+            const nomData = await nomRes.json().catch(() => null);
+            if (nomData && Array.isArray(nomData) && nomData.length > 0) {
+              const coords = { lat: parseFloat(nomData[0].lat), lon: parseFloat(nomData[0].lon) };
+              setMapCenter([coords.lat, coords.lon]);
+              setMapZoom(16);
+              return coords;
+            }
+          }
+        } catch (e) {}
+        toast.error('Geocoding request timed out. Try again.', { toastId: GEOCODE_TOAST_TIMEOUT_ID });
       } else {
         console.error('Geocode error:', err);
-        toast.error('Error finding location. Please try again.');
+        try {
+          const nomUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`;
+          const nomRes = await fetch(nomUrl, { headers: { Accept: 'application/json' } });
+          if (nomRes.ok) {
+            const nomData = await nomRes.json().catch(() => null);
+            if (nomData && Array.isArray(nomData) && nomData.length > 0) {
+              const coords = { lat: parseFloat(nomData[0].lat), lon: parseFloat(nomData[0].lon) };
+              setMapCenter([coords.lat, coords.lon]);
+              setMapZoom(16);
+              return coords;
+            }
+          }
+        } catch (e) {}
+        toast.error('Error finding location. Please try again.', { toastId: GEOCODE_TOAST_ERROR_ID });
       }
+      return null;
     } finally {
       setIsGeocoding(false);
     }
-    return null;
   };
 
   function LocationSelector() {
@@ -176,19 +215,24 @@ const AddProperties = () => {
     return null;
   }
 
-  // Sync map center to the property's marker whenever its coordinates change
   function MapCenterSync({ lat, lng }) {
     const map = useMap();
     useEffect(() => {
       if (!lat || !lng) return;
       try {
         map.setView([parseFloat(lat), parseFloat(lng)], Math.max(map.getZoom(), 15), { animate: true });
-      } catch (e) {
-        // ignore
-      }
+      } catch (e) {}
     }, [lat, lng, map]);
     return null;
   }
+
+  const geocodeTimeoutRef = React.useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (geocodeTimeoutRef.current) clearTimeout(geocodeTimeoutRef.current);
+    };
+  }, []);
 
   const handleInputChange = async (e) => {
     const { name, value, type, checked } = e.target;
@@ -209,18 +253,26 @@ const AddProperties = () => {
       newValue = sanitized;
     }
     
-    setPropertyData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : newValue }));
+    setPropertyData(prev => {
+      const nextState = { ...prev, [name]: type === 'checkbox' ? checked : newValue };
 
-    if (name === 'address' || name === 'barangay') {
-      const nextAddress = name === 'address' ? value : propertyData.address;
-      const nextBarangay = name === 'barangay' ? value : propertyData.barangay;
-      if (nextAddress && nextBarangay) {
-        const coords = await geocodeAddress(nextAddress, nextBarangay);
-        if (coords) {
-          setPropertyData(prev => ({ ...prev, latitude: coords.lat, longitude: coords.lon }));
-        }
+      if (name === 'address' || name === 'barangay') {
+        const nextAddress = nextState.address;
+        const nextBarangay = nextState.barangay;
+
+        if (geocodeTimeoutRef.current) clearTimeout(geocodeTimeoutRef.current);
+        geocodeTimeoutRef.current = setTimeout(async () => {
+          if (nextAddress && nextBarangay) {
+            const coords = await geocodeAddress(nextAddress, nextBarangay);
+            if (coords) {
+              setPropertyData(p => ({ ...p, latitude: coords.lat, longitude: coords.lon }));
+            }
+          }
+        }, 700);
       }
-    }
+
+      return nextState;
+    });
   };
 
   const handleImageChange = (e) => {
@@ -293,9 +345,9 @@ const AddProperties = () => {
     requiredChecks.push({ key: 'price', ok: propertyData.price && propertyData.price.toString().trim() !== '', msg: "Don't forget to set a price for your property" });
     requiredChecks.push({ key: 'barangay', ok: propertyData.barangay && propertyData.barangay.toString().trim() !== '', msg: "Please select which barangay your property is located in" });
     requiredChecks.push({ key: 'areaSqm', ok: propertyData.areaSqm !== undefined && propertyData.areaSqm !== '' && !isNaN(Number(propertyData.areaSqm)) && Number(propertyData.areaSqm) > 0, msg: "Please provide the floor area (in square meters)" });
-  requiredChecks.push({ key: 'floorArea', ok: propertyData.floorArea !== undefined && propertyData.floorArea !== '' , msg: "Please provide the total floor area (floor area)" });
-  requiredChecks.push({ key: 'lotArea', ok: propertyData.lotArea !== undefined && propertyData.lotArea !== '' , msg: "Please provide the lot area" });
-  requiredChecks.push({ key: 'numberOfFloors', ok: propertyData.numberOfFloors !== undefined && propertyData.numberOfFloors !== '' , msg: "Please specify the number of floors" });
+    requiredChecks.push({ key: 'floorArea', ok: propertyData.floorArea !== undefined && propertyData.floorArea !== '' && !isNaN(Number(propertyData.floorArea)) && Number(propertyData.floorArea) > 0, msg: "Please provide a valid floor area greater than 0" });
+    requiredChecks.push({ key: 'lotArea', ok: propertyData.lotArea !== undefined && propertyData.lotArea !== '' && !isNaN(Number(propertyData.lotArea)) && Number(propertyData.lotArea) > 0, msg: "Please provide a valid lot area greater than 0" });
+    requiredChecks.push({ key: 'numberOfFloors', ok: propertyData.numberOfFloors !== undefined && propertyData.numberOfFloors !== '' && !isNaN(Number(propertyData.numberOfFloors)) && Number(propertyData.numberOfFloors) > 0, msg: "Please specify the number of floors (1-5)" });
     
     if (propertyData.listingType === 'For Rent') {
       requiredChecks.push({ key: 'occupancy', ok: propertyData.occupancy && propertyData.occupancy.toString().trim() !== '' && !isNaN(Number(propertyData.occupancy)) && Number(propertyData.occupancy) > 0, msg: "Please specify maximum occupancy (must be greater than 0)" });
@@ -351,14 +403,6 @@ const AddProperties = () => {
       return;
     }
 
-    if (propertyData.listingType === 'For Rent') {
-      const occupancyNum = parseLocaleNumber(propertyData.occupancy);
-      if (isNaN(occupancyNum) || occupancyNum <= 0) {
-        toast.error('Please enter a valid maximum occupancy greater than 0');
-        return;
-      }
-    }
-
     // Parse and validate required numeric fields
     const floorAreaNum = parseLocaleNumber(propertyData.floorArea);
     if (isNaN(floorAreaNum) || floorAreaNum <= 0) {
@@ -374,8 +418,22 @@ const AddProperties = () => {
 
     const floorsNumRaw = propertyData.numberOfFloors;
     const floorsNum = floorsNumRaw === '' || floorsNumRaw === null ? NaN : Number(floorsNumRaw);
-    if (isNaN(floorsNum) || !Number.isInteger(floorsNum) || floorsNum < 0) {
-      toast.error('Number of floors must be a non-negative integer');
+    if (isNaN(floorsNum) || !Number.isInteger(floorsNum) || floorsNum < 1 || floorsNum > 5) {
+      toast.error('Number of floors must be between 1 and 5');
+      return;
+    }
+
+    if (propertyData.listingType === 'For Rent') {
+      const occupancyNum = parseLocaleNumber(propertyData.occupancy);
+      if (isNaN(occupancyNum) || occupancyNum <= 0 || occupancyNum > 5) {
+        toast.error('Maximum occupancy must be between 1 and 5');
+        return;
+      }
+    }
+
+    // Validate dropdown fields
+    if (propertyData.numberOfRooms && (propertyData.numberOfRooms < 1 || propertyData.numberOfRooms > 5)) {
+      toast.error('Number of rooms must be between 1 and 5');
       return;
     }
 
@@ -426,10 +484,10 @@ const AddProperties = () => {
     if (propertyData.listingType === 'For Rent') {
       formData.append('occupancy', parseLocaleNumber(propertyData.occupancy).toString());
     }
-    // Append optional numeric fields if provided
-    if (!isNaN(floorAreaNum)) formData.append('floorArea', floorAreaNum.toString());
-    if (!isNaN(lotAreaNum)) formData.append('lotArea', lotAreaNum.toString());
-    if (!isNaN(floorsNum)) formData.append('numberOfFloors', String(floorsNum));
+    // Append required numeric fields
+    formData.append('floorArea', floorAreaNum.toString());
+    formData.append('lotArea', lotAreaNum.toString());
+    formData.append('numberOfFloors', String(floorsNum));
     
     if (panoramas.length) {
       panoramas.forEach(file => formData.append('panorama360', file));
@@ -602,7 +660,8 @@ const AddProperties = () => {
 
               <div className="form-group">
                 <label className="required">Address</label>
-                <input className="ll-field" name="address" value={propertyData.address} onChange={handleInputChange} required placeholder="Street, Barangay, etc." />
+                <input className="ll-field" name="address" value={propertyData.address} onChange={handleInputChange} required placeholder="E.g., Heroesville 1, Blk 15, Lot 8" />
+                <div className="field-hint small">Tip: Include commas to separate street, block, lot (e.g., "Street, Blk, Lot") for better geocoding.</div>
               </div>
               
               <div className="form-group">
@@ -650,7 +709,11 @@ const AddProperties = () => {
               
               <div className="form-group">
                 <label>Number of Rooms</label>
-                <input className="ll-field" type="number" min={0} name="numberOfRooms" value={propertyData.numberOfRooms} onChange={handleInputChange} placeholder="e.g. 2" />
+                <select className="ll-field" name="numberOfRooms" value={propertyData.numberOfRooms} onChange={handleInputChange}>
+                  <option value="">Select number</option>
+                  {[1,2,3,4,5].map(n => <option key={n} value={n}>{n} {n === 1 ? 'Room' : 'Rooms'}</option>)}
+                </select>
+                <div className="field-hint small">Choose number of rooms (optional)</div>
               </div>
               
               <div className="form-group">
@@ -669,34 +732,38 @@ const AddProperties = () => {
               
               <div className="form-group">
                 <label className="required">Floor Area (sqm)</label>
-                <input className="ll-field" type="text" name="floorArea" value={propertyData.floorArea} onChange={handleInputChange} placeholder="e.g. 45 or 45.5" required />
+                <input className="ll-field" type="number" min={0.1} step={0.1} name="floorArea" value={propertyData.floorArea} onChange={handleInputChange} placeholder="e.g. 45 or 45.5" required />
                 <div className="field-hint small">Enter total usable floor area in square meters (numbers only; decimals allowed). Required.</div>
               </div>
 
               <div className="form-group">
                 <label className="required">Lot Area (sqm)</label>
-                <input className="ll-field" type="text" name="lotArea" value={propertyData.lotArea} onChange={handleInputChange} placeholder="e.g. 100" required />
+                <input className="ll-field" type="number" min={0.1} step={0.1} name="lotArea" value={propertyData.lotArea} onChange={handleInputChange} placeholder="e.g. 100" required />
                 <div className="field-hint small">Enter lot size in square meters (numbers only; decimals allowed). Required.</div>
               </div>
 
               <div className="form-group">
                 <label className="required">Number of Floors</label>
-                <input className="ll-field" type="number" min={0} step={1} name="numberOfFloors" value={propertyData.numberOfFloors} onChange={handleInputChange} placeholder="e.g. 2" required />
-                <div className="field-hint small">Enter number of floors (whole number, 0 for single-storey). Required.</div>
+                <select className="ll-field" name="numberOfFloors" value={propertyData.numberOfFloors} onChange={handleInputChange} required>
+                  <option value="">Select number</option>
+                  {[1,2,3,4,5].map(n => <option key={n} value={n}>{n} {n === 1 ? 'Floor' : 'Floors'}</option>)}
+                </select>
+                <div className="field-hint small">Select number of floors (1–5). Required.</div>
               </div>
               
               <div className="form-group">
                 <label className={propertyData.listingType === 'For Rent' ? 'required' : ''}>Max Occupancy</label>
-                <input 
+                <select 
                   className="ll-field" 
-                  type="number" 
-                  min={1} 
                   name="occupancy" 
                   value={propertyData.occupancy} 
                   onChange={handleInputChange} 
                   required={propertyData.listingType === 'For Rent'}
-                  disabled={propertyData.listingType === 'For Sale'} 
-                />
+                  disabled={propertyData.listingType === 'For Sale'}
+                >
+                  <option value="">Select number</option>
+                  {[1,2,3,4,5].map(n => <option key={n} value={n}>{n} {n === 1 ? 'Person' : 'People'}</option>)}
+                </select>
                 {propertyData.listingType === 'For Sale' && <div className="field-hint small" style={{color:'#666'}}>Disabled for For Sale listings</div>}
               </div>
               
@@ -841,13 +908,13 @@ const AddProperties = () => {
                   <span onClick={()=>document.getElementById('panorama-input').click()}>Add 360° Panoramic Images</span>
                 </label>
                 {panoramaPreviews.length > 0 && (
-                  <div style={{marginTop:'12px', display:'flex', gap:'16px', flexWrap:'wrap'}}>
+                  <div className="panorama-previews-grid">
                     {panoramaPreviews.map((url, idx) => (
-                      <div key={idx} style={{position:'relative', width:'180px'}}>
+                      <div key={idx} className="panorama-card">
                         <div className="panorama-preview-container">
                           <PhotoDomeViewer imageUrl={url} mode="MONOSCOPIC" />
                         </div>
-                        <button type="button" className="ll-btn tiny danger" style={{position:'absolute',top:4,right:4}} onClick={()=>removePanorama(idx)}>Remove</button>
+                        <button type="button" className="ll-btn tiny danger remove-panorama" onClick={()=>removePanorama(idx)}>Remove</button>
                       </div>
                     ))}
                   </div>
@@ -889,7 +956,6 @@ const AddProperties = () => {
                     background: '#fff',
                     border: '1px solid #e0e0e0',
                     borderRadius: '8px',
-
                     fontSize: '0.9em',
                     color: '#555'
                   }}>

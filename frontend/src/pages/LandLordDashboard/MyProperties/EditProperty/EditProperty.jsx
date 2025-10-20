@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import PhotoDomeViewer from '../../../../components/PhotoDomeViewer';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from "react-leaflet";
 import L from "leaflet";
@@ -13,91 +13,88 @@ import Sidebar from "../../Sidebar/Sidebar";
 import { buildApi, buildUpload } from '../../../../services/apiConfig';
 import { saveFormState, loadFormState, saveFiles, loadFiles, clearFormPersistence } from '../../../../utils/formPersistence';
 
-const PROPERTY_TYPES = ['House','House and Lot','Apartment','Condominium','Townhouse','Dormitory','Bedspace','Studio Unit','Lot','Land','Commercial Space','Office Space','Warehouse','Building','Bungalow','Duplex','Triplex','Inner Lot','Corner Lot'];
-
-const barangays = [
-    "Assumption", "Bagong Buhay I", "Bagong Buhay II", "Bagong Buhay III",
-    "Ciudad Real", "Citrus", "Dulong Bayan", "Fatima I", "Fatima II", 
-    "Fatima III", "Fatima IV", "Fatima V", "Francisco Homes – Guijo", 
-    "Francisco Homes – Mulawin", "Francisco Homes – Narra", "Francisco Homes – Yakal",
-    "Gaya-gaya", "Graceville", "Gumaok Central", "Gumaok East", "Gumaok West",
-    "Kaybanban", "Kaypian", "Lawang Pare", "Maharlika", "Minuyan I", 
-    "Minuyan II", "Minuyan III", "Minuyan IV", "Minuyan V", "Minuyan Proper",
-    "Muzon East", "Muzon Proper", "Muzon South", "Muzon West", "Paradise III", 
-    "Poblacion", "Poblacion 1", "San Isidro", "San Manuel", "San Martin De Porres", 
-    "San Martin I", "San Martin II", "San Martin III", "San Martin IV", "San Pedro", 
-    "San Rafael I", "San Rafael II", "San Rafael III", "San Rafael IV", "San Rafael V",
-    "San Roque", "Sapang Palay Proper", "Sta. Cruz I", "Sta. Cruz II", "Sta. Cruz III", 
-    "Sta. Cruz IV", "Sta. Cruz V", "Sto. Cristo", "Sto. Nino I", "Sto. Nino II", 
-    "Tungkong Mangga"
-];
-
-const LANDMARKS = [
-    "park", "church", "public market", "major highway", "public transport stops",
-    "banks and atms", "restaurant/food centers", "convenience store/supermarket",
-    "school/university", "hospital/health care"
-];
-
 const EditProperty = () => {
-    const [originalLatLng, setOriginalLatLng] = useState({ lat: "", lng: "" });
     const { propertyId } = useParams();
     const navigate = useNavigate();
-    const [property, setProperty] = useState(null);
-    const [isGeocoding, setIsGeocoding] = useState(false);
-    const [mapCenter, setMapCenter] = useState([14.813, 121.045]);
-    const [mapZoom, setMapZoom] = useState(15);
     
-    const [formData, setFormData] = useState({
-        propertyType: "", 
-        billsIncluded: [], 
-        propertyCondition: '', 
-        marketHighlights: [], 
-        address: "", 
-        price: "", 
-        barangay: "", 
-        listingType: "",
-        petFriendly: false, 
-        allowedPets: [], 
-        occupancy: "", 
-        parking: false, 
-        rules: "",
-        landmarks: [], 
-        availabilityStatus: "Available", 
-        numberOfRooms: "", 
-        areaSqm: "",
-        floorArea: "",
-        lotArea: "",
-        numberOfFloors: "",
-        latitude: "", 
-        longitude: ""
-    });
-    
-    const FORM_KEY = `edit-property-${propertyId}-v1`;
-
-    useEffect(() => {
-        const toSave = { fields: { ...formData } };
-        const id = setTimeout(()=> saveFormState(FORM_KEY, toSave), 300);
-        return () => clearTimeout(id);
-    }, [formData]);
-    
+    // Base states
+    const [loading, setLoading] = useState(true);
+    const [submitting, setSubmitting] = useState(false);
+    const [priceFocused, setPriceFocused] = useState(false);
+    const [priceError, setPriceError] = useState('');
     const [manualPin, setManualPin] = useState(false);
+    const [mapCenter, setMapCenter] = useState([14.8386, 120.8153]);
+    const [mapZoom, setMapZoom] = useState(13);
+    const [isGeocoding, setIsGeocoding] = useState(false);
+    const [property, setProperty] = useState(null);
+    const [originalLatLng, setOriginalLatLng] = useState({ lat: "", lng: "" });
+    
+    // Media states
     const [images, setImages] = useState([]);
     const [newImages, setNewImages] = useState([]);
     const [deletedImages, setDeletedImages] = useState([]);
     const [videoFile, setVideoFile] = useState(null);
     const [videoPreview, setVideoPreview] = useState(null);
     const [removeVideo, setRemoveVideo] = useState(false);
-    // Multiple panoramas
-    const [panoramas, setPanoramas] = useState([]); // array of File
-    const [panoramaPreviews, setPanoramaPreviews] = useState([]); // array of URLs
-    // Single panorama fields used by form persistence / legacy flows
+    const [panoramas, setPanoramas] = useState([]);
+    const [panoramaPreviews, setPanoramaPreviews] = useState([]);
     const [panorama, setPanorama] = useState(null);
     const [panoramaPreview, setPanoramaPreview] = useState(null);
     const [existingPanorama, setExistingPanorama] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [submitting, setSubmitting] = useState(false);
-    const [priceFocused, setPriceFocused] = useState(false);
-    const [priceError, setPriceError] = useState('');
+
+    // Form data state
+    const [formData, setFormData] = useState({
+        listingType: '',
+        propertyType: '',
+        billsIncluded: [],
+        propertyCondition: '',
+        marketHighlights: [],
+        address: '',
+        barangay: '',
+        price: '',
+        numberOfRooms: '',
+        availabilityStatus: 'Available',
+        areaSqm: '',
+        floorArea: '',
+        lotArea: '',
+        numberOfFloors: '',
+        occupancy: '',
+        petFriendly: false,
+        allowedPets: [],
+        parking: false,
+        landmarks: [],
+        rules: '',
+        latitude: '',
+        longitude: '',
+        customLandmark: ''
+    });
+
+    const PROPERTY_TYPES = ['House','House and Lot','Apartment','Condominium','Townhouse','Dormitory','Bedspace','Studio Unit','Lot','Land','Commercial Space','Office Space','Warehouse','Building','Bungalow','Duplex','Triplex','Inner Lot','Corner Lot'];
+
+    const barangays = [
+        "Assumption", "Bagong Buhay I", "Bagong Buhay II", "Bagong Buhay III",
+        "Ciudad Real", "Citrus", "Dulong Bayan", "Fatima I", "Fatima II", 
+        "Fatima III", "Fatima IV", "Fatima V", "Francisco Homes – Guijo", 
+        "Francisco Homes – Mulawin", "Francisco Homes – Narra", "Francisco Homes – Yakal",
+        "Gaya-gaya", "Graceville", "Gumaok Central", "Gumaok East", "Gumaok West",
+        "Kaybanban", "Kaypian", "Lawang Pare", "Maharlika", "Minuyan I", 
+        "Minuyan II", "Minuyan III", "Minuyan IV", "Minuyan V", "Minuyan Proper",
+        "Muzon East", "Muzon Proper", "Muzon South", "Muzon West", "Paradise III", 
+        "Poblacion", "Poblacion 1", "San Isidro", "San Manuel", "San Martin De Porres", 
+        "San Martin I", "San Martin II", "San Martin III", "San Martin IV", "San Pedro", 
+        "San Rafael I", "San Rafael II", "San Rafael III", "San Rafael IV", "San Rafael V",
+        "San Roque", "Sapang Palay Proper", "Sta. Cruz I", "Sta. Cruz II", "Sta. Cruz III", 
+        "Sta. Cruz IV", "Sta. Cruz V", "Sto. Cristo", "Sto. Nino I", "Sto. Nino II", 
+        "Tungkong Mangga"
+    ];
+
+    const LANDMARKS = [
+        "park", "church", "public market", "major highway", "public transport stops",
+        "banks and atms", "restaurant/food centers", "convenience store/supermarket",
+        "school/university", "hospital/health care"
+    ];
+
+    const FORM_KEY = `edit-property-${propertyId}-v1`;
 
     useEffect(() => {
         const fetchProperty = async () => {
@@ -204,14 +201,46 @@ const EditProperty = () => {
         setPanoramas(prev => prev.filter((_,i)=>i!==idx));
     };
 
+    // Use stable toast IDs and debounce geocoding to avoid spammy repeated toasts
+    const GEOCODE_TOAST_WARN_ID = 'edit-geocode-warn';
+    const GEOCODE_TOAST_ERROR_ID = 'edit-geocode-error';
+
     const geocodeAddress = async (address, barangay) => {
-        if (!address || !barangay) return;
+        if (!address || !barangay) return null;
         setIsGeocoding(true);
-        const query = encodeURIComponent(`${address}, ${barangay}, San Jose del Monte, Bulacan, Philippines`);
+        const query = `${address}, ${barangay}, San Jose del Monte, Bulacan, Philippines`;
         try {
-            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}`);
-            const data = await res.json();
-            if (data && data.length > 0) {
+            // Try backend geocode first (if available) via buildApi
+            const url = buildApi(`/geocode?q=${encodeURIComponent(query)}`);
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 8000);
+            const res = await fetch(url, { signal: controller.signal });
+            clearTimeout(timeout);
+            if (!res.ok) {
+                // Fallback to public Nominatim
+                try {
+                    const nomUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`;
+                    const nomRes = await fetch(nomUrl, { headers: { Accept: 'application/json' } });
+                    if (nomRes.ok) {
+                        const nomData = await nomRes.json().catch(() => null);
+                        if (nomData && Array.isArray(nomData) && nomData.length > 0) {
+                            const coords = { lat: parseFloat(nomData[0].lat), lon: parseFloat(nomData[0].lon) };
+                            setMapCenter([coords.lat, coords.lon]);
+                            setMapZoom(16);
+                            setFormData(prev => ({ ...prev, latitude: coords.lat.toString(), longitude: coords.lon.toString() }));
+                            setManualPin(false);
+                            return coords;
+                        }
+                    }
+                } catch (e) {
+                    // ignore
+                }
+                // Friendly guidance for users: address format often needs commas
+                toast.warn('Please include commas ( , ) in your address to get the correct location.', { toastId: GEOCODE_TOAST_ERROR_ID, autoClose: 5000 });
+                return null;
+            }
+            const data = await res.json().catch(() => null);
+            if (data && Array.isArray(data) && data.length > 0) {
                 const coords = { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
                 setMapCenter([coords.lat, coords.lon]);
                 setMapZoom(16); // Zoom in closer to show the area better
@@ -222,16 +251,38 @@ const EditProperty = () => {
                 }));
                 setManualPin(false);
                 return coords;
-            } else {
-                toast.warn('Location not found. Try being more specific with the address.');
             }
         } catch (err) {
-            toast.error('Error finding location. Please try again.');
+            // If backend aborted or failed, try nominatim as a fallback
+            try {
+                const nomUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`;
+                const nomRes = await fetch(nomUrl, { headers: { Accept: 'application/json' } });
+                if (nomRes.ok) {
+                    const nomData = await nomRes.json().catch(() => null);
+                    if (nomData && Array.isArray(nomData) && nomData.length > 0) {
+                        const coords = { lat: parseFloat(nomData[0].lat), lon: parseFloat(nomData[0].lon) };
+                        setMapCenter([coords.lat, coords.lon]);
+                        setMapZoom(16);
+                        setFormData(prev => ({ ...prev, latitude: coords.lat.toString(), longitude: coords.lon.toString() }));
+                        setManualPin(false);
+                        return coords;
+                    }
+                }
+            } catch (e) {
+                // ignore
+            }
+            toast.error('Error finding location. Please try again.', { toastId: GEOCODE_TOAST_ERROR_ID });
         } finally {
             setIsGeocoding(false);
         }
         return null;
     };
+
+    // Debounce geocoding to reduce toast spam while typing
+    const geocodeTimeoutRef = useRef(null);
+    useEffect(() => {
+        return () => { if (geocodeTimeoutRef.current) clearTimeout(geocodeTimeoutRef.current); };
+    }, []);
 
     const handleChange = async (e) => {
         const { name, value, type, checked } = e.target;
@@ -252,19 +303,35 @@ const EditProperty = () => {
             newValue = sanitized;
         }
         
-        setFormData({
-            ...formData,
-            [name]: type === "checkbox" ? checked : newValue,
-        });
-        
-        // Handle address or barangay changes for geocoding
-        if (name === "address" || name === "barangay") {
-            const nextAddress = name === "address" ? value : formData.address;
-            const nextBarangay = name === "barangay" ? value : formData.barangay;
-            if (nextAddress && nextBarangay) {
-                await geocodeAddress(nextAddress, nextBarangay);
-            }
+        // Handle numeric fields (floorArea, lotArea)
+        if (name === 'floorArea' || name === 'lotArea') {
+            // Allow only numbers and decimal point
+            const sanitized = value.replace(/[^\d.]/g, '');
+            // Ensure only one decimal point
+            const parts = sanitized.split('.');
+            newValue = parts[0] + (parts.length > 1 ? '.' + parts[1] : '');
+            console.log(`Debug - Field ${name} value:`, newValue);
         }
+        
+        // Use functional update to ensure we work with latest state and avoid stale reads
+        setFormData(prev => {
+            const next = { ...prev, [name]: type === "checkbox" ? checked : newValue };
+
+            // Debounce geocoding trigger — wait a bit after user stops typing
+            if (name === "address" || name === "barangay") {
+                const nextAddress = next.address;
+                const nextBarangay = next.barangay;
+
+                if (geocodeTimeoutRef.current) clearTimeout(geocodeTimeoutRef.current);
+                geocodeTimeoutRef.current = setTimeout(async () => {
+                    if (nextAddress && nextBarangay) {
+                        await geocodeAddress(nextAddress, nextBarangay);
+                    }
+                }, 700);
+            }
+
+            return next;
+        });
     };
 
     const handleImageChange = (e) => {
@@ -412,13 +479,29 @@ const EditProperty = () => {
             }
 
             // Parse and validate required numeric fields
+            console.log('Debug - Before parsing numeric fields:', {
+                rawFloorArea: formData.floorArea,
+                rawLotArea: formData.lotArea,
+                rawFloors: formData.numberOfFloors
+            });
+
             const floorAreaNum = parseLocaleNumber(formData.floorArea);
+            console.log('Debug - Parsed floorArea:', {
+                input: formData.floorArea,
+                parsed: floorAreaNum,
+                isValid: !isNaN(floorAreaNum) && floorAreaNum > 0
+            });
             if (isNaN(floorAreaNum) || floorAreaNum <= 0) {
                 toast.error('Floor area must be a number greater than 0');
                 return;
             }
 
             const lotAreaNum = parseLocaleNumber(formData.lotArea);
+            console.log('Debug - Parsed lotArea:', {
+                input: formData.lotArea,
+                parsed: lotAreaNum,
+                isValid: !isNaN(lotAreaNum) && lotAreaNum > 0
+            });
             if (isNaN(lotAreaNum) || lotAreaNum <= 0) {
                 toast.error('Lot area must be a number greater than 0');
                 return;
@@ -426,8 +509,13 @@ const EditProperty = () => {
 
             const floorsNumRaw = formData.numberOfFloors;
             const floorsNum = floorsNumRaw === '' || floorsNumRaw === null ? NaN : Number(floorsNumRaw);
-            if (isNaN(floorsNum) || !Number.isInteger(floorsNum) || floorsNum < 0) {
-                toast.error('Number of floors must be a non-negative integer');
+            console.log('Debug - Parsed numberOfFloors:', {
+                input: floorsNumRaw,
+                parsed: floorsNum,
+                isValid: !isNaN(floorsNum) && Number.isInteger(floorsNum) && floorsNum >= 1 && floorsNum <= 5
+            });
+            if (isNaN(floorsNum) || !Number.isInteger(floorsNum) || floorsNum < 1 || floorsNum > 5) {
+                toast.error('Number of floors must be a whole number between 1 and 5');
                 return;
             }
 
@@ -472,16 +560,42 @@ const EditProperty = () => {
                 }
             });
             
-            // Append parsed numeric values
+            // Append parsed numeric values with proper checks
             formDataToSend.append('price', priceNum.toString());
             formDataToSend.append('areaSqm', areaSqmNum.toString());
+            
+            // Add the floor area, lot area, and number of floors
+            // Debug logs for numeric fields
+            console.log('Debug - Form Values:', {
+                rawFloorArea: formData.floorArea,
+                parsedFloorArea: floorAreaNum,
+                rawLotArea: formData.lotArea,
+                parsedLotArea: lotAreaNum,
+                rawFloors: formData.numberOfFloors,
+                parsedFloors: floorsNum
+            });
+
+            // Add the required numeric fields with proper validation
+            // Debug log before appending to FormData
+            console.log('Debug - Values being appended to FormData:', {
+                floorArea: floorAreaNum,
+                lotArea: lotAreaNum,
+                numberOfFloors: floorsNum
+            });
+
+            formDataToSend.append('floorArea', floorAreaNum);
+            formDataToSend.append('lotArea', lotAreaNum);
+            formDataToSend.append('numberOfFloors', floorsNum);
+
+            // Debug log FormData
+            console.log('Debug - FormData contents:');
+            for (let pair of formDataToSend.entries()) {
+                console.log(pair[0] + ': ' + pair[1]);
+            }
+            
             if (formData.listingType === 'For Rent') {
                 formDataToSend.append('occupancy', parseLocaleNumber(formData.occupancy).toString());
             }
-            // Append new numeric fields
-            formDataToSend.append('floorArea', floorAreaNum.toString());
-            formDataToSend.append('lotArea', lotAreaNum.toString());
-            formDataToSend.append('numberOfFloors', String(floorsNum));
             
             // Handle images
             newImages.forEach(file => formDataToSend.append('images', file));
@@ -746,7 +860,8 @@ const EditProperty = () => {
 
                             <div className="field-group">
                                 <label className="required">Address</label>
-                                <input className="ll-field" name="address" value={formData.address} onChange={handleChange} required />
+                                <input className="ll-field" name="address" value={formData.address} onChange={handleChange} required placeholder="E.g., Heroesville 1, Blk 15, Lot 8" />
+                                <div className="field-hint small">Tip: Include commas to separate street, block, lot (e.g., "Street, Blk, Lot") for better geocoding.</div>
                             </div>
 
                             <div className="field-group">
@@ -801,7 +916,10 @@ const EditProperty = () => {
 
                             <div className="field-group">
                                 <label>Number of Rooms</label>
-                                <input className="ll-field" type="number" min={0} name="numberOfRooms" value={formData.numberOfRooms} onChange={handleChange} placeholder="e.g. 2" />
+                                <select className="ll-field" name="numberOfRooms" value={formData.numberOfRooms} onChange={handleChange}>
+                                    <option value="">Select number</option>
+                                    {[1,2,3,4,5].map(n => <option key={n} value={n}>{n}</option>)}
+                                </select>
                             </div>
 
                             <div className="field-group">
@@ -832,13 +950,19 @@ const EditProperty = () => {
 
                             <div className="field-group">
                                 <label className="required">Number of Floors</label>
-                                <input className="ll-field" type="number" min={0} step={1} name="numberOfFloors" value={formData.numberOfFloors} onChange={handleChange} placeholder="e.g. 2" required />
-                                <div className="field-hint small">Number of floors (integer). Required.</div>
+                                <select className="ll-field" name="numberOfFloors" value={formData.numberOfFloors} onChange={handleChange} required>
+                                    <option value="">Select number</option>
+                                    {[1,2,3,4,5].map(n => <option key={n} value={n}>{n}</option>)}
+                                </select>
+                                <div className="field-hint small">Number of floors (1–5). Required.</div>
                             </div>
 
                             <div className="field-group">
                                 <label className={formData.listingType === 'For Rent' ? 'required' : ''}>Max Occupancy</label>
-                                <input className="ll-field" type="number" min={1} name="occupancy" value={formData.occupancy} onChange={handleChange} required={formData.listingType === 'For Rent'} disabled={formData.listingType === 'For Sale'} />
+                                <select className="ll-field" name="occupancy" value={formData.occupancy} onChange={handleChange} required={formData.listingType === 'For Rent'} disabled={formData.listingType === 'For Sale'}>
+                                    <option value="">Select number</option>
+                                    {[1,2,3,4,5].map(n => <option key={n} value={n}>{n}</option>)}
+                                </select>
                                 {formData.listingType === 'For Sale' && <div className="field-hint small" style={{color:'#666'}}>Disabled for For Sale listings</div>}
                             </div>
 
@@ -1017,12 +1141,12 @@ const EditProperty = () => {
                             {(videoPreview || videoFile) && !removeVideo && (
                                 <div className="video-preview-wrapper">
                                     <video src={videoPreview} controls preload="none" className="video-preview" />
-                                    <div className="video-actions">
-                                        <button type="button" className="ll-btn tiny danger" onClick={()=>{
-                                            if (videoFile && videoPreview?.startsWith('blob:')) URL.revokeObjectURL(videoPreview);
-                                            setVideoFile(null); setVideoPreview(null); setRemoveVideo(true);
-                                        }}>Remove Video</button>
-                                    </div>
+                                    <button type="button" className="ll-btn tiny danger" onClick={()=> {
+                                        if (videoFile && videoPreview?.startsWith('blob:')) URL.revokeObjectURL(videoPreview);
+                                        setVideoFile(null); 
+                                        setVideoPreview(null); 
+                                        setRemoveVideo(true);
+                                    }}>Remove Video</button>
                                 </div>
                             )}
                             {removeVideo && (

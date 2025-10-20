@@ -111,6 +111,13 @@ const Favorites = () => {
     return Array.from(set).sort();
   },[favorites]);
 
+  const formatArea = (v) => {
+    if (v === undefined || v === null) return '';
+    const n = Number(v);
+    if (isNaN(n)) return '';
+    return Number.isInteger(n) ? String(n) : String(Math.round(n * 10) / 10);
+  };
+
   const filtered = useMemo(()=>{
     let list = [...favorites];
     if (search.trim()) {

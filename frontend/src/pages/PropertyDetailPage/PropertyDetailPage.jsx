@@ -165,6 +165,13 @@ const PropertyDetailPage = () => {
     const isForRent = listingKind.includes('rent') && !listingKind.includes('sale');
     const isForSale = listingKind.includes('sale') && !listingKind.includes('rent');
 
+    const formatArea = (v) => {
+        if (v === undefined || v === null) return '';
+        const num = Number(v);
+        if (isNaN(num)) return '';
+        return Number.isInteger(num) ? String(num) : String(Math.round(num * 10) / 10);
+    };
+
     return (
         <div className="property-detail-container">
             <div className="detail-glass-header">
@@ -267,6 +274,26 @@ const PropertyDetailPage = () => {
                             </div>
                         )}
 
+                        {/* NEW: Display floorArea, lotArea, and numberOfFloors */}
+                        {Number(property.floorArea) > 0 && (
+                            <div className="feature">
+                                <FaRulerCombined className="feature-icon" />
+                                <span>Floor: {formatArea(property.floorArea)} sqm</span>
+                            </div>
+                        )}
+                        {Number(property.lotArea) > 0 && (
+                            <div className="feature">
+                                <FaRulerCombined className="feature-icon" />
+                                <span>Lot: {formatArea(property.lotArea)} sqm</span>
+                            </div>
+                        )}
+                        {Number(property.numberOfFloors) > 0 && (
+                            <div className="feature">
+                                <FaHome className="feature-icon" />
+                                <span>{property.numberOfFloors} {property.numberOfFloors === 1 ? 'Floor' : 'Floors'}</span>
+                            </div>
+                        )}
+
                         {/* For Rent Specific Features */}
                         {isForRent && (
                             <>
@@ -310,6 +337,34 @@ const PropertyDetailPage = () => {
                                 <div>
                                     <strong>Property Size:</strong>
                                     <p>{property.areaSqm} sqm</p>
+                                </div>
+                            </div>
+                        )}
+                        {/* NEW: Detailed floorArea, lotArea, and numberOfFloors in details section */}
+                        {Number(property.floorArea) > 0 && (
+                            <div className="detail-item">
+                                <FaRulerCombined className="detail-icon" />
+                                <div>
+                                    <strong>Floor Area:</strong>
+                                    <p>{formatArea(property.floorArea)} sqm</p>
+                                </div>
+                            </div>
+                        )}
+                        {Number(property.lotArea) > 0 && (
+                            <div className="detail-item">
+                                <FaRulerCombined className="detail-icon" />
+                                <div>
+                                    <strong>Lot Area:</strong>
+                                    <p>{formatArea(property.lotArea)} sqm</p>
+                                </div>
+                            </div>
+                        )}
+                        {Number(property.numberOfFloors) > 0 && (
+                            <div className="detail-item">
+                                <FaInfoCircle className="detail-icon" />
+                                <div>
+                                    <strong>Number of Floors:</strong>
+                                    <p>{property.numberOfFloors}</p>
                                 </div>
                             </div>
                         )}

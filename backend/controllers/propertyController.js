@@ -29,9 +29,21 @@ const memoryUpload = multer({
 export const uploadMemory = memoryUpload;
 
 const num = (v, def = 0) => {
-    if (v === null || v === undefined || v === '') return def;
-    const n = Number(v);
-    return Number.isFinite(n) && n >= 0 ? n : def;
+    console.log('Debug - num() helper called with:', { value: v, default: def, typeOf: typeof v });
+    
+    if (v === null || v === undefined || v === '') {
+        console.log('Debug - num(): returning default due to null/undefined/empty');
+        return def;
+    }
+    
+    // Convert comma-formatted numbers to standard format
+    let normalized = typeof v === 'string' ? v.replace(/,/g, '') : v;
+    const n = Number(normalized);
+    console.log('Debug - num(): parsed number:', { original: v, normalized, parsed: n, isFinite: Number.isFinite(n) });
+    
+    const result = Number.isFinite(n) && n >= 0 ? n : def;
+    console.log('Debug - num(): returning:', result);
+    return result;
 };
 
 const deleteCloudinaryAssets = async (urls) => {
@@ -124,6 +136,9 @@ export const addProperty = async (req, res) => {
                 landmarks,
                 numberOfRooms,
                 areaSqm,
+                floorArea,
+                lotArea,
+                numberOfFloors,
                 latitude,
                 longitude,
                 propertyCondition,
@@ -140,7 +155,10 @@ export const addProperty = async (req, res) => {
                 barangay,
                 listingType,
                 listingTypeAlt,
-                propertyCondition
+                propertyCondition,
+                floorArea,
+                lotArea,
+                numberOfFloors
             });
 
             // Determine the actual listing type (handle both field names)
@@ -182,6 +200,28 @@ export const addProperty = async (req, res) => {
                     message: "Please provide the floor area (in square meters)",
                     validate: value => !isNaN(Number(value)) && Number(value) > 0,
                     errorMessage: "Floor area should be a number greater than 0"
+                },
+                // NEW: Validation for floorArea, lotArea, and numberOfFloors
+                floorArea: {
+                    required: true,
+                    value: floorArea,
+                    message: "Please provide the floor area",
+                    validate: value => !isNaN(Number(value)) && Number(value) > 0,
+                    errorMessage: "Floor area should be a number greater than 0"
+                },
+                lotArea: {
+                    required: true,
+                    value: lotArea,
+                    message: "Please provide the lot area",
+                    validate: value => !isNaN(Number(value)) && Number(value) > 0,
+                    errorMessage: "Lot area should be a number greater than 0"
+                },
+                numberOfFloors: {
+                    required: true,
+                    value: numberOfFloors,
+                    message: "Please specify the number of floors",
+                    validate: value => !isNaN(Number(value)) && Number(value) > 0 && Number(value) <= 5,
+                    errorMessage: "Number of floors must be between 1 and 5"
                 }
             };
 
@@ -191,8 +231,8 @@ export const addProperty = async (req, res) => {
                     required: true,
                     value: occupancy,
                     message: "Please specify maximum occupancy",
-                    validate: value => !isNaN(Number(value)) && Number(value) > 0,
-                    errorMessage: "Maximum occupancy should be greater than 0"
+                    validate: value => !isNaN(Number(value)) && Number(value) > 0 && Number(value) <= 5,
+                    errorMessage: "Maximum occupancy should be between 1 and 5"
                 };
             } else if (actualListingType === 'For Sale') {
                 validations.propertyCondition = {
@@ -200,6 +240,11 @@ export const addProperty = async (req, res) => {
                     value: propertyCondition,
                     message: "Please select the property condition"
                 };
+            }
+
+            // NEW: Validate dropdown fields (1-5 range)
+            if (numberOfRooms && (Number(numberOfRooms) < 0 || Number(numberOfRooms) > 5)) {
+                errors.push("Number of rooms must be between 1 and 5");
             }
 
             const errors = [];
@@ -346,6 +391,10 @@ export const addProperty = async (req, res) => {
                 landmarks: landmarks || '',
                 numberOfRooms: num(numberOfRooms, 0),
                 areaSqm: num(areaSqm, 0),
+                // NEW: Include the new fields with proper parsing
+                floorArea: num(floorArea, 0),
+                lotArea: num(lotArea, 0),
+                numberOfFloors: num(numberOfFloors, 0),
                 billsIncluded: normalizedBills,
                 marketHighlights: normalizedHighlights,
                 images,
@@ -377,6 +426,10 @@ export const addProperty = async (req, res) => {
                 images: newProperty.images,
                 video: newProperty.video,
                 panorama360: newProperty.panorama360,
+                // NEW: Ensure new fields are included in response
+                floorArea: newProperty.floorArea,
+                lotArea: newProperty.lotArea,
+                numberOfFloors: newProperty.numberOfFloors,
                 landlordProfile: newProperty.landlord ? {
                     id: newProperty.landlord._id,
                     fullName: newProperty.landlord.fullName || newProperty.landlord.username || 'Landlord',
@@ -437,6 +490,10 @@ export const getAllProperties = async (req, res) => {
             ...property._doc,
             images: property.images,
             video: property.video,
+            // NEW: Ensure all new fields are included in response
+            floorArea: property.floorArea,
+            lotArea: property.lotArea,
+            numberOfFloors: property.numberOfFloors,
             panorama360: property.panorama360,
             latitude: property.latitude,
             longitude: property.longitude,
@@ -464,6 +521,10 @@ export const getPropertiesByLandlord = async (req, res) => {
             images: p.images || [],
             video: p.video,
             panorama360: p.panorama360,
+            // NEW: Include new fields in landlord properties response
+            floorArea: p.floorArea,
+            lotArea: p.lotArea,
+            numberOfFloors: p.numberOfFloors,
             landlordProfile: p.landlord ? {
                 id: p.landlord._id,
                 fullName: p.landlord.fullName || p.landlord.username || 'You',
@@ -487,6 +548,10 @@ export const getProperty = async (req, res) => {
             ...property._doc,
             images: property.images,
             video: property.video,
+            // NEW: Include new fields in single property response
+            floorArea: property.floorArea,
+            lotArea: property.lotArea,
+            numberOfFloors: property.numberOfFloors,
             panorama360: property.panorama360,
             landlordProfile: property.landlord ? {
                 id: property.landlord._id,
@@ -530,7 +595,22 @@ export const updateProperty = async (req, res) => {
                 return res.status(403).json({ error: "Unauthorized" });
             }
 
+            // Debug logging for incoming request
+            console.log('Debug - Incoming request body:', req.body);
+            console.log('Debug - Property before update:', {
+                floorArea: property.floorArea,
+                lotArea: property.lotArea,
+                numberOfFloors: property.numberOfFloors
+            });
+            
             const updates = { ...req.body };
+            
+            // Log the updates object before cleanup
+            console.log('Debug - Initial updates object:', {
+                floorArea: updates.floorArea,
+                lotArea: updates.lotArea,
+                numberOfFloors: updates.numberOfFloors
+            });
             
             delete updates.landlord;
             delete updates.status;
@@ -571,6 +651,31 @@ export const updateProperty = async (req, res) => {
                     message: "Please provide the floor area (in square meters)",
                     validate: value => !isNaN(Number(value)) && Number(value) > 0,
                     errorMessage: "Floor area should be a number greater than 0"
+                },
+                // NEW: Validation for new fields in updates
+                floorArea: {
+                    required: true,
+                    value: updates.floorArea,
+                    message: "Please provide the floor area",
+                    validate: value => !isNaN(Number(value)) && Number(value) > 0,
+                    errorMessage: "Floor area should be a number greater than 0"
+                },
+                lotArea: {
+                    required: true,
+                    value: updates.lotArea,
+                    message: "Please provide the lot area",
+                    validate: value => !isNaN(Number(value)) && Number(value) > 0,
+                    errorMessage: "Lot area should be a number greater than 0"
+                },
+                numberOfFloors: {
+                    required: true,
+                    value: updates.numberOfFloors,
+                    message: "Please specify the number of floors",
+                    validate: value => {
+                        const num = Number(value);
+                        return !isNaN(num) && Number.isInteger(num) && num >= 1 && num <= 5;
+                    },
+                    errorMessage: "Number of floors must be a whole number between 1 and 5"
                 }
             };
 
@@ -580,8 +685,8 @@ export const updateProperty = async (req, res) => {
                     required: true,
                     value: updates.occupancy,
                     message: "Please specify maximum occupancy",
-                    validate: value => !isNaN(Number(value)) && Number(value) > 0,
-                    errorMessage: "Maximum occupancy should be greater than 0"
+                    validate: value => !isNaN(Number(value)) && Number(value) > 0 && Number(value) <= 5,
+                    errorMessage: "Maximum occupancy should be between 1 and 5"
                 };
             }
 
@@ -606,6 +711,11 @@ export const updateProperty = async (req, res) => {
             if ('billsIncluded' in updates) updates.billsIncluded = normalizeList(updates.billsIncluded);
             if ('marketHighlights' in updates) updates.marketHighlights = normalizeList(updates.marketHighlights);
             if ('propertyCondition' in updates) updates.propertyCondition = updates.propertyCondition || undefined;
+
+            // NEW: Validate dropdown fields in updates
+            if (updates.numberOfRooms && (Number(updates.numberOfRooms) < 0 || Number(updates.numberOfRooms) > 5)) {
+                errors.push("Number of rooms must be between 1 and 5");
+            }
 
             for (const [field, validation] of Object.entries(validations)) {
                 if (field in updates) {
@@ -728,6 +838,16 @@ export const updateProperty = async (req, res) => {
             }
 
             // Build update data
+            // Debug log raw values before processing
+            console.log('Debug - Raw body values:', {
+                floorArea: req.body.floorArea,
+                lotArea: req.body.lotArea,
+                numberOfFloors: req.body.numberOfFloors,
+                typeofFloorArea: typeof req.body.floorArea,
+                typeofLotArea: typeof req.body.lotArea,
+                typeofNumberOfFloors: typeof req.body.numberOfFloors
+            });
+
             const updatedData = {
                 ...req.body,
                 ...(availabilityStatus ? { availabilityStatus } : {}),
@@ -739,6 +859,10 @@ export const updateProperty = async (req, res) => {
                 parking: req.body.parking !== undefined ? (req.body.parking === 'true' || req.body.parking === true) : property.parking,
                 numberOfRooms: req.body.numberOfRooms ? num(req.body.numberOfRooms, 0) : (property.numberOfRooms || 0),
                 areaSqm: req.body.areaSqm ? num(req.body.areaSqm, 0) : (property.areaSqm || 0),
+                // NEW: Process the numeric fields with more careful handling
+                floorArea: req.body.floorArea !== undefined ? num(req.body.floorArea, property.floorArea || 0) : (property.floorArea || 0),
+                lotArea: req.body.lotArea !== undefined ? num(req.body.lotArea, property.lotArea || 0) : (property.lotArea || 0),
+                numberOfFloors: req.body.numberOfFloors !== undefined ? num(req.body.numberOfFloors, property.numberOfFloors || 0) : (property.numberOfFloors || 0),
                 images: updatedImages,
                 video: updatedVideo,
                 panorama360: updatedPanorama
@@ -758,16 +882,34 @@ export const updateProperty = async (req, res) => {
                 updatedData.propertyCondition = '';
             }
 
+            // Debug log processed data before update
+            console.log('Debug - Final updatedData:', {
+                floorArea: updatedData.floorArea,
+                lotArea: updatedData.lotArea,
+                numberOfFloors: updatedData.numberOfFloors
+            });
+
             const updatedProperty = await Property.findByIdAndUpdate(
                 req.params.id, 
                 updatedData, 
                 { new: true, runValidators: true }
             ).populate('landlord', 'fullName username profilePic address contactNumber landlordVerified');
+            
+            // Debug log the result after update
+            console.log('Debug - After update:', {
+                floorArea: updatedProperty.floorArea,
+                lotArea: updatedProperty.lotArea,
+                numberOfFloors: updatedProperty.numberOfFloors
+            });
 
             res.json({
                 ...updatedProperty._doc,
                 images: updatedProperty.images,
                 video: updatedProperty.video,
+                // NEW: Include new fields in update response
+                floorArea: updatedProperty.floorArea,
+                lotArea: updatedProperty.lotArea,
+                numberOfFloors: updatedProperty.numberOfFloors,
                 panorama360: updatedProperty.panorama360,
                 landlordProfile: updatedProperty.landlord ? {
                     id: updatedProperty.landlord._id,
@@ -789,6 +931,7 @@ export const updateProperty = async (req, res) => {
     });
 };
 
+// ... rest of the controller functions remain the same
 export const setPropertyStatus = async (req, res) => {
     try {
         if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });

@@ -265,6 +265,36 @@
     background: #000;
 }
 
+/* Grid for multiple panorama previews */
+.panorama-previews-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.panorama-card {
+    border-radius: 12px;
+    overflow: hidden;
+    background: #000;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 120px;
+}
+
+.panorama-card .panorama-preview-container {
+    height: 140px;
+}
+
+.panorama-card button.remove-panorama {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 5;
+}
+
 .panorama-section .ll-btn.tiny {
     font-size: 0.85em;
     padding: 0.45rem 0.9rem 0.4rem;

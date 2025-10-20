@@ -323,6 +323,20 @@
   color:#6366f1; 
 }
 
+/* NEW: Special styling for floor area and lot area features */
+.feature.floor-area-feature,
+.feature.lot-area-feature {
+  background:linear-gradient(135deg,rgba(56,189,248,.15),rgba(56,189,248,.08));
+  border-color:rgba(56,189,248,.3);
+  color:#7dd3fc;
+}
+
+.feature.floors-feature {
+  background:linear-gradient(135deg,rgba(139,92,246,.15),rgba(139,92,246,.08));
+  border-color:rgba(139,92,246,.3);
+  color:#c4b5fd;
+}
+
 /* Details */
 .details-section { 
   margin:.25rem 0 .5rem; 
@@ -675,7 +689,7 @@
   filter:drop-shadow(0 2px 8px rgba(56,189,248,0.13));
 }
 
-/* Responsive tweaks */
+/* NEW: Better responsive handling for features */
 @media (max-width:680px){ 
   .property-info { 
     padding:1.2rem 1.2rem 1.6rem; 
@@ -700,6 +714,15 @@
     flex-direction: row;
     gap: 8px;
     flex-wrap: wrap;
+  }
+  
+  .property-features {
+    gap: .4rem;
+  }
+  
+  .feature {
+    font-size: .6rem;
+    padding: .45rem .7rem .4rem;
   }
   
   .highlight-header {
@@ -739,6 +762,10 @@
   .property-type-badge {
     min-width: 100px;
   }
+  
+  .property-features {
+    justify-content: center;
+  }
 }
 
 @media (max-width: 380px) {
@@ -751,6 +778,11 @@
     font-size: 0.55rem;
     padding: 0.4rem 0.7rem 0.35rem;
     min-width: 90px;
+  }
+  
+  .feature {
+    font-size: .55rem;
+    padding: .4rem .6rem .35rem;
   }
 }
 

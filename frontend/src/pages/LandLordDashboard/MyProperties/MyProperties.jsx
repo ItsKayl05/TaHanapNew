@@ -86,6 +86,13 @@ const MyProperties = () => {
         );
     }, [properties, searchTerm]);
 
+    const formatArea = (v) => {
+        if (v === undefined || v === null) return '';
+        const n = Number(v);
+        if (isNaN(n)) return '';
+        return Number.isInteger(n) ? String(n) : String(Math.round(n * 10) / 10);
+    };
+
     const sortedFiltered = useMemo(() => {
         const list = [...filteredProperties];
         switch (sortOption) {
@@ -175,7 +182,20 @@ const MyProperties = () => {
                                     </>}
                                     {Number(property.areaSqm) > 0 && <>
                                         <span className="dot" />
-                                        <span className="area">{property.areaSqm} sqm</span>
+                                        <span className="area">{formatArea(property.areaSqm)} sqm</span>
+                                    </>}
+                                    {/* NEW: Display floorArea, lotArea, and numberOfFloors */}
+                                    {Number(property.floorArea) > 0 && <>
+                                        <span className="dot" />
+                                        <span className="area">Floor: {formatArea(property.floorArea)} sqm</span>
+                                    </>}
+                                    {Number(property.lotArea) > 0 && <>
+                                        <span className="dot" />
+                                        <span className="area">Lot: {formatArea(property.lotArea)} sqm</span>
+                                    </>}
+                                    {Number(property.numberOfFloors) > 0 && <>
+                                        <span className="dot" />
+                                        <span className="area">{property.numberOfFloors} {property.numberOfFloors === 1 ? 'floor' : 'floors'}</span>
                                     </>}
                                 </div>
                                 {property.landmarks && <p className="landmark" title={property.landmarks}>{property.landmarks}</p>}
