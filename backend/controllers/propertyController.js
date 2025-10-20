@@ -531,7 +531,7 @@ export const getAllProperties = async (req, res) => {
         
         const query = { status: 'approved' }; // Only show approved properties
         if (propertyType && ["For Rent", "For Sale"].includes(propertyType)) {
-            query.propertyType = propertyType;
+            query.listingType = propertyType; // Fixed: Use listingType instead of propertyType
         }
         
         const properties = await Property.find(query).populate('landlord', 'fullName username profilePic address contactNumber role landlordVerified');
@@ -541,7 +541,10 @@ export const getAllProperties = async (req, res) => {
             ...property._doc,
             images: property.images,
             video: property.video,
-            // NEW: Ensure all new fields are included in response
+            // Ensure listing type is included
+            listingType: property.listingType || 'For Sale',
+            propertyType: property.propertyType,
+            // Include all other fields
             floorArea: property.floorArea,
             lotArea: property.lotArea,
             numberOfFloors: property.numberOfFloors,
@@ -572,7 +575,10 @@ export const getPropertiesByLandlord = async (req, res) => {
             images: p.images || [],
             video: p.video,
             panorama360: p.panorama360,
-            // NEW: Include new fields in landlord properties response
+            // Ensure listing type is included
+            listingType: p.listingType || 'For Sale',
+            propertyType: p.propertyType,
+            // Include all other fields
             floorArea: p.floorArea,
             lotArea: p.lotArea,
             numberOfFloors: p.numberOfFloors,
@@ -599,7 +605,10 @@ export const getProperty = async (req, res) => {
             ...property._doc,
             images: property.images,
             video: property.video,
-            // NEW: Include new fields in single property response
+            // Ensure listing type is included
+            listingType: property.listingType || 'For Sale',
+            propertyType: property.propertyType,
+            // Include all other fields
             floorArea: property.floorArea,
             lotArea: property.lotArea,
             numberOfFloors: property.numberOfFloors,
