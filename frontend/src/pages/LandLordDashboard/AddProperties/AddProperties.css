@@ -269,7 +269,7 @@
 .panorama-previews-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 10px;
+    gap: 12px;
     margin-top: 12px;
 }
 
