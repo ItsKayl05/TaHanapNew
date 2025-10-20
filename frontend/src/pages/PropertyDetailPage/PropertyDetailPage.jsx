@@ -179,7 +179,7 @@ const PropertyDetailPage = () => {
                     <FaArrowLeft /> Back to Listings
                 </button>
                 <div className="property-header">
-                    <h1 className="gradient-text">{property.title}</h1>
+                    <h1 className="gradient-text">{property.propertyType}</h1>
                     <p className="property-location"><FaMapMarkerAlt /> {property.barangay}, San Jose Del Monte</p>
                     <div className={`status-remark ${isAvailable ? 'available' : 'not-available'}`}>{ property.availabilityStatus ?? (property.numberOfRooms>0 ? 'Available' : 'Not Yet Ready') }</div>
                 </div>
@@ -245,9 +245,6 @@ const PropertyDetailPage = () => {
                             <div className="badge-group">
                                 <span className={`property-type-badge ${property.listingType?.toLowerCase().replace(/\s+/g, '-')}`}>
                                     {property.listingType || "For Rent"}
-                                </span>
-                                <span className="property-type-badge property-type">
-                                    {property.propertyType}
                                 </span>
                                 <span className={`property-badge availability-badge ${isAvailable ? 'available' : 'not-available'}`}>
                                     {property.availabilityStatus || (isAvailable ? 'Available' : 'Not Available')}
