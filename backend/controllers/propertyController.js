@@ -1,6 +1,6 @@
 import multer from "multer";
 import mongoose from 'mongoose';
-import Property from "../models/Property.js";
+import Property, { PROPERTY_TYPES } from "../models/Property.js";
 import User from "../models/User.js";
 
 const MAX_IMAGES = 8;
