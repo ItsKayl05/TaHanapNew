@@ -243,8 +243,11 @@ const PropertyDetailPage = () => {
                         <h2>₱{property.price.toLocaleString()}</h2>
                         <div className="property-badges-container">
                             <div className="badge-group">
-                                <span className={`property-type-badge ${property.propertyType?.toLowerCase().replace(/\s+/g, '-')}`}>
-                                    {property.propertyType || "For Rent"}
+                                <span className={`property-type-badge ${property.listingType?.toLowerCase().replace(/\s+/g, '-')}`}>
+                                    {property.listingType || "For Rent"}
+                                </span>
+                                <span className="property-type-badge property-type">
+                                    {property.propertyType}
                                 </span>
                                 <span className={`property-badge availability-badge ${isAvailable ? 'available' : 'not-available'}`}>
                                     {property.availabilityStatus || (isAvailable ? 'Available' : 'Not Available')}

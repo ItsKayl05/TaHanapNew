@@ -127,7 +127,7 @@ const PropertyListingPage = () => {
             (filters.minFloors ? (numberOfFloors || 0) >= Number(filters.minFloors) : true) &&
             (filters.maxFloors ? (numberOfFloors || 0) <= Number(filters.maxFloors) : true) &&
             (filters.hasVideo ? !!video : true) &&
-            (filters.propertyType ? String(propertyType).toLowerCase() === String(filters.propertyType).toLowerCase() : true) &&
+            (filters.propertyType ? String(listingType).toLowerCase() === String(filters.propertyType).toLowerCase() : true) &&
             (filters.propertyCondition ? String(propertyCondition).toLowerCase() === String(filters.propertyCondition).toLowerCase() : true)
         );
     };
@@ -431,8 +431,8 @@ const PropertyListingPage = () => {
                     return (
                         <div key={_id} className="property-card" onClick={()=>navigate(`/property/${_id}`)}>
                             <div className="property-badges">
-                                <span className={`property-type-badge ${(propertyType || "For Rent")?.toLowerCase().replace(/\s+/g, '-')}`}>
-                                    {propertyType || "For Rent"}
+                                <span className={`property-type-badge ${(p.listingType || "For Rent")?.toLowerCase().replace(/\s+/g, '-')}`}>
+                                    {p.listingType || "For Rent"}
                                 </span>
                             </div>
                             {userRole==='tenant' && (
@@ -454,8 +454,7 @@ const PropertyListingPage = () => {
                                 </div>
                             </div>
                             <div className="property-details">
-                                <h3>{title}</h3>
-                                <span className="property-category">{category}</span>
+                                <h3>{p.propertyType || "Property"}</h3>
                                 {createdAt && <span className="property-date" title={new Date(createdAt).toLocaleString()}>{formatCreatedAt(createdAt)}</span>}
                                 {(typeof p.availableUnits !== 'undefined' || typeof p.totalUnits !== 'undefined') && (
                                     <div className="card-units-pill-row">
