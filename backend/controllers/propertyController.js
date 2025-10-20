@@ -272,8 +272,6 @@ export const addProperty = async (req, res) => {
                 errors.push("Number of rooms must be between 1 and 5");
             }
 
-            const errors = [];
-
             for (const [field, validation] of Object.entries(validations)) {
                 const value = validation.value;
                 
