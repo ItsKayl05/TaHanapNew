@@ -8,11 +8,17 @@ const propertySchema = new mongoose.Schema({
     ref: "User",
     required: true,
   },
-  title: {
+  propertyType: {
     type: String,
     required: true,
     enum: PROPERTY_TYPES,
     trim: true,
+  },
+  listingType: {
+    type: String,
+    required: true,
+    enum: ["For Rent", "For Sale"],
+    default: "For Rent"
   },
   address: {
     type: String,
@@ -27,12 +33,6 @@ const propertySchema = new mongoose.Schema({
   barangay: {
     type: String,
     required: true,
-  },
-  propertyType: {
-    type: String,
-    required: true,
-    enum: ["For Rent", "For Sale"],
-    default: "For Rent"
   },
   numberOfRooms: {
     type: Number,
@@ -82,8 +82,12 @@ const propertySchema = new mongoose.Schema({
   },
   occupancy: {
     type: Number,
-    required: true,
-    default: 1, 
+    required: function() {
+      return this.listingType === "For Rent";
+    },
+    default: 1,
+    min: 1,
+    max: 5
   },
   parking: {
     type: Boolean,
@@ -138,11 +142,11 @@ const propertySchema = new mongoose.Schema({
 // Add pre-save middleware to handle propertyCondition based on listing type
 propertySchema.pre('save', function(next) {
   // If listing type is "For Rent", clear propertyCondition
-  if (this.propertyType === 'For Rent') {
+  if (this.listingType === 'For Rent') {
     this.propertyCondition = '';
   }
   // If listing type is "For Sale" and propertyCondition is empty, set a default
-  if (this.propertyType === 'For Sale' && (!this.propertyCondition || this.propertyCondition.trim() === '')) {
+  if (this.listingType === 'For Sale' && (!this.propertyCondition || this.propertyCondition.trim() === '')) {
     this.propertyCondition = 'Brand New';
   }
   next();
@@ -151,11 +155,11 @@ propertySchema.pre('save', function(next) {
 propertySchema.pre('findOneAndUpdate', function(next) {
   const update = this.getUpdate();
   
-  if (update.propertyType === 'For Rent') {
+  if (update.listingType === 'For Rent') {
     update.propertyCondition = '';
   }
   
-  if (update.propertyType === 'For Sale' && (!update.propertyCondition || update.propertyCondition.trim() === '')) {
+  if (update.listingType === 'For Sale' && (!update.propertyCondition || update.propertyCondition.trim() === '')) {
     update.propertyCondition = 'Brand New';
   }
   
