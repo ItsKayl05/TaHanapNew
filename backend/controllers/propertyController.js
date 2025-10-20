@@ -35,6 +35,16 @@ const num = (v, def = 0) => {
         console.log('Debug - num(): returning default due to null/undefined/empty');
         return def;
     }
+
+    // Handle array input by taking the first non-empty value
+    if (Array.isArray(v)) {
+        const firstValue = v.find(item => item !== null && item !== undefined && item !== '');
+        if (!firstValue) {
+            console.log('Debug - num(): array is empty or contains only null/undefined values');
+            return def;
+        }
+        v = firstValue;
+    }
     
     // Convert comma-formatted numbers to standard format
     let normalized = typeof v === 'string' ? v.replace(/,/g, '') : v;
@@ -410,6 +420,11 @@ export const addProperty = async (req, res) => {
             const normalizedBills = normalizeList(billsIncluded);
             const normalizedHighlights = normalizeList(marketHighlights);
 
+            // Process numeric fields
+            const processedFloorArea = Array.isArray(floorArea) && floorArea.length > 0 ? floorArea[0] : floorArea;
+            const processedLotArea = Array.isArray(lotArea) && lotArea.length > 0 ? lotArea[0] : lotArea;
+            const processedNumberOfFloors = Array.isArray(numberOfFloors) && numberOfFloors.length > 0 ? numberOfFloors[0] : numberOfFloors;
+
             // Create base property data
             const propertyData = {
                 landlord,
@@ -427,10 +442,10 @@ export const addProperty = async (req, res) => {
                 landmarks: landmarks || '',
                 numberOfRooms: num(numberOfRooms, 0),
                 areaSqm: num(areaSqm, 0),
-                // NEW: Include the new fields with proper parsing
-                floorArea: num(floorArea, 0),
-                lotArea: num(lotArea, 0),
-                numberOfFloors: num(numberOfFloors, 0),
+                // Process array fields properly
+                floorArea: num(processedFloorArea, 0),
+                lotArea: num(processedLotArea, 0),
+                numberOfFloors: num(processedNumberOfFloors, 0),
                 billsIncluded: normalizedBills,
                 marketHighlights: normalizedHighlights,
                 images,
