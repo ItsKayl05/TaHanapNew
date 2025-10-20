@@ -163,4 +163,4 @@ propertySchema.pre('findOneAndUpdate', function(next) {
   next();
 });
 
-export default mongoose.model("Property", propertySchem);
+export default mongoose.model("Property", propertySchema);
