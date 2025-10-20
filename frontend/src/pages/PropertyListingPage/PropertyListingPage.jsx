@@ -98,8 +98,8 @@ const PropertyListingPage = () => {
     });
 
     const matches = ({ title='', category='', barangay='', price=0, petFriendly, occupancy=0, 
-        parking, landmarks='', numberOfRooms=0, areaSqm=0, floorArea=0, lotArea=0, numberOfFloors=0, video='', propertyType='For Rent', 
-        propertyCondition='', marketHighlights='' }) => {
+        parking, landmarks='', numberOfRooms=0, areaSqm=0, floorArea=0, lotArea=0, numberOfFloors=0, video='', propertyType='', 
+        listingType='For Rent', propertyCondition='', marketHighlights='' }) => {
         const s = filters.searchTerm.toLowerCase().trim();
         const propertyLandmarksArr = typeof landmarks === 'string' ? landmarks.split(',').map(l => l.trim().toLowerCase()).filter(l => l) : [];
         const landmarkMatch = filters.landmarks.length > 0
@@ -127,7 +127,7 @@ const PropertyListingPage = () => {
             (filters.minFloors ? (numberOfFloors || 0) >= Number(filters.minFloors) : true) &&
             (filters.maxFloors ? (numberOfFloors || 0) <= Number(filters.maxFloors) : true) &&
             (filters.hasVideo ? !!video : true) &&
-            (filters.propertyType ? String(listingType).toLowerCase() === String(filters.propertyType).toLowerCase() : true) &&
+            (filters.propertyType ? String(listingType || 'For Rent').toLowerCase() === String(filters.propertyType).toLowerCase() : true) &&
             (filters.propertyCondition ? String(propertyCondition).toLowerCase() === String(filters.propertyCondition).toLowerCase() : true)
         );
     };
