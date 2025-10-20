@@ -166,11 +166,15 @@ export const addProperty = async (req, res) => {
             const actualPropertyType = String(propertyType || title || '').trim();
 
             // Enhanced validation with better error handling
+            const errors = [];
+            
             const validations = {
                 propertyType: {
                     required: true,
                     value: actualPropertyType,
-                    message: "Please select a property type"
+                    message: "Please select a property type",
+                    validate: value => PROPERTY_TYPES.includes(value),
+                    errorMessage: "Invalid property type selected"
                 },
                 address: {
                     required: true,
@@ -206,21 +210,30 @@ export const addProperty = async (req, res) => {
                     required: true,
                     value: floorArea,
                     message: "Please provide the floor area",
-                    validate: value => !isNaN(Number(value)) && Number(value) > 0,
+                    validate: value => {
+                        const num = parseFloat(String(value).replace(/,/g, ''));
+                        return !isNaN(num) && num > 0;
+                    },
                     errorMessage: "Floor area should be a number greater than 0"
                 },
                 lotArea: {
                     required: true,
                     value: lotArea,
                     message: "Please provide the lot area",
-                    validate: value => !isNaN(Number(value)) && Number(value) > 0,
+                    validate: value => {
+                        const num = parseFloat(String(value).replace(/,/g, ''));
+                        return !isNaN(num) && num > 0;
+                    },
                     errorMessage: "Lot area should be a number greater than 0"
                 },
                 numberOfFloors: {
                     required: true,
                     value: numberOfFloors,
                     message: "Please specify the number of floors",
-                    validate: value => !isNaN(Number(value)) && Number(value) > 0 && Number(value) <= 5,
+                    validate: value => {
+                        const num = parseInt(String(value), 10);
+                        return !isNaN(num) && num > 0 && num <= 5;
+                    },
                     errorMessage: "Number of floors must be between 1 and 5"
                 }
             };
@@ -268,7 +281,19 @@ export const addProperty = async (req, res) => {
             }
 
             if (errors.length > 0) {
-                console.log('Validation errors:', errors);
+                console.log('Validation errors:', {
+                    errors,
+                    receivedData: {
+                        propertyType: actualPropertyType,
+                        listingType: actualListingType,
+                        address,
+                        price,
+                        barangay,
+                        floorArea,
+                        lotArea,
+                        numberOfFloors
+                    }
+                });
                 return res.status(400).json({
                     error: 'Please fix the following errors',
                     details: errors
