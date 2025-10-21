@@ -1,7 +1,12 @@
 // models/Property.js
 import mongoose from "mongoose";
 
-export const PROPERTY_TYPES = ['House','House and Lot','Apartment','Condominium','Townhouse','Dormitory','Bedspace','Studio Unit','Lot','Land','Commercial Space','Office Space','Warehouse','Building','Bungalow','Duplex','Triplex','Inner Lot','Corner Lot'];
+export const PROPERTY_TYPES = [
+  'House', 'House and Lot', 'Apartment', 'Condominium', 'Townhouse', 
+  'Dormitory', 'Bedspace', 'Studio Unit', 'Lot', 'Land', 
+  'Commercial Space', 'Office Space', 'Warehouse', 'Building', 
+  'Bungalow', 'Duplex', 'Triplex', 'Inner Lot', 'Corner Lot'
+];
 
 const propertySchema = new mongoose.Schema({
   landlord: {
@@ -34,6 +39,7 @@ const propertySchema = new mongoose.Schema({
   barangay: {
     type: String,
     required: true,
+    trim: true,
   },
   numberOfRooms: {
     type: Number,
@@ -76,7 +82,7 @@ const propertySchema = new mongoose.Schema({
   },
   propertyCondition: {
     type: String,
-    enum: ['Fully Furnished','Semi-Furnished','Unfurnished','Brand New','Pre-owned / Resale', ''],
+    enum: ['Fully Furnished', 'Semi-Furnished', 'Unfurnished', 'Brand New', 'Pre-owned / Resale', ''],
     default: ''
   },
   marketHighlights: {
@@ -99,10 +105,12 @@ const propertySchema = new mongoose.Schema({
   rules: {
     type: String,
     default: "",
+    trim: true,
   },
   landmarks: {
     type: String,
     default: "",
+    trim: true,
   },
   images: {
     type: [String],
@@ -138,13 +146,13 @@ const propertySchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['approved','pending','rejected','archived'],
+    enum: ['approved', 'pending', 'rejected', 'archived'],
     default: 'approved',
     index: true
   },
   availabilityStatus: {
     type: String,
-    enum: ['Available','Not Available'],
+    enum: ['Available', 'Not Available'],
     default: 'Available',
     index: true
   },
@@ -152,21 +160,16 @@ const propertySchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  updatedAt: {
+    type: Date,
+    default: Date.now,
+  },
 });
 
-// Enhanced pre-save middleware
+// Pre-save middleware for new documents
 propertySchema.pre('save', function(next) {
-  // Clean up numeric fields
-  if (this.floorArea && typeof this.floorArea === 'string') {
-    this.floorArea = parseFloat(this.floorArea.toString().replace(/,/g, ''));
-  }
-  if (this.lotArea && typeof this.lotArea === 'string') {
-    this.lotArea = parseFloat(this.lotArea.toString().replace(/,/g, ''));
-  }
-  if (this.numberOfFloors && typeof this.numberOfFloors === 'string') {
-    this.numberOfFloors = parseInt(this.numberOfFloors.toString().replace(/,/g, ''), 10);
-  }
-
+  this.updatedAt = Date.now();
+  
   // Handle propertyCondition based on listing type
   if (this.listingType === 'For Rent') {
     this.propertyCondition = '';
@@ -177,30 +180,72 @@ propertySchema.pre('save', function(next) {
   next();
 });
 
+// Pre-findOneAndUpdate middleware for updates - SIMPLIFIED
 propertySchema.pre('findOneAndUpdate', function(next) {
   const update = this.getUpdate();
   
-  // Clean up numeric fields in update
+  // Always set updatedAt
   if (update.$set) {
-    if (update.$set.floorArea && typeof update.$set.floorArea === 'string') {
-      update.$set.floorArea = parseFloat(update.$set.floorArea.toString().replace(/,/g, ''));
-    }
-    if (update.$set.lotArea && typeof update.$set.lotArea === 'string') {
-      update.$set.lotArea = parseFloat(update.$set.lotArea.toString().replace(/,/g, ''));
-    }
-    if (update.$set.numberOfFloors && typeof update.$set.numberOfFloors === 'string') {
-      update.$set.numberOfFloors = parseInt(update.$set.numberOfFloors.toString().replace(/,/g, ''), 10);
-    }
+    update.$set.updatedAt = Date.now();
+  } else {
+    this.setUpdate({ ...update, updatedAt: Date.now() });
   }
   
-  if (update.listingType === 'For Rent') {
-    update.propertyCondition = '';
-  } else if (update.listingType === 'For Sale' && (!update.propertyCondition || update.propertyCondition.trim() === '')) {
-    update.propertyCondition = 'Brand New';
-  }
-  
-  this.setUpdate(update);
   next();
 });
+
+// Virtual for formatted price
+propertySchema.virtual('formattedPrice').get(function() {
+  return new Intl.NumberFormat('en-PH', {
+    style: 'currency',
+    currency: 'PHP',
+    minimumFractionDigits: 2
+  }).format(this.price);
+});
+
+// Virtual for full address
+propertySchema.virtual('fullAddress').get(function() {
+  return `${this.address}, ${this.barangay}, San Jose del Monte, Bulacan`;
+});
+
+// Indexes for better query performance
+propertySchema.index({ landlord: 1 });
+propertySchema.index({ status: 1, availabilityStatus: 1 });
+propertySchema.index({ listingType: 1 });
+propertySchema.index({ propertyType: 1 });
+propertySchema.index({ barangay: 1 });
+propertySchema.index({ price: 1 });
+propertySchema.index({ createdAt: -1 });
+
+// Transform output to include virtuals
+propertySchema.set('toJSON', {
+  virtuals: true,
+  transform: function(doc, ret) {
+    delete ret.__v;
+    return ret;
+  }
+});
+
+propertySchema.set('toObject', {
+  virtuals: true,
+  transform: function(doc, ret) {
+    delete ret.__v;
+    return ret;
+  }
+});
+
+// Static method to find available properties
+propertySchema.statics.findAvailable = function(query = {}) {
+  return this.find({
+    ...query,
+    status: 'approved',
+    availabilityStatus: 'Available'
+  });
+};
+
+// Instance method to check if property belongs to user
+propertySchema.methods.isOwnedBy = function(userId) {
+  return this.landlord.toString() === userId.toString();
+};
 
 export default mongoose.model("Property", propertySchema);

@@ -10,6 +10,7 @@ import {
     setPropertyAvailability
 } from "../controllers/propertyController.js";
 import { protect, roleCheck } from "../middleware/authMiddleware.js";
+import { uploadMemory } from "../controllers/propertyController.js";
 
 const router = express.Router();
 
@@ -19,7 +20,7 @@ router.get("/", getAllProperties); // Get all properties
 router.get("/my-properties", protect, getPropertiesByLandlord); // Get properties of logged-in landlord
 router.get("/:id", getProperty); // Get a single property by ID
 
-router.put("/:id", protect, updateProperty); // Update a property (protected)
+router.put("/:id", protect, uploadMemory, updateProperty); // Update a property (protected)
 router.delete("/:id", protect, deleteProperty); // Delete a property (protected)
 // Landlord can adjust availability counts or status
 router.put("/:id/availability", protect, setPropertyAvailability);

@@ -23,25 +23,36 @@ const MyProperties = () => {
 
     useEffect(() => {
         const controller = new AbortController();
+        let didCancel = false;
+
         (async () => {
             const token = localStorage.getItem('user_token');
             if (!token) {
+                // No need to show abort-like toasts here; redirecting instead
                 toast.error('No token found. Redirecting to login...');
                 setTimeout(() => navigate('/login'), 1200);
                 return;
             }
             try {
                 const data = await fetchMyProperties(controller.signal);
-                setProperties(data);
+                if (!didCancel) setProperties(data);
             } catch (err) {
-                if (err.name !== 'CanceledError') {
+                // Ignore AbortError / CanceledError which are expected on unmount
+                if (err?.name === 'AbortError' || err?.name === 'CanceledError') {
+                    console.info('Fetch aborted (expected during cleanup):', err.message);
+                } else {
+                    // Show friendly network/session errors, but avoid noisy abort toasts
                     toast.error(err.message || 'Failed to load properties');
                 }
             } finally {
-                setLoading(false);
+                if (!didCancel) setLoading(false);
             }
         })();
-        return () => controller.abort();
+
+        return () => {
+            didCancel = true;
+            try { controller.abort(); } catch (e) { /* ignore */ }
+        };
     }, [navigate]);
 
     const handleEdit = (propertyId) => navigate(`/edit-property/${propertyId}`);
