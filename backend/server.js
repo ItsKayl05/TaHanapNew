@@ -22,10 +22,9 @@ import Message from './models/Message.js';
 // Initialize Express
 const app = express();
 const port = process.env.PORT || 4000;
-// Base URL used when converting relative upload paths to absolute URLs in non-HTTP contexts (e.g. Socket.IO)
 const backendBase = process.env.BACKEND_URL || process.env.APP_URL || `http://localhost:${port}`;
 
-// Helper: normalize origin strings (strip trailing slash and lowercase) to avoid accidental mismatches
+// Helper: normalize origin strings
 const normalizeOrigin = (origin) => {
     if (!origin) return origin;
     try {
@@ -35,7 +34,7 @@ const normalizeOrigin = (origin) => {
     }
 };
 
-// Build canonical allowed origins from defaults plus environment variable
+// Build canonical allowed origins
 const DEFAULT_ALLOWED_ORIGINS = [
     'http://localhost:5173',
     'http://localhost:5174',
@@ -55,105 +54,103 @@ const ALLOWED_ORIGINS = (() => {
     if (process.env.ALLOWED_ORIGINS) {
         list.push(...process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim()).filter(Boolean));
     }
-    // Normalize and deduplicate
     return Array.from(new Set(list.map(normalizeOrigin)));
 })();
 
 const ALLOW_ALL = process.env.ALLOW_ALL_ORIGINS === 'true';
 
 const isOriginAllowed = (origin) => {
-    if (!origin) return true; // non-browser requests (curl, server-to-server)
+    if (!origin) return true;
     if (ALLOW_ALL) return true;
     const norm = normalizeOrigin(origin);
     return ALLOWED_ORIGINS.includes(norm);
 };
 
-// Create HTTP server and Socket.IO instance
+// Create HTTP server
 import http from 'http';
 const server = http.createServer(app);
 
-// Environment-based CORS configuration
-const getCorsOptions = () => {
-    // Use canonical ALLOWED_ORIGINS (normalized and deduped)
-    const allowedOrigins = ALLOWED_ORIGINS;
-
-    return {
-        origin: (origin, callback) => {
-            // Respect ALLOW_ALL for quick debugging
-            if (ALLOW_ALL) {
-                if (process.env.NODE_ENV !== 'production') console.log('CORS: allowing all origins (override)');
-                return callback(null, true);
-            }
-
-            // Allow requests with no origin (mobile apps, curl, server-to-server)
-            if (!origin) return callback(null, true);
-
-            if (isOriginAllowed(origin)) {
-                return callback(null, true);
-            }
-
-            // In development, allow and log
-            if (process.env.NODE_ENV !== 'production') {
-                console.log('Allowing origin in development (not in ALLOWED_ORIGINS):', origin);
-                return callback(null, true);
-            }
-
-            console.warn('CORS blocked origin:', origin);
-            return callback(new Error('Not allowed by CORS'), false);
-        },
-        optionsSuccessStatus: 200,
-        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-        credentials: true,
-        maxAge: 86400
-    };
+// CORS Configuration - FIXED: More permissive for Socket.IO
+const corsOptions = {
+    origin: (origin, callback) => {
+        if (ALLOW_ALL) {
+            return callback(null, true);
+        }
+        if (!origin) return callback(null, true);
+        if (isOriginAllowed(origin)) {
+            return callback(null, true);
+        }
+        if (process.env.NODE_ENV !== 'production') {
+            console.log('Allowing origin in development:', origin);
+            return callback(null, true);
+        }
+        console.warn('CORS blocked origin:', origin);
+        return callback(new Error('Not allowed by CORS'), false);
+    },
+    optionsSuccessStatus: 200,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-socket-id'],
+    credentials: true,
+    maxAge: 86400
 };
 
-const corsOptions = getCorsOptions();
+// IMPORTANT: Apply CORS middleware BEFORE Socket.IO
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
-// Ensure CORS preflight and headers are present for Socket.IO polling requests
-// Some reverse proxies or CDNs may return errors for /socket.io polling if preflight is not handled.
+// Additional CORS headers for Socket.IO polling
 app.use('/socket.io', (req, res, next) => {
-    const origin = req.headers.origin || '*';
-    // Allow the requesting origin (or all if undefined). Keep credentials enabled.
-    res.header('Access-Control-Allow-Origin', origin);
+    const origin = req.headers.origin;
+    if (isOriginAllowed(origin)) {
+        res.header('Access-Control-Allow-Origin', origin);
+    }
     res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, x-socket-id');
     res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     if (req.method === 'OPTIONS') return res.sendStatus(200);
     next();
 });
 
-// Configure Socket.IO with relaxed CORS handling. We accept the origin provided by the client
-// and rely on the above middleware to set the appropriate headers for polling requests.
+// Configure Socket.IO with proper CORS - FIXED: More permissive settings
 const io = new SocketIOServer(server, {
     cors: {
-        origin: ALLOWED_ORIGINS,
+        origin: function (origin, callback) {
+            // Allow all origins in development, check in production
+            if (process.env.NODE_ENV !== 'production' || ALLOW_ALL) {
+                return callback(null, true);
+            }
+            if (!origin || isOriginAllowed(origin)) {
+                return callback(null, true);
+            }
+            return callback(new Error('Not allowed by CORS'), false);
+        },
         methods: ['GET', 'POST', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
         credentials: true
     },
-    // Prefer websocket transport where possible; polling remains available as fallback
-    transports: ['websocket', 'polling'],
-    path: '/socket.io/',
-    allowEIO3: true
+    transports: ['websocket', 'polling'], // FIXED: Ensure both transports
+    path: '/socket.io/', // FIXED: Explicit path
+    allowEIO3: true,
+    connectTimeout: 45000, // FIXED: Increased timeout
+    pingTimeout: 20000,
+    pingInterval: 25000
 });
 
 // Socket.IO event handlers
 io.on('connection', (socket) => {
-    console.log('A user connected:', socket.id);
+    console.log('✅ User connected:', socket.id);
 
     socket.on('joinRoom', ({ roomId }) => {
         socket.join(roomId);
         console.log(`User ${socket.id} joined room: ${roomId}`);
     });
+
     socket.on('leaveRoom', ({ roomId }) => {
         socket.leave(roomId);
         console.log(`User ${socket.id} left room: ${roomId}`);
     });
 
     socket.on('sendMessage', async (data) => {
-        // data may contain: { roomId, message OR content, senderId, receiverId, propertyId?, timestamp }
         try {
             const roomId = data.roomId;
             const senderId = data.senderId || data.sender;
@@ -161,7 +158,7 @@ io.on('connection', (socket) => {
             const content = data.message || data.content || '';
             const propertyId = data.propertyId || data.property;
 
-            // Save to MongoDB so chat history is persisted
+            // Save to MongoDB
             const msgDoc = new Message({
                 sender: senderId,
                 receiver: receiverId,
@@ -170,31 +167,33 @@ io.on('connection', (socket) => {
             });
             await msgDoc.save();
 
-            // populate property for frontend convenience
-            const populated = await Message.findById(msgDoc._id).populate({ path: 'property', select: '_id title price images' });
+            // Populate property for frontend
+            const populated = await Message.findById(msgDoc._id).populate({ 
+                path: 'property', 
+                select: '_id title price images' 
+            });
+            
             let payload = populated && populated.toObject ? populated.toObject() : populated;
             if (payload && payload.property && payload.property.images) {
                 payload.property.images = (payload.property.images || []).map(img => {
                     if (!img) return img;
                     if (String(img).startsWith('http')) return img;
-                    // ensure leading slash
                     const rel = String(img).startsWith('/') ? String(img) : `/${String(img)}`;
                     return `${backendBase}${rel}`;
                 });
             }
 
-            // Emit the persisted, populated message to the room
+            // Emit the message to the room
             io.to(roomId).emit('receiveMessage', payload);
         } catch (err) {
             console.error('Socket save message error:', err);
-            // still emit original data so clients don't stall (but include error flag)
             const roomId = data.roomId;
             io.to(roomId).emit('receiveMessage', { ...data, _error: 'failed_to_save' });
         }
     });
 
     socket.on('disconnect', (reason) => {
-        console.log('User disconnected:', socket.id, 'Reason:', reason);
+        console.log('❌ User disconnected:', socket.id, 'Reason:', reason);
     });
 
     socket.on('error', (error) => {
@@ -222,7 +221,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
     storage,
-    limits: { fileSize: 1024 * 1024 * 5 }, // 5MB limit
+    limits: { fileSize: 1024 * 1024 * 5 },
     fileFilter: (req, file, cb) => {
         if (file.mimetype.startsWith('image/')) {
             cb(null, true);
@@ -235,21 +234,16 @@ const upload = multer({
 // Connect to MongoDB
 connectDB();
 
-// Middleware
-app.use(cors(corsOptions)); // Use the configured CORS options
-app.options('*', cors(corsOptions)); // Enable pre-flight for all routes
-
-// Add CORS headers manually as additional fallback (uses same canonical list)
+// Additional CORS middleware as fallback
 app.use((req, res, next) => {
     const origin = req.headers.origin;
 
     if (isOriginAllowed(origin)) {
-        // echo the origin exactly as received to support credentials
-        res.header('Access-Control-Allow-Origin', origin || '*');
+        res.header('Access-Control-Allow-Origin', origin);
     }
 
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, x-socket-id');
     res.header('Access-Control-Allow-Credentials', 'true');
 
     if (req.method === 'OPTIONS') {
@@ -262,10 +256,9 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(bodyParser.json());
 
-// Serve static files for profile pictures and properties
+// Serve static files
 app.use('/uploads/profiles', express.static(path.join(__dirname, 'uploads/profiles')));
 app.use('/uploads/properties', express.static(path.join(__dirname, 'uploads/properties')));
-// Serve landlord ID documents
 app.use('/uploads/ids', express.static(path.join(__dirname, 'uploads/ids')));
 
 // Routes
@@ -277,9 +270,7 @@ app.use("/api/favorites", favoriteRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/applications", applicationRoutes);
 
-// Simple geocoding proxy to avoid CORS issues with external providers (e.g., Nominatim)
-// This forwards a q=... query to OpenStreetMap Nominatim and returns the JSON result.
-// It intentionally adds a User-Agent header as required by Nominatim usage policy.
+// Simple geocoding proxy
 app.get('/api/geocode', async (req, res) => {
     const q = req.query.q;
     if (!q || String(q).trim() === '') return res.status(400).json({ message: 'Missing query parameter q' });
@@ -287,7 +278,6 @@ app.get('/api/geocode', async (req, res) => {
     const target = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&q=${encodeURIComponent(q)}`;
 
     try {
-        // Use global fetch when available (Node 18+). Fallback to dynamic import of node-fetch if needed.
         let fetchFn = globalThis.fetch;
         if (!fetchFn) {
             try {
@@ -301,11 +291,9 @@ app.get('/api/geocode', async (req, res) => {
 
         const response = await fetchFn(target, {
             headers: {
-                // Nominatim requires a valid User-Agent identifying the application and contact info
                 'User-Agent': process.env.NOMINATIM_USER_AGENT || 'TaHanap/1.0 (+https://tahanap.xyz)',
                 'Accept-Language': 'en'
             },
-            // keep default redirect and other options
         });
 
         if (!response.ok) {
@@ -316,9 +304,7 @@ app.get('/api/geocode', async (req, res) => {
 
         const data = await response.json().catch(() => null);
 
-        // Cache response for short time to reduce external calls (public caching)
         res.set('Cache-Control', 'public, max-age=300, s-maxage=600');
-        // Echo CORS headers are handled by existing middleware
         return res.json(data);
     } catch (error) {
         console.error('Geocode proxy error:', error);
@@ -342,13 +328,12 @@ app.get('/socket-health', (req, res) => {
     });
 });
 
-// Enhanced profile update route with authentication and error handling
+// Enhanced profile update route
 app.put('/api/users/update-profile', protect, upload.single('profilePic'), async (req, res) => {
     try {
         const { fullName, address, contactNumber } = req.body;
         const profilePic = req.file ? req.file.filename : req.user.profilePic;
 
-        // Check if user is banned (additional protection)
         const user = await User.findById(req.user.id);
         if (user.status === 'banned') {
             return res.status(403).json({
@@ -404,22 +389,11 @@ app.use((err, req, res, next) => {
     if (err.message === 'Not allowed by CORS') {
         return res.status(403).json({
             message: 'CORS Error: Origin not allowed',
-            allowedOrigins: [
-                'http://localhost:5173',
-                'http://localhost:5174',
-                'http://localhost:5176',
-                'https://tahanap-frontend-joyb.onrender.com',
-                'https://tahanap-backend-g6mx.onrender.com',
-                'https://tahanap-admin-o398.onrender.com',
-                'https://tahanap.xyz',
-                'https://www.tahanap.xyz',
-                'https://api.tahanap.xyz',
-                'https://admin.tahanap.xyz'
-            ]
+            allowedOrigins: ALLOWED_ORIGINS
         });
     }
 
-    // Handle multer errors (file upload)
+    // Handle multer errors
     if (err.code === 'LIMIT_FILE_SIZE') {
         return res.status(413).json({
             message: 'File too large. Maximum size is 5MB.'
@@ -440,12 +414,14 @@ app.use('*', (req, res) => {
     });
 });
 
-// Start server (with Socket.IO)
+// Start server
 server.listen(port, '0.0.0.0', () => {
     console.log(`🚀 Server running on port ${port}`);
     console.log(`📡 Socket.IO server initialized`);
-    console.log(`🌐 CORS allowed origins: ${ALLOWED_ORIGINS.join(', ')}` + (ALLOW_ALL ? ' (ALLOW_ALL_ORIGINS=true)' : ''));
+    console.log(`🌐 CORS enabled for origins:`, ALLOWED_ORIGINS);
+    console.log(`🔧 Socket.IO path: /socket.io/`);
+    console.log(`🔄 Transports: websocket, polling`);
 });
 
-// Make io available via the express app so controllers can emit events
+// Make io available via the express app
 app.set('io', io);

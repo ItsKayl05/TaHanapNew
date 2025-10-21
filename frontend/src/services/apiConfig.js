@@ -1,35 +1,47 @@
-// Fixed API config for Vite frontend - specifically for your production backend
-const envBase = import.meta.env.VITE_API_BASE_URL?.trim();
-let base = envBase || '';
+// apiConfig.js - Fixed for your actual backend URL
+const isDevelopment = import.meta.env.MODE === 'development';
 
-if (!base) {
-  if (typeof window !== 'undefined') {
-    const devPorts = ['5173', '5174', '3000', '3001'];
-    const { origin, port, hostname } = window.location;
-    
-    // Development mode - use localhost
-    if (devPorts.includes(port) || hostname === 'localhost' || hostname === '127.0.0.1') {
-      base = 'http://localhost:4000';
-      if (import.meta.env.MODE === 'development') {
-        console.info('[apiConfig] Development mode - Using http://localhost:4000');
-      }
-    } else {
-      // Production mode - use your actual backend
-      base = 'https://tahanap-backend.onrender.com';
-      console.info('[apiConfig] Production mode - Using https://tahanap-backend.onrender.com');
-    }
-  } else {
-    base = 'http://localhost:4000';
+// FIXED: Using your actual backend URL
+const getApiBase = () => {
+  // Check for explicit environment variable first
+  const envBase = import.meta.env.VITE_API_BASE_URL?.trim();
+  if (envBase) {
+    console.log(`[apiConfig] Using VITE_API_BASE_URL: ${envBase}`);
+    return envBase;
   }
-}
 
-base = base.replace(/\/$/, '');
-export const API_BASE = base;
-export const API_URL = base.endsWith('/api') ? base : `${base}/api`;
-export const UPLOADS_BASE = `${base}/uploads`;
+  // Auto-detect based on current environment
+  if (typeof window !== 'undefined') {
+    const { protocol, hostname, port } = window.location;
+    
+    // Development environments
+    if (isDevelopment || hostname === 'localhost' || hostname === '127.0.0.1') {
+      const devUrl = `http://localhost:4000`;
+      console.log(`[apiConfig] Development mode - Using ${devUrl}`);
+      return devUrl;
+    }
+    
+    // Production - use your actual backend URL
+    if (hostname.includes('tahanap.xyz')) {
+      const prodUrl = 'https://tahanap-backend-g6mx.onrender.com';
+      console.log(`[apiConfig] Production mode - Using ${prodUrl}`);
+      return prodUrl;
+    }
+  }
+
+  // Default fallback to your actual backend
+  const defaultUrl = isDevelopment ? 'http://localhost:4000' : 'https://tahanap-backend-g6mx.onrender.com';
+  console.log(`[apiConfig] Default mode - Using ${defaultUrl}`);
+  return defaultUrl;
+};
+
+const API_BASE = getApiBase().replace(/\/$/, '');
+export const API_URL = `${API_BASE}/api`;
+export const UPLOADS_BASE = `${API_BASE}/uploads`;
 
 export const buildApi = (path = '') => {
-  const url = `${API_URL}${path.startsWith('/') ? path : '/' + path}`;
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const url = `${API_URL}${normalizedPath}`;
   console.log(`[apiConfig] Building API URL: ${url}`);
   return url;
 };
@@ -37,17 +49,19 @@ export const buildApi = (path = '') => {
 export const buildUpload = (rel = '') => {
   if (!rel) return '';
   
-  if (rel?.startsWith('http')) {
-    // Fix mixed content - force HTTPS if we're on HTTPS
+  // Already absolute URL
+  if (rel.startsWith('http')) {
+    // Fix mixed content
     if (window.location.protocol === 'https:' && rel.startsWith('http:')) {
       return rel.replace('http:', 'https:');
     }
     return rel;
   }
   
-  let uploadUrl = `${UPLOADS_BASE}${rel.startsWith('/') ? rel : '/' + rel}`;
+  // Relative path - build full URL
+  let uploadUrl = `${UPLOADS_BASE}${rel.startsWith('/') ? rel : `/${rel}`}`;
   
-  // Fix mixed content warnings
+  // Fix mixed content
   if (window.location.protocol === 'https:' && uploadUrl.startsWith('http:')) {
     uploadUrl = uploadUrl.replace('http:', 'https:');
   }
@@ -57,7 +71,7 @@ export const buildUpload = (rel = '') => {
 
 import { toast } from 'react-toastify';
 
-// Enhanced fetch function with better error handling
+// Enhanced fetch function
 export const apiRequest = async (endpoint, options = {}) => {
   const url = buildApi(endpoint);
   
@@ -90,23 +104,19 @@ export const apiRequest = async (endpoint, options = {}) => {
       throw new Error('Session expired');
     }
 
-    // Handle server maintenance and errors
-    const contentType = response.headers.get('content-type') || '';
-    if (contentType.includes('text/html')) {
-      if (response.status === 503 || response.status === 502) {
-        toast.error('Server is under maintenance. Please try again later.');
-        throw new Error('Server maintenance');
-      }
-      toast.error('Unexpected server error. Please try again.');
-      throw new Error('Server error');
-    }
-
-    // Parse response and handle errors
-    const data = await response.json();
-
+    // Handle server errors
     if (!response.ok) {
-      const errorMessage = data.message || data.msg || data.error || 'An error occurred';
+      let errorMessage = 'An error occurred';
       
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || errorData.error || errorMessage;
+      } catch (e) {
+        // If response is not JSON, use status text
+        errorMessage = response.statusText || errorMessage;
+      }
+
+      // Show appropriate toast based on status code
       switch (response.status) {
         case 403:
           toast.error(`Access denied: ${errorMessage}`);
@@ -120,8 +130,12 @@ export const apiRequest = async (endpoint, options = {}) => {
         case 429:
           toast.error('Too many requests. Please wait a moment.');
           break;
-        case 400:
-          toast.error(errorMessage);
+        case 500:
+          toast.error('Server error. Please try again later.');
+          break;
+        case 502:
+        case 503:
+          toast.error('Service temporarily unavailable. Please try again later.');
           break;
         default:
           toast.error(errorMessage);
@@ -129,16 +143,41 @@ export const apiRequest = async (endpoint, options = {}) => {
       throw new Error(errorMessage);
     }
 
+    // Parse successful response
+    const data = await response.json();
     return data;
     
   } catch (error) {
-    console.error(`[api] Request failed:`, error);
+    console.error(`[api] Request failed for ${endpoint}:`, error);
+    
+    // Only show toast for non-authentication errors
+    if (!error.message.includes('Session expired')) {
+      toast.error('Network error. Please check your connection.');
+    }
+    
     throw error;
   }
 };
 
+// Utility function to normalize API responses
+export const normalizePayload = (payload, preferredKeys = ['data', 'result', 'messages', 'applications']) => {
+  if (!payload) return [];
+  if (Array.isArray(payload)) return payload;
+  
+  for (const k of preferredKeys) {
+    if (payload && Object.prototype.hasOwnProperty.call(payload, k) && Array.isArray(payload[k])) {
+      return payload[k];
+    }
+  }
+  
+  const values = Object.values(payload).filter(v => Array.isArray(v));
+  if (values.length) return values[0];
+  
+  return [];
+};
+
 // Expose for debugging
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && isDevelopment) {
   window.__APP_API_CONFIG__ = {
     API_BASE,
     API_URL,
@@ -154,23 +193,6 @@ export default {
   UPLOADS_BASE, 
   buildApi, 
   buildUpload,
-  apiRequest 
-};
-
-// Normalize API payloads to common shapes.
-// Accepts objects like: array, { data: [...] }, { result: [...] }, { messages: [...] }, { applications: [...] }
-export const normalizePayload = (payload, preferredKeys = ['data', 'result', 'messages', 'applications']) => {
-  if (!payload) return [];
-  if (Array.isArray(payload)) return payload;
-  // If payload is object with the properties we're looking for
-  for (const k of preferredKeys) {
-    if (payload && Object.prototype.hasOwnProperty.call(payload, k) && Array.isArray(payload[k])) {
-      return payload[k];
-    }
-  }
-  // If payload has a top-level property that itself is an array (e.g., payload.applications)
-  const values = Object.values(payload).filter(v => Array.isArray(v));
-  if (values.length) return values[0];
-  // Nothing matched — return empty array (caller can handle object forms separately if needed)
-  return [];
+  apiRequest,
+  normalizePayload
 };
