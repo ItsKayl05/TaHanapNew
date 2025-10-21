@@ -508,111 +508,177 @@ const EditProperty = () => {
 
     // ⚠️ FIX 3: Enhanced submit handler with better error handling
     const handleSubmit = async (e) => {
-        e.preventDefault();
-        if (submitting) return;
+    e.preventDefault();
+    if (submitting) return;
 
-        setSubmitting(true);
+    setSubmitting(true);
 
-        try {
-            const userToken = localStorage.getItem("user_token");
-            if (!userToken) {
-                throw new Error("Unauthorized access. Please log in.");
-            }
+    try {
+        const userToken = localStorage.getItem("user_token");
+        if (!userToken) {
+            throw new Error("Unauthorized access. Please log in.");
+        }
 
-            // --- Validation ---
-            if (!formData.listingType) {
-                toast.error("Please select a listing type (For Rent or For Sale).");
+        // --- Validation ---
+        if (!formData.listingType) {
+            toast.error("Please select a listing type (For Rent or For Sale).");
+            return;
+        }
+
+        const parseNumeric = (val) => val ? parseFloat(String(val).replace(/,/g, '')) : NaN;
+        const priceNum = parseNumeric(formData.price);
+
+        if (!formData.propertyType) { toast.error("Please select a property type."); return; }
+        if (!formData.address) { toast.error("The property address cannot be empty."); return; }
+        if (isNaN(priceNum) || priceNum <= 0) { toast.error("Please set a valid price greater than 0."); return; }
+        if (!formData.barangay) { toast.error("Please select a barangay."); return; }
+
+        // --- FormData Construction ---
+        const formDataToSend = new FormData();
+
+        console.log('🔍 Form data being sent:', formData);
+
+        // Append all string, number, and boolean fields from state
+        Object.keys(formData).forEach(key => {
+            const value = formData[key];
+            
+            // Skip fields that should be handled separately or are empty
+            if (value === null || value === undefined || value === '') {
                 return;
             }
 
-            const parseNumeric = (val) => val ? parseFloat(String(val).replace(/,/g, '')) : NaN;
-            const priceNum = parseNumeric(formData.price);
-
-            if (!formData.propertyType) { toast.error("Please select a property type."); return; }
-            if (!formData.address) { toast.error("The property address cannot be empty."); return; }
-            if (isNaN(priceNum) || priceNum <= 0) { toast.error("Please set a valid price greater than 0."); return; }
-            if (!formData.barangay) { toast.error("Please select a barangay."); return; }
-
-            // --- FormData Construction ---
-            const formDataToSend = new FormData();
-
-            // Append all string, number, and boolean fields from state
-            Object.keys(formData).forEach(key => {
-                const value = formData[key];
-                if (key === 'price') {
-                    formDataToSend.append('price', priceNum);
-                } else if (Array.isArray(value)) {
-                    // Handle array fields by joining them, except for file arrays
-                    if (value.length > 0) {
-                        formDataToSend.append(key, value.join(','));
-                    }
-                } else if (typeof value === 'boolean') {
-                    formDataToSend.append(key, value.toString());
-                } else if (value !== null && value !== undefined) {
-                    formDataToSend.append(key, value);
+            if (key === 'price') {
+                formDataToSend.append('price', priceNum.toString());
+            } else if (Array.isArray(value)) {
+                // Handle array fields - send as JSON string for proper parsing
+                if (value.length > 0 && typeof value[0] !== 'object') {
+                    // For simple arrays (strings, numbers), send as JSON
+                    formDataToSend.append(key, JSON.stringify(value));
                 }
-            });
+                // Skip file arrays as they're handled separately
+            } else if (typeof value === 'boolean') {
+                formDataToSend.append(key, value.toString());
+            } else {
+                formDataToSend.append(key, value.toString());
+            }
+        });
 
-            // Append new image files
+        // Log what's being appended to FormData
+        console.log('📦 FormData contents:');
+        for (let [key, value] of formDataToSend.entries()) {
+            console.log(`  ${key}:`, value);
+        }
+
+        // --- File Handling ---
+
+        // Append new image files
+        if (newImages && newImages.length > 0) {
+            console.log(`📸 Appending ${newImages.length} new images`);
             newImages.forEach(file => {
                 formDataToSend.append('images', file);
+                console.log(`  - images:`, file.name, file.type, `${(file.size / 1024 / 1024).toFixed(2)}MB`);
             });
+        }
 
-            // Append deleted image filenames
-            if (deletedImages.length > 0) {
-                deletedImages.forEach(imgUrl => {
-                    const filename = imgUrl.split('/').pop();
-                    formDataToSend.append('deletedImages', filename);
-                });
-            }
+        // Append deleted image URLs (send full URLs, not just filenames)
+        if (deletedImages.length > 0) {
+            console.log(`🗑️ Appending ${deletedImages.length} deleted images`);
+            formDataToSend.append('deletedImages', JSON.stringify(deletedImages));
+            deletedImages.forEach(imgUrl => {
+                console.log(`  - deleted:`, imgUrl);
+            });
+        }
 
-            // Append new video file
-            if (videoFile) {
-                formDataToSend.append('video', videoFile);
-            }
-            formDataToSend.append('removeVideo', removeVideo.toString());
+        // Handle video
+        if (videoFile) {
+            console.log(`🎥 Appending new video:`, videoFile.name, `${(videoFile.size / 1024 / 1024).toFixed(2)}MB`);
+            formDataToSend.append('video', videoFile);
+        }
+        
+        // Only send removeVideo if explicitly set to true
+        if (removeVideo) {
+            console.log('❌ Removing existing video');
+            formDataToSend.append('removeVideo', 'true');
+        }
 
-
-            // Append new panorama images
+        // Append new panorama images
+        if (newPanoramaImages && newPanoramaImages.length > 0) {
+            console.log(`🔄 Appending ${newPanoramaImages.length} new panorama images`);
             newPanoramaImages.forEach(file => {
                 formDataToSend.append('panorama360Images', file);
+                console.log(`  - panorama360Images:`, file.name, file.type, `${(file.size / 1024 / 1024).toFixed(2)}MB`);
             });
-
-            // Append deleted panorama image filenames
-            if (deletedPanoramaImages.length > 0) {
-                deletedPanoramaImages.forEach(url => {
-                    const filename = url.split('/').pop();
-                    formDataToSend.append('deletedPanoramaImages', filename);
-                });
-            }
-
-            // --- API Call ---
-            const response = await fetch(buildApi(`/properties/${propertyId}`), {
-                method: 'PUT',
-                headers: { Authorization: `Bearer ${userToken}` },
-                body: formDataToSend,
-            });
-
-            const responseData = await response.json();
-
-            if (!response.ok) {
-                // Use the detailed error message from the backend
-                const errorMessage = responseData.error || responseData.message || 'An unknown error occurred.';
-                console.error('Backend Error:', responseData);
-                throw new Error(errorMessage);
-            }
-
-            toast.success('Property updated successfully!');
-            await clearFormPersistence(FORM_KEY);
-            navigate('/my-properties');
-
-        } catch (err) {
-            console.error('Update property error:', err);
-            toast.error(err.message || 'Failed to update property.');
-        } finally {
-            setSubmitting(false);
         }
-    };
+
+        // Append deleted panorama image URLs (send full URLs)
+        if (deletedPanoramaImages.length > 0) {
+            console.log(`🗑️ Appending ${deletedPanoramaImages.length} deleted panoramas`);
+            formDataToSend.append('deletedPanoramaImages', JSON.stringify(deletedPanoramaImages));
+            deletedPanoramaImages.forEach(url => {
+                console.log(`  - deleted panorama:`, url);
+            });
+        }
+
+        // Log final FormData state
+        console.log('📤 Final FormData state before sending:');
+        const formDataEntries = {};
+        for (let [key, value] of formDataToSend.entries()) {
+            if (value instanceof File) {
+                formDataEntries[key] = `File: ${value.name} (${value.type}, ${(value.size / 1024 / 1024).toFixed(2)}MB)`;
+            } else if (key.includes('deleted')) {
+                formDataEntries[key] = `Array: ${value}`;
+            } else {
+                formDataEntries[key] = value;
+            }
+        }
+        console.log('FormData entries:', formDataEntries);
+
+        // --- API Call ---
+        console.log('🚀 Sending PUT request to:', `/properties/${propertyId}`);
+        
+        const response = await fetch(buildApi(`/properties/${propertyId}`), {
+            method: 'PUT',
+            headers: { 
+                Authorization: `Bearer ${userToken}`,
+                // Don't set Content-Type header - let browser set it with boundary
+            },
+            body: formDataToSend,
+        });
+
+        console.log('📨 Response status:', response.status);
+
+        const responseData = await response.json();
+        console.log('📨 Response data:', responseData);
+
+        if (!response.ok) {
+            // Use the detailed error message from the backend
+            const errorMessage = responseData.error || responseData.details?.[0] || responseData.message || 'An unknown error occurred.';
+            console.error('❌ Backend Error Details:', responseData);
+            throw new Error(errorMessage);
+        }
+
+        console.log('✅ Property updated successfully!');
+        toast.success('Property updated successfully!');
+        
+        // Clear form persistence and navigate
+        await clearFormPersistence(FORM_KEY);
+        navigate('/my-properties');
+
+    } catch (err) {
+        console.error('❌ Update property error:', err);
+        
+        // Enhanced error handling
+        if (err.name === 'TypeError' && err.message.includes('Failed to fetch')) {
+            toast.error('Network error. Please check your connection and try again.');
+        } else if (err.message.includes('Unexpected end of form')) {
+            toast.error('Upload failed. The file might be too large or the connection was interrupted.');
+        } else {
+            toast.error(err.message || 'Failed to update property. Please try again.');
+        }
+    } finally {
+        setSubmitting(false);
+    }
+};
 
     return (
         <div className="dashboard-container landlord-dashboard">
