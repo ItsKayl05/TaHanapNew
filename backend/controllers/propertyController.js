@@ -25,7 +25,12 @@ const config = {
 // Multer configuration
 const memoryUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: config.limits.videoSize },
+    // Increase limits to be more forgiving for large uploads and multiple parts
+    limits: { 
+      fileSize: config.limits.videoSize,      // max file size per file (50MB)
+      fieldSize: 100 * 1024 * 1024,          // max field size (100MB)
+      parts: 50                                // max number of parts (fields + files)
+    },
   fileFilter: (req, file, cb) => {
     // Handle image fields
     if (['images', 'panorama360Images', 'panorama360'].includes(file.fieldname)) {
@@ -533,11 +538,18 @@ export const addProperty = async (req, res) => {
     panorama360Images: []
   };
 
+  // Log if client aborts the request during upload
+  req.on('aborted', () => {
+    console.warn('[Upload] Client aborted request while uploading property');
+  });
+
   uploadMemory(req, res, async (err) => {
     if (err) {
       let errorMsg = "Error uploading media";
-      if (err.message) {
-        if (err.message.includes('File too large')) {
+      if (err && err.message) {
+        if (err.message.includes('Unexpected end of form')) {
+          errorMsg = 'Upload incomplete: client disconnected or request truncated';
+        } else if (err.message.includes('File too large')) {
           errorMsg = 'File size exceeds the allowed limit (Images/Panorama: 10MB, Video: 50MB)';
         } else if (err.message.includes('Only image files allowed')) {
           errorMsg = 'Invalid file type for images. Only JPG, PNG, and WebP formats are allowed';
@@ -547,6 +559,7 @@ export const addProperty = async (req, res) => {
           errorMsg = err.message;
         }
       }
+      console.error('[Multer] AddProperty upload error:', err);
       return res.status(400).json({ error: errorMsg });
     }
 
