@@ -128,18 +128,15 @@ app.use('/socket.io', (req, res, next) => {
 // and rely on the above middleware to set the appropriate headers for polling requests.
 const io = new SocketIOServer(server, {
     cors: {
-        origin: (origin, callback) => {
-            // Accept requests from any origin (callback null,true). In production you may restrict this.
-            // We still log unexpected origins in development for visibility.
-            if (process.env.NODE_ENV !== 'production') console.log('Socket.IO incoming origin:', origin);
-            return callback(null, true);
-        },
+        origin: ALLOWED_ORIGINS,
         methods: ['GET', 'POST', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
         credentials: true
     },
     // Prefer websocket transport where possible; polling remains available as fallback
-    transports: ['websocket', 'polling']
+    transports: ['websocket', 'polling'],
+    path: '/socket.io/',
+    allowEIO3: true
 });
 
 // Socket.IO event handlers
