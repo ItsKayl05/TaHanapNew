@@ -681,18 +681,39 @@ export const updateProperty = async (req, res) => {
                 numberOfFloors: property.numberOfFloors
             });
             
-            const updates = { ...req.body };
+            // Create a clean updates object with numeric field parsing
+            const updates = {};
             
-            // Log the updates object before cleanup
-            console.log('Debug - Initial updates object:', {
+            // Parse numeric fields first
+            const numericFields = ['price', 'areaSqm', 'floorArea', 'lotArea', 'numberOfFloors', 'numberOfRooms', 'occupancy'];
+            numericFields.forEach(field => {
+                if (field in req.body) {
+                    const value = req.body[field];
+                    if (Array.isArray(value)) {
+                        // If it's an array, take the first non-empty value
+                        const firstValue = value.find(v => v !== null && v !== undefined && v !== '');
+                        if (firstValue) {
+                            updates[field] = parseFloat(String(firstValue).replace(/,/g, ''));
+                        }
+                    } else if (value !== null && value !== undefined && value !== '') {
+                        updates[field] = parseFloat(String(value).replace(/,/g, ''));
+                    }
+                }
+            });
+            
+            // Copy other fields
+            Object.keys(req.body).forEach(key => {
+                if (!numericFields.includes(key) && !['landlord', 'status', 'description'].includes(key)) {
+                    updates[key] = req.body[key];
+                }
+            });
+            
+            // Log the cleaned updates object
+            console.log('Debug - Cleaned updates object:', {
                 floorArea: updates.floorArea,
                 lotArea: updates.lotArea,
                 numberOfFloors: updates.numberOfFloors
             });
-            
-            delete updates.landlord;
-            delete updates.status;
-            delete updates.description;
 
             // Enhanced validation for updates
             const validations = {
@@ -730,19 +751,25 @@ export const updateProperty = async (req, res) => {
                     validate: value => !isNaN(Number(value)) && Number(value) > 0,
                     errorMessage: "Floor area should be a number greater than 0"
                 },
-                // NEW: Validation for new fields in updates
+                // Validation for numeric fields with strict type checking
                 floorArea: {
                     required: true,
                     value: updates.floorArea,
                     message: "Please provide the floor area",
-                    validate: value => !isNaN(Number(value)) && Number(value) > 0,
+                    validate: value => {
+                        const num = parseFloat(String(value).replace(/,/g, ''));
+                        return !isNaN(num) && isFinite(num) && num > 0;
+                    },
                     errorMessage: "Floor area should be a number greater than 0"
                 },
                 lotArea: {
                     required: true,
                     value: updates.lotArea,
                     message: "Please provide the lot area",
-                    validate: value => !isNaN(Number(value)) && Number(value) > 0,
+                    validate: value => {
+                        const num = parseFloat(String(value).replace(/,/g, ''));
+                        return !isNaN(num) && isFinite(num) && num > 0;
+                    },
                     errorMessage: "Lot area should be a number greater than 0"
                 },
                 numberOfFloors: {
@@ -750,7 +777,7 @@ export const updateProperty = async (req, res) => {
                     value: updates.numberOfFloors,
                     message: "Please specify the number of floors",
                     validate: value => {
-                        const num = Number(value);
+                        const num = parseInt(String(value).replace(/,/g, ''), 10);
                         return !isNaN(num) && Number.isInteger(num) && num >= 1 && num <= 5;
                     },
                     errorMessage: "Number of floors must be a whole number between 1 and 5"
