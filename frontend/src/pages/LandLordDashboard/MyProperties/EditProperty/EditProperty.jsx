@@ -510,6 +510,7 @@ const EditProperty = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (submitting) return;
+        
         try {
             const userToken = localStorage.getItem("user_token");
             if (!userToken) throw new Error("Unauthorized access. Please log in.");
@@ -520,23 +521,52 @@ const EditProperty = () => {
                 return;
             }
 
+            // Enhanced numeric parsing
+            const parseNumericField = (value) => {
+                if (value === undefined || value === null || value === '') return NaN;
+                const stringValue = String(value).replace(/,/g, '').trim();
+                return parseFloat(stringValue);
+            };
+
+            const parseIntegerField = (value) => {
+                if (value === undefined || value === null || value === '') return NaN;
+                const stringValue = String(value).replace(/,/g, '').trim();
+                return parseInt(stringValue, 10);
+            };
+
+            const priceNum = parseNumericField(formData.price);
+            const areaSqmNum = parseNumericField(formData.areaSqm);
+            const floorAreaNum = parseNumericField(formData.floorArea);
+            const lotAreaNum = parseNumericField(formData.lotArea);
+            const floorsNum = parseIntegerField(formData.numberOfFloors);
+
+            console.log('🔧 Debug - Parsed numeric values:', {
+                price: priceNum,
+                areaSqm: areaSqmNum,
+                floorArea: floorAreaNum,
+                lotArea: lotAreaNum,
+                numberOfFloors: floorsNum
+            });
+
+            // Enhanced validation
             const requiredChecks = [
                 { key: 'propertyType', ok: formData.propertyType && formData.propertyType.toString().trim() !== '', msg: "Please select a property type" },
                 { key: 'address', ok: formData.address && formData.address.toString().trim() !== '', msg: "The property address cannot be empty" },
-                { key: 'price', ok: formData.price && formData.price.toString().trim() !== '', msg: "Don't forget to set a price" },
+                { key: 'price', ok: !isNaN(priceNum) && priceNum > 0, msg: "Don't forget to set a valid price greater than 0" },
                 { key: 'barangay', ok: formData.barangay && formData.barangay.toString().trim() !== '', msg: "Please select a barangay for your property" },
-                { key: 'areaSqm', ok: formData.areaSqm !== undefined && formData.areaSqm !== '' && !isNaN(Number(formData.areaSqm)) && Number(formData.areaSqm) > 0, msg: "Please provide the floor area (in square meters)" },
-                { key: 'floorArea', ok: formData.floorArea !== undefined && formData.floorArea !== '', msg: "Please provide the total floor area (floor area)" },
-                { key: 'lotArea', ok: formData.lotArea !== undefined && formData.lotArea !== '', msg: "Please provide the lot area" },
-                { key: 'numberOfFloors', ok: formData.numberOfFloors !== undefined && formData.numberOfFloors !== '', msg: "Please specify the number of floors" }
+                { key: 'areaSqm', ok: !isNaN(areaSqmNum) && areaSqmNum > 0, msg: "Please provide a valid floor area greater than 0" },
+                { key: 'floorArea', ok: !isNaN(floorAreaNum) && floorAreaNum > 0, msg: "Please provide a valid floor area greater than 0" },
+                { key: 'lotArea', ok: !isNaN(lotAreaNum) && lotAreaNum > 0, msg: "Please provide a valid lot area greater than 0" },
+                { key: 'numberOfFloors', ok: !isNaN(floorsNum) && Number.isInteger(floorsNum) && floorsNum >= 1 && floorsNum <= 5, msg: "Number of floors must be a whole number between 1 and 5" }
             ];
             
             // Add conditional validations based on listing type
             if (isForRent) {
+                const occupancyNum = parseIntegerField(formData.occupancy);
                 requiredChecks.push({ 
                     key: 'occupancy', 
-                    ok: formData.occupancy && formData.occupancy.toString().trim() !== '' && !isNaN(Number(formData.occupancy)) && Number(formData.occupancy) > 0, 
-                    msg: "Please specify maximum occupancy (must be greater than 0)" 
+                    ok: !isNaN(occupancyNum) && occupancyNum > 0 && occupancyNum <= 5, 
+                    msg: "Please specify maximum occupancy between 1 and 5" 
                 });
             } else if (isForSale) {
                 requiredChecks.push({ 
@@ -547,81 +577,9 @@ const EditProperty = () => {
             }
             
             for (const chk of requiredChecks) {
-                if (!chk.ok) { toast.error(chk.msg); return; }
-            }
-
-            const parseLocaleNumber = (str) => {
-                if (str === undefined || str === null || String(str).trim() === '') return NaN;
-                const nfParts = new Intl.NumberFormat(navigator.language).formatToParts(12345.6);
-                const group = nfParts.find(p => p.type === 'group')?.value || ',';
-                const decimal = nfParts.find(p => p.type === 'decimal')?.value || '.';
-                const esc = s => s.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
-                let normalized = String(str).replace(new RegExp(esc(group), 'g'), '');
-                if (decimal !== '.') normalized = normalized.replace(new RegExp(esc(decimal)), '.');
-                normalized = normalized.replace(/\s/g, '');
-                normalized = normalized.replace(/[^0-9.\-]/g, '');
-                const num = Number(normalized);
-                return isNaN(num) ? NaN : num;
-            };
-            
-            const priceNum = parseLocaleNumber(formData.price);
-            if (isNaN(priceNum) || priceNum <= 0) {
-                toast.error('Please enter a valid price greater than 0');
-                return;
-            }
-
-            const areaSqmNum = parseLocaleNumber(formData.areaSqm);
-            if (isNaN(areaSqmNum) || areaSqmNum <= 0) {
-                toast.error('Please enter a valid floor area greater than 0');
-                return;
-            }
-
-            // Parse and validate required numeric fields
-            console.log('Debug - Before parsing numeric fields:', {
-                rawFloorArea: formData.floorArea,
-                rawLotArea: formData.lotArea,
-                rawFloors: formData.numberOfFloors
-            });
-
-            const floorAreaNum = parseLocaleNumber(formData.floorArea);
-            console.log('Debug - Parsed floorArea:', {
-                input: formData.floorArea,
-                parsed: floorAreaNum,
-                isValid: !isNaN(floorAreaNum) && floorAreaNum > 0
-            });
-            if (isNaN(floorAreaNum) || floorAreaNum <= 0) {
-                toast.error('Floor area must be a number greater than 0');
-                return;
-            }
-
-            const lotAreaNum = parseLocaleNumber(formData.lotArea);
-            console.log('Debug - Parsed lotArea:', {
-                input: formData.lotArea,
-                parsed: lotAreaNum,
-                isValid: !isNaN(lotAreaNum) && lotAreaNum > 0
-            });
-            if (isNaN(lotAreaNum) || lotAreaNum <= 0) {
-                toast.error('Lot area must be a number greater than 0');
-                return;
-            }
-
-            const floorsNumRaw = formData.numberOfFloors;
-            const floorsNum = floorsNumRaw === '' || floorsNumRaw === null ? NaN : Number(floorsNumRaw);
-            console.log('Debug - Parsed numberOfFloors:', {
-                input: floorsNumRaw,
-                parsed: floorsNum,
-                isValid: !isNaN(floorsNum) && Number.isInteger(floorsNum) && floorsNum >= 1 && floorsNum <= 5
-            });
-            if (isNaN(floorsNum) || !Number.isInteger(floorsNum) || floorsNum < 1 || floorsNum > 5) {
-                toast.error('Number of floors must be a whole number between 1 and 5');
-                return;
-            }
-
-            if (formData.listingType === 'For Rent') {
-                const occupancyNum = parseLocaleNumber(formData.occupancy);
-                if (isNaN(occupancyNum) || occupancyNum <= 0) {
-                    toast.error('Please enter a valid maximum occupancy greater than 0');
-                    return;
+                if (!chk.ok) { 
+                    toast.error(chk.msg); 
+                    return; 
                 }
             }
 
@@ -636,63 +594,69 @@ const EditProperty = () => {
             // ⚠️ FIX 3: Ensure listingType is always included
             formDataToSend.append('listingType', formData.listingType);
 
-            Object.entries(formData).forEach(([key, value]) => {
-                // Skip validation for disabled fields based on listing type
-                if (isFieldDisabled(key)) return;
-                if (key === 'landmarks') {
-                    formDataToSend.append('landmarks', landmarksString);
-                } else if (key === 'allowedPets') {
-                    formDataToSend.append('allowedPets', Array.isArray(value) ? value.join(', ') : (value || ''));
-                } else if (key === 'billsIncluded') {
-                    formDataToSend.append('billsIncluded', Array.isArray(value) ? value.join(', ') : '');
-                } else if (key === 'marketHighlights') {
-                    formDataToSend.append('marketHighlights', Array.isArray(value) ? value.join(', ') : '');
-                } else if (key === 'propertyCondition') {
-                    formDataToSend.append('propertyCondition', value || '');
-                } else if (key === 'customLandmark') {
-                    // Skip custom landmark
-                } else if (key === 'price' || key === 'areaSqm' || key === 'floorArea' || key === 'lotArea' || key === 'numberOfFloors') {
-                    // These numeric fields are handled separately
-                } else if (key === 'occupancy') {
-                    // occupancy handled separately
-                } else if (value !== undefined && value !== null && value !== "") {
-                    formDataToSend.append(key, value);
+            // Helper function to append fields
+            const appendField = (key, value) => {
+                if (value !== undefined && value !== null && value !== '') {
+                    if (Array.isArray(value)) {
+                        formDataToSend.append(key, value.join(', '));
+                    } else {
+                        formDataToSend.append(key, value.toString());
+                    }
                 }
-            });
-            
-            // Append parsed numeric values with proper checks
+            };
+
+            // Append basic fields
+            appendField('propertyType', formData.propertyType);
+            appendField('address', formData.address);
+            appendField('barangay', formData.barangay);
+            appendField('availabilityStatus', formData.availabilityStatus);
+            appendField('rules', formData.rules);
+            appendField('landmarks', landmarksString);
+            appendField('propertyCondition', formData.propertyCondition);
+            appendField('latitude', formData.latitude);
+            appendField('longitude', formData.longitude);
+
+            // Append numeric fields as clean numbers
             formDataToSend.append('price', priceNum.toString());
             formDataToSend.append('areaSqm', areaSqmNum.toString());
+            formDataToSend.append('floorArea', floorAreaNum.toString());
+            formDataToSend.append('lotArea', lotAreaNum.toString());
+            formDataToSend.append('numberOfFloors', floorsNum.toString());
             
-            // Add the floor area, lot area, and number of floors
-            console.log('Debug - Form Values:', {
-                rawFloorArea: formData.floorArea,
-                parsedFloorArea: floorAreaNum,
-                rawLotArea: formData.lotArea,
-                parsedLotArea: lotAreaNum,
-                rawFloors: formData.numberOfFloors,
-                parsedFloors: floorsNum
-            });
+            if (formData.numberOfRooms) {
+                const roomsNum = parseIntegerField(formData.numberOfRooms);
+                if (!isNaN(roomsNum)) {
+                    formDataToSend.append('numberOfRooms', roomsNum.toString());
+                }
+            }
 
-            // Add the required numeric fields with proper validation
-            console.log('Debug - Values being appended to FormData:', {
-                floorArea: floorAreaNum,
-                lotArea: lotAreaNum,
-                numberOfFloors: floorsNum
-            });
+            // Append boolean fields
+            formDataToSend.append('petFriendly', formData.petFriendly.toString());
+            formDataToSend.append('parking', formData.parking.toString());
 
-            formDataToSend.append('floorArea', floorAreaNum);
-            formDataToSend.append('lotArea', lotAreaNum);
-            formDataToSend.append('numberOfFloors', floorsNum);
+            // Append array fields
+            if (Array.isArray(formData.billsIncluded) && formData.billsIncluded.length > 0) {
+                formDataToSend.append('billsIncluded', formData.billsIncluded.join(', '));
+            }
+            if (Array.isArray(formData.marketHighlights) && formData.marketHighlights.length > 0) {
+                formDataToSend.append('marketHighlights', formData.marketHighlights.join(', '));
+            }
+            if (Array.isArray(formData.allowedPets) && formData.allowedPets.length > 0) {
+                formDataToSend.append('allowedPets', formData.allowedPets.join(', '));
+            }
+
+            // Conditional fields based on listing type
+            if (isForRent && formData.occupancy) {
+                const occupancyNum = parseIntegerField(formData.occupancy);
+                if (!isNaN(occupancyNum) && occupancyNum > 0) {
+                    formDataToSend.append('occupancy', occupancyNum.toString());
+                }
+            }
 
             // Debug log FormData
             console.log('🔍 Debug - FormData contents:');
             for (let pair of formDataToSend.entries()) {
                 console.log(pair[0] + ': ' + pair[1]);
-            }
-            
-            if (formData.listingType === 'For Rent') {
-                formDataToSend.append('occupancy', parseLocaleNumber(formData.occupancy).toString());
             }
             
             // Handle images
@@ -772,6 +736,7 @@ const EditProperty = () => {
         }
     };
 
+    // ... (rest of the JSX remains the same, only the handleSubmit function was significantly modified)
     return (
         <div className="dashboard-container landlord-dashboard">
             <Sidebar activeItem="my-properties" />

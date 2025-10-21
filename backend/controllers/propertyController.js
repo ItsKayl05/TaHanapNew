@@ -654,14 +654,6 @@ export const updateProperty = async (req, res) => {
             return res.status(400).json({ error: err.message || "Error uploading media" });
         }
 
-        // Debug: log incoming non-file fields (keys only)
-        try {
-            const incomingKeys = Object.keys(req.body || {});
-            console.info('updateProperty invoked for id=%s, incoming body keys=%o, files=%o', req.params.id, incomingKeys, Object.keys(req.files || {}));
-        } catch (e) {
-            console.info('updateProperty invoked (failed to enumerate incoming keys)');
-        }
-
         try {
             const property = await Property.findById(req.params.id);
             if (!property) {
@@ -673,212 +665,147 @@ export const updateProperty = async (req, res) => {
                 return res.status(403).json({ error: "Unauthorized" });
             }
 
-            // Debug logging for incoming request
-            console.log('Debug - Incoming request body:', req.body);
-            console.log('Debug - Property before update:', {
-                floorArea: property.floorArea,
-                lotArea: property.lotArea,
-                numberOfFloors: property.numberOfFloors
+            console.log('🔧 Debug - Update Property Request:', {
+                body: req.body,
+                files: req.files ? Object.keys(req.files) : 'No files'
             });
-            
-            // Create a clean updates object with numeric field parsing
+
+            // Enhanced numeric field parsing
+            const parseNumericField = (value, fieldName) => {
+                if (value === undefined || value === null) return undefined;
+                
+                let processedValue = value;
+                
+                // Handle array input
+                if (Array.isArray(value)) {
+                    processedValue = value[0] || value;
+                }
+                
+                // Convert to string and clean
+                const stringValue = String(processedValue).replace(/,/g, '').trim();
+                
+                if (stringValue === '') return undefined;
+                
+                // Parse based on field type
+                if (fieldName === 'numberOfFloors' || fieldName === 'numberOfRooms' || fieldName === 'occupancy') {
+                    const parsed = parseInt(stringValue, 10);
+                    return isNaN(parsed) ? undefined : parsed;
+                } else {
+                    const parsed = parseFloat(stringValue);
+                    return isNaN(parsed) ? undefined : parsed;
+                }
+            };
+
+            // Build updates object with proper parsing
             const updates = {};
-            
-            // Parse numeric fields first
             const numericFields = ['price', 'areaSqm', 'floorArea', 'lotArea', 'numberOfFloors', 'numberOfRooms', 'occupancy'];
+            
             numericFields.forEach(field => {
-                if (field in req.body) {
-                    const value = req.body[field];
-                    if (Array.isArray(value)) {
-                        // If it's an array, take the first non-empty value
-                        const firstValue = value.find(v => v !== null && v !== undefined && v !== '');
-                        if (firstValue) {
-                            updates[field] = parseFloat(String(firstValue).replace(/,/g, ''));
+                if (req.body[field] !== undefined) {
+                    const parsed = parseNumericField(req.body[field], field);
+                    if (parsed !== undefined) {
+                        updates[field] = parsed;
+                    }
+                }
+            });
+
+            // Handle non-numeric fields
+            const allowedFields = [
+                'propertyType', 'address', 'barangay', 'listingType', 'petFriendly', 
+                'parking', 'rules', 'landmarks', 'propertyCondition', 
+                'availabilityStatus', 'billsIncluded', 'marketHighlights', 'allowedPets'
+            ];
+
+            allowedFields.forEach(field => {
+                if (req.body[field] !== undefined) {
+                    if (field === 'petFriendly' || field === 'parking') {
+                        updates[field] = req.body[field] === 'true' || req.body[field] === true;
+                    } else if (field === 'billsIncluded' || field === 'marketHighlights' || field === 'allowedPets') {
+                        // Handle array fields
+                        if (Array.isArray(req.body[field])) {
+                            updates[field] = req.body[field].map(item => String(item).trim()).filter(Boolean);
+                        } else if (typeof req.body[field] === 'string') {
+                            updates[field] = req.body[field].split(',').map(item => item.trim()).filter(Boolean);
+                        } else {
+                            updates[field] = [];
                         }
-                    } else if (value !== null && value !== undefined && value !== '') {
-                        updates[field] = parseFloat(String(value).replace(/,/g, ''));
+                    } else {
+                        updates[field] = String(req.body[field]).trim();
                     }
                 }
             });
-            
-            // Copy other fields
-            Object.keys(req.body).forEach(key => {
-                if (!numericFields.includes(key) && !['landlord', 'status', 'description'].includes(key)) {
-                    updates[key] = req.body[key];
-                }
-            });
-            
-            // Log the cleaned updates object
-            console.log('Debug - Cleaned updates object:', {
-                floorArea: updates.floorArea,
-                lotArea: updates.lotArea,
-                numberOfFloors: updates.numberOfFloors
-            });
 
-            // Enhanced validation for updates
-            const validations = {
-                propertyType: {
-                    required: true,
-                    value: updates.propertyType,
-                    message: "Please select a property type"
-                },
-                address: {
-                    required: true,
-                    value: updates.address,
-                    message: "The property address cannot be empty"
-                },
-                price: {
-                    required: true,
-                    value: updates.price,
-                    message: "Don't forget to set a price",
-                    validate: value => !isNaN(Number(value)) && Number(value) > 0,
-                    errorMessage: "The price should be a valid number greater than 0"
-                },
-                barangay: {
-                    required: true,
-                    value: updates.barangay,
-                    message: "Please select a barangay for your property"
-                },
-                listingType: {
-                    required: true,
-                    value: updates.listingType,
-                    message: "Please select listing type"
-                },
-                areaSqm: {
-                    required: true,
-                    value: updates.areaSqm,
-                    message: "Please provide the floor area (in square meters)",
-                    validate: value => !isNaN(Number(value)) && Number(value) > 0,
-                    errorMessage: "Floor area should be a number greater than 0"
-                },
-                // Validation for numeric fields with strict type checking
-                floorArea: {
-                    required: true,
-                    value: updates.floorArea,
-                    message: "Please provide the floor area",
-                    validate: value => {
-                        const num = parseFloat(String(value).replace(/,/g, ''));
-                        return !isNaN(num) && isFinite(num) && num > 0;
-                    },
-                    errorMessage: "Floor area should be a number greater than 0"
-                },
-                lotArea: {
-                    required: true,
-                    value: updates.lotArea,
-                    message: "Please provide the lot area",
-                    validate: value => {
-                        const num = parseFloat(String(value).replace(/,/g, ''));
-                        return !isNaN(num) && isFinite(num) && num > 0;
-                    },
-                    errorMessage: "Lot area should be a number greater than 0"
-                },
-                numberOfFloors: {
-                    required: true,
-                    value: updates.numberOfFloors,
-                    message: "Please specify the number of floors",
-                    validate: value => {
-                        const num = parseInt(String(value).replace(/,/g, ''), 10);
-                        return !isNaN(num) && Number.isInteger(num) && num >= 1 && num <= 5;
-                    },
-                    errorMessage: "Number of floors must be a whole number between 1 and 5"
-                }
-            };
-
-            // Conditional validation for occupancy
-            if (updates.listingType === 'For Rent' || property.propertyType === 'For Rent') {
-                validations.occupancy = {
-                    required: true,
-                    value: updates.occupancy,
-                    message: "Please specify maximum occupancy",
-                    validate: value => !isNaN(Number(value)) && Number(value) > 0 && Number(value) <= 5,
-                    errorMessage: "Maximum occupancy should be between 1 and 5"
-                };
-            }
-
+            // Enhanced validation
             const errors = [];
-
-            // Handle boolean conversions
-            if (typeof updates.petFriendly === 'string') {
-                updates.petFriendly = updates.petFriendly === 'true';
-            }
-            if (typeof updates.parking === 'string') {
-                updates.parking = updates.parking === 'true';
-            }
-
-            const normalizeList = (v) => {
-                if (!v && v !== 0) return [];
-                if (Array.isArray(v)) return v.map(s => String(s).trim()).filter(Boolean);
-                if (typeof v === 'string') return v.split(',').map(s => s.trim()).filter(Boolean);
-                return [];
+            
+            // Required field validation
+            const requiredFields = {
+                propertyType: 'Property type is required',
+                address: 'Address is required',
+                price: 'Price is required',
+                barangay: 'Barangay is required',
+                listingType: 'Listing type is required',
+                areaSqm: 'Floor area is required',
+                floorArea: 'Total floor area is required',
+                lotArea: 'Lot area is required',
+                numberOfFloors: 'Number of floors is required'
             };
 
-            if ('allowedPets' in updates) updates.allowedPets = normalizeList(updates.allowedPets);
-            if ('billsIncluded' in updates) updates.billsIncluded = normalizeList(updates.billsIncluded);
-            if ('marketHighlights' in updates) updates.marketHighlights = normalizeList(updates.marketHighlights);
-            if ('propertyCondition' in updates) updates.propertyCondition = updates.propertyCondition || undefined;
+            Object.entries(requiredFields).forEach(([field, message]) => {
+                if (updates[field] === undefined || updates[field] === '' || updates[field] === null) {
+                    errors.push(message);
+                }
+            });
 
-            // NEW: Validate dropdown fields in updates
-            if (updates.numberOfRooms && (Number(updates.numberOfRooms) < 0 || Number(updates.numberOfRooms) > 5)) {
-                errors.push("Number of rooms must be between 1 and 5");
+            // Numeric validation
+            if (updates.price !== undefined && (updates.price <= 0 || isNaN(updates.price))) {
+                errors.push('Price must be a valid number greater than 0');
+            }
+            if (updates.areaSqm !== undefined && (updates.areaSqm <= 0 || isNaN(updates.areaSqm))) {
+                errors.push('Floor area must be a valid number greater than 0');
+            }
+            if (updates.floorArea !== undefined && (updates.floorArea <= 0 || isNaN(updates.floorArea))) {
+                errors.push('Total floor area must be a valid number greater than 0');
+            }
+            if (updates.lotArea !== undefined && (updates.lotArea <= 0 || isNaN(updates.lotArea))) {
+                errors.push('Lot area must be a valid number greater than 0');
+            }
+            if (updates.numberOfFloors !== undefined && (!Number.isInteger(updates.numberOfFloors) || updates.numberOfFloors < 1 || updates.numberOfFloors > 5)) {
+                errors.push('Number of floors must be a whole number between 1 and 5');
             }
 
-            for (const [field, validation] of Object.entries(validations)) {
-                if (field in updates) {
-                    const value = updates[field];
-
-                    if (validation.required && (!value || value.toString().trim() === '')) {
-                        errors.push(validation.message);
-                        continue;
-                    }
-
-                    if (value && validation.validate && !validation.validate(value)) {
-                        errors.push(validation.errorMessage || validation.message);
-                    }
-                }
+            // Conditional validation based on listing type
+            if (updates.listingType === 'For Rent' && (updates.occupancy === undefined || updates.occupancy < 1)) {
+                errors.push('Maximum occupancy is required for rental properties');
+            }
+            if (updates.listingType === 'For Sale' && (!updates.propertyCondition || updates.propertyCondition.trim() === '')) {
+                errors.push('Property condition is required for sale properties');
             }
 
             if (errors.length > 0) {
-                // Add some server-side debugging output to help diagnose why the client request failed validation
-                try {
-                    console.warn('UpdateProperty validation failed for property', req.params.id);
-                    console.warn('Validation errors:', JSON.stringify(errors));
-                    // Log a compact snapshot of the incoming updates (avoid logging files/buffers)
-                    const incomingSnapshot = { ...updates };
-                    delete incomingSnapshot.images;
-                    delete incomingSnapshot.video;
-                    delete incomingSnapshot.panorama360;
-                    console.warn('Incoming update snapshot:', JSON.stringify(incomingSnapshot));
-                } catch (logErr) {
-                    console.warn('Error while logging validation context', logErr);
-                }
-
+                console.log('❌ Validation errors:', errors);
                 return res.status(400).json({
                     error: 'Please fix the following errors',
                     details: errors
                 });
             }
 
+            // Handle file uploads
             let updatedImages = [...property.images];
-            let updatedVideo = property.video || '';
+            let updatedVideo = property.video;
             let updatedPanoramaImages = [...(property.panorama360Images || [])];
 
             // Handle deleted images
             if (req.body.deletedImages) {
-                let deletedImagesArray;
+                let deletedImagesArray = [];
                 try {
                     if (Array.isArray(req.body.deletedImages)) {
                         deletedImagesArray = req.body.deletedImages;
-                    } else {
-                        // It may be a JSON string or a plain single filename string
-                        try {
-                            deletedImagesArray = JSON.parse(req.body.deletedImages);
-                        } catch (e) {
-                            // Treat as single filename
-                            deletedImagesArray = [req.body.deletedImages];
-                        }
+                    } else if (typeof req.body.deletedImages === 'string') {
+                        deletedImagesArray = JSON.parse(req.body.deletedImages);
                     }
                 } catch (e) {
-                    deletedImagesArray = [];
+                    deletedImagesArray = [req.body.deletedImages];
                 }
 
                 const imagesToDelete = updatedImages.filter(img => 
@@ -898,67 +825,52 @@ export const updateProperty = async (req, res) => {
             if (req.files?.images && req.files.images.length > 0) {
                 const newImages = await uploadToCloudinary(req.files.images, 'images', 'image');
                 updatedImages = [...updatedImages, ...newImages];
+                
+                if (updatedImages.length > 8) {
+                    const overflow = updatedImages.length - 8;
+                    const imagesToDelete = updatedImages.slice(-overflow);
+                    await deleteCloudinaryAssets(imagesToDelete);
+                    updatedImages = updatedImages.slice(0, 8);
+                }
             }
 
-            if (updatedImages.length > MAX_IMAGES) {
-                const overflow = updatedImages.length - MAX_IMAGES;
-                const imagesToDelete = updatedImages.slice(-overflow);
-                await deleteCloudinaryAssets(imagesToDelete);
-                return res.status(400).json({ error: `Maximum of ${MAX_IMAGES} images allowed` });
-            }
-
-            // Handle video updates
+            // Handle video
             if (req.files?.video && req.files.video.length > 0) {
                 if (updatedVideo) {
                     await deleteCloudinaryAssets([updatedVideo]);
                 }
                 updatedVideo = await uploadToCloudinary(req.files.video, 'videos', 'video');
-            }
-
-            if (req.body.removeVideo === 'true' && updatedVideo) {
-                await deleteCloudinaryAssets([updatedVideo]);
+            } else if (req.body.removeVideo === 'true') {
+                if (updatedVideo) {
+                    await deleteCloudinaryAssets([updatedVideo]);
+                }
                 updatedVideo = '';
             }
 
-            // Handle panorama updates
+            // Handle panorama images
             if (req.files?.panorama360Images && req.files.panorama360Images.length > 0) {
-                // Validate each new panorama file
-                for (const panoramaFile of req.files.panorama360Images) {
-                    if (panoramaFile.size > 10 * 1024 * 1024) {
-                        throw new Error(`360° Panorama image "${panoramaFile.originalname}" exceeds 10MB size limit`);
-                    }
-                    if (!panoramaFile.mimetype.startsWith('image/')) {
-                        throw new Error(`360° Panorama "${panoramaFile.originalname}" must be an image file (JPG, PNG, or WebP)`);
-                    }
-                }
-
                 const newPanoramaImages = await uploadToCloudinary(req.files.panorama360Images, 'panorama', 'image');
                 updatedPanoramaImages = [...updatedPanoramaImages, ...newPanoramaImages];
-
-                // Check if total panorama images don't exceed limit
+                
                 if (updatedPanoramaImages.length > 5) {
                     const overflow = updatedPanoramaImages.length - 5;
                     const panoramasToDelete = updatedPanoramaImages.slice(-overflow);
                     await deleteCloudinaryAssets(panoramasToDelete);
-                    return res.status(400).json({ error: 'Maximum of 5 panoramic images allowed' });
+                    updatedPanoramaImages = updatedPanoramaImages.slice(0, 5);
                 }
             }
 
             // Handle deleted panoramas
             if (req.body.deletedPanoramaImages) {
-                let deletedPanoramasArray;
+                let deletedPanoramasArray = [];
                 try {
                     if (Array.isArray(req.body.deletedPanoramaImages)) {
                         deletedPanoramasArray = req.body.deletedPanoramaImages;
-                    } else {
-                        try {
-                            deletedPanoramasArray = JSON.parse(req.body.deletedPanoramaImages);
-                        } catch (e) {
-                            deletedPanoramasArray = [req.body.deletedPanoramaImages];
-                        }
+                    } else if (typeof req.body.deletedPanoramaImages === 'string') {
+                        deletedPanoramasArray = JSON.parse(req.body.deletedPanoramaImages);
                     }
                 } catch (e) {
-                    deletedPanoramasArray = [];
+                    deletedPanoramasArray = [req.body.deletedPanoramaImages];
                 }
 
                 const panoramasToDelete = updatedPanoramaImages.filter(img => 
@@ -973,109 +885,67 @@ export const updateProperty = async (req, res) => {
                     !deletedPanoramasArray.some(deleted => img.includes(deleted))
                 );
             }
-            if (req.body.status) delete req.body.status;
 
-            const allowedAvailability = ['Available','Not Available'];
-            let availabilityStatus;
-            if (req.body.availabilityStatus && allowedAvailability.includes(req.body.availabilityStatus)) {
-                availabilityStatus = req.body.availabilityStatus;
+            // Final updates with files
+            updates.images = updatedImages;
+            updates.video = updatedVideo;
+            updates.panorama360Images = updatedPanoramaImages;
+
+            // Handle coordinates
+            if (req.body.latitude !== undefined) {
+                updates.latitude = parseFloat(req.body.latitude) || null;
+            }
+            if (req.body.longitude !== undefined) {
+                updates.longitude = parseFloat(req.body.longitude) || null;
             }
 
-            // Build update data
-            // Debug log raw values before processing
-            console.log('Debug - Raw body values:', {
-                floorArea: req.body.floorArea,
-                lotArea: req.body.lotArea,
-                numberOfFloors: req.body.numberOfFloors,
-                typeofFloorArea: typeof req.body.floorArea,
-                typeofLotArea: typeof req.body.lotArea,
-                typeofNumberOfFloors: typeof req.body.numberOfFloors
-            });
-
-            const updatedData = {
-                ...req.body,
-                ...(availabilityStatus ? { availabilityStatus } : {}),
-                title: req.body.propertyType || property.title,
-                propertyType: req.body.listingType || property.propertyType,
-                price: req.body.price !== undefined ? num(req.body.price) : property.price,
-                occupancy: req.body.occupancy !== undefined ? num(req.body.occupancy, 1) : property.occupancy,
-                petFriendly: req.body.petFriendly !== undefined ? (req.body.petFriendly === 'true' || req.body.petFriendly === true) : property.petFriendly,
-                parking: req.body.parking !== undefined ? (req.body.parking === 'true' || req.body.parking === true) : property.parking,
-                numberOfRooms: req.body.numberOfRooms ? num(req.body.numberOfRooms, 0) : (property.numberOfRooms || 0),
-                areaSqm: req.body.areaSqm ? num(req.body.areaSqm, 0) : (property.areaSqm || 0),
-                // NEW: Process the numeric fields with more careful handling
-                floorArea: req.body.floorArea !== undefined ? num(req.body.floorArea, property.floorArea || 0) : (property.floorArea || 0),
-                lotArea: req.body.lotArea !== undefined ? num(req.body.lotArea, property.lotArea || 0) : (property.lotArea || 0),
-                numberOfFloors: req.body.numberOfFloors !== undefined ? num(req.body.numberOfFloors, property.numberOfFloors || 0) : (property.numberOfFloors || 0),
-                images: updatedImages,
-                video: updatedVideo,
-                panorama360Images: updatedPanoramaImages
-            };
-
-            // Handle propertyCondition based on listing type
-            const incomingListingType = req.body.listingType || property.propertyType;
-            if (String(incomingListingType).trim() === 'For Sale') {
-                // Only set propertyCondition for 'For Sale' listings
-                if (req.body.propertyCondition && req.body.propertyCondition.trim() !== '') {
-                    updatedData.propertyCondition = req.body.propertyCondition;
-                } else {
-                    updatedData.propertyCondition = 'Brand New';
-                }
-            } else {
-                // For 'For Rent' listings, ensure propertyCondition is empty
-                updatedData.propertyCondition = '';
-            }
-
-            // Debug log processed data before update
-            console.log('Debug - Final updatedData:', {
-                floorArea: updatedData.floorArea,
-                lotArea: updatedData.lotArea,
-                numberOfFloors: updatedData.numberOfFloors
-            });
+            console.log('✅ Final updates to save:', updates);
 
             const updatedProperty = await Property.findByIdAndUpdate(
                 req.params.id, 
-                updatedData, 
-                { new: true, runValidators: true }
+                updates, 
+                { 
+                    new: true, 
+                    runValidators: true,
+                    context: 'query'
+                }
             ).populate('landlord', 'fullName username profilePic address contactNumber landlordVerified');
-            
-            // Debug log the result after update
-            console.log('Debug - After update:', {
-                floorArea: updatedProperty.floorArea,
-                lotArea: updatedProperty.lotArea,
-                numberOfFloors: updatedProperty.numberOfFloors
-            });
+
+            if (!updatedProperty) {
+                return res.status(404).json({ error: "Property not found after update" });
+            }
+
+            console.log('🎉 Property updated successfully:', updatedProperty._id);
 
             res.json({
-                ...updatedProperty._doc,
-                images: updatedProperty.images,
-                video: updatedProperty.video,
-                // NEW: Include new fields in update response
-                floorArea: updatedProperty.floorArea,
-                lotArea: updatedProperty.lotArea,
-                numberOfFloors: updatedProperty.numberOfFloors,
-                panorama360Images: updatedProperty.panorama360Images,
-                landlordProfile: updatedProperty.landlord ? {
-                    id: updatedProperty.landlord._id,
-                    fullName: updatedProperty.landlord.fullName || updatedProperty.landlord.username || 'Landlord',
-                    username: updatedProperty.landlord.username || '',
-                    contactNumber: updatedProperty.landlord.contactNumber || '',
-                    address: updatedProperty.landlord.address || '',
-                    verified: !!updatedProperty.landlord.landlordVerified,
-                    profilePic: updatedProperty.landlord.profilePic || ''
-                } : null
+                message: "Property updated successfully",
+                property: {
+                    ...updatedProperty._doc,
+                    images: updatedProperty.images,
+                    video: updatedProperty.video,
+                    panorama360Images: updatedProperty.panorama360Images,
+                    landlordProfile: updatedProperty.landlord ? {
+                        id: updatedProperty.landlord._id,
+                        fullName: updatedProperty.landlord.fullName || updatedProperty.landlord.username || 'Landlord',
+                        username: updatedProperty.landlord.username || '',
+                        contactNumber: updatedProperty.landlord.contactNumber || '',
+                        address: updatedProperty.landlord.address || '',
+                        verified: !!updatedProperty.landlord.landlordVerified,
+                        profilePic: updatedProperty.landlord.profilePic || ''
+                    } : null
+                }
             });
+
         } catch (error) {
-            console.error("UpdateProperty error:", error);
+            console.error("❌ UpdateProperty error:", error);
             res.status(500).json({ 
                 error: 'Error updating property',
-                detail: process.env.NODE_ENV !== 'production' ? error.message : undefined
+                detail: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
             });
         }
     });
 };
 
-// ... rest of the controller functions remain the same
 export const setPropertyStatus = async (req, res) => {
     try {
         if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
