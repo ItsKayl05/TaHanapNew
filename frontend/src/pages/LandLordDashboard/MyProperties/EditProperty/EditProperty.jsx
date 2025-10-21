@@ -139,6 +139,7 @@ const EditProperty = () => {
                 });
 
                 // Initialize formData with null checks and proper type conversions
+                // FIXED: Remove duplicate propertyType assignment
                 setFormData({
                     propertyType: data.propertyType || data.title || '',
                     billsIncluded: Array.isArray(data.billsIncluded) ? data.billsIncluded : 
@@ -151,9 +152,8 @@ const EditProperty = () => {
                     address: data.address || '',
                     price: String(data.price || ''),
                     barangay: data.barangay || '',
-                    // 🟡 FIX 1: Set listingType from API data
+                    // 🟡 FIX 1: Set listingType from API data (SINGLE assignment)
                     listingType: listingType,
-                    propertyType: data.propertyType || data.title || '',
                     petFriendly: Boolean(data.petFriendly),
                     allowedPets: Array.isArray(data.allowedPets) ? data.allowedPets : 
                         (typeof data.allowedPets === 'string' && data.allowedPets.trim() ? 
@@ -736,7 +736,6 @@ const EditProperty = () => {
         }
     };
 
-    // ... (rest of the JSX remains the same, only the handleSubmit function was significantly modified)
     return (
         <div className="dashboard-container landlord-dashboard">
             <Sidebar activeItem="my-properties" />

@@ -1,78 +1,51 @@
-// apiConfig.js - Fixed for your actual backend URL
+// apiConfig.js - Fixed exports
 const isDevelopment = import.meta.env.MODE === 'development';
 
-// FIXED: Using your actual backend URL
+// Determine API base URL
 const getApiBase = () => {
-  // Check for explicit environment variable first
-  const envBase = import.meta.env.VITE_API_BASE_URL?.trim();
-  if (envBase) {
-    console.log(`[apiConfig] Using VITE_API_BASE_URL: ${envBase}`);
-    return envBase;
+  // Use explicit environment variable if set
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL.replace(/\/$/, '');
   }
 
-  // Auto-detect based on current environment
-  if (typeof window !== 'undefined') {
-    const { protocol, hostname, port } = window.location;
-    
-    // Development environments
-    if (isDevelopment || hostname === 'localhost' || hostname === '127.0.0.1') {
-      const devUrl = `http://localhost:4000`;
-      console.log(`[apiConfig] Development mode - Using ${devUrl}`);
-      return devUrl;
-    }
-    
-    // Production - use your actual backend URL
-    if (hostname.includes('tahanap.xyz')) {
-      const prodUrl = 'https://tahanap-backend-g6mx.onrender.com';
-      console.log(`[apiConfig] Production mode - Using ${prodUrl}`);
-      return prodUrl;
-    }
+  // Development - always use localhost
+  if (isDevelopment || (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))) {
+    return 'http://localhost:4000';
   }
 
-  // Default fallback to your actual backend
-  const defaultUrl = isDevelopment ? 'http://localhost:4000' : 'https://tahanap-backend-g6mx.onrender.com';
-  console.log(`[apiConfig] Default mode - Using ${defaultUrl}`);
-  return defaultUrl;
+  // Production - use your production URL
+  return 'https://tahanap-backend-g6mx.onrender.com';
 };
 
-const API_BASE = getApiBase().replace(/\/$/, '');
-export const API_URL = `${API_BASE}/api`;
-export const UPLOADS_BASE = `${API_BASE}/uploads`;
+const API_BASE = getApiBase();
+const API_URL = `${API_BASE}/api`;
+const UPLOADS_BASE = `${API_BASE}/uploads`;
 
-export const buildApi = (path = '') => {
+console.log(`[apiConfig] API Base: ${API_BASE}`);
+if (typeof window !== 'undefined') {
+  console.log(`[apiConfig] Current Host: ${window.location.host}`);
+}
+
+// Build API URL
+const buildApi = (path = '') => {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-  const url = `${API_URL}${normalizedPath}`;
-  console.log(`[apiConfig] Building API URL: ${url}`);
-  return url;
+  return `${API_URL}${normalizedPath}`;
 };
 
-export const buildUpload = (rel = '') => {
+// Build upload URL
+const buildUpload = (rel = '') => {
   if (!rel) return '';
   
-  // Already absolute URL
   if (rel.startsWith('http')) {
-    // Fix mixed content
-    if (window.location.protocol === 'https:' && rel.startsWith('http:')) {
-      return rel.replace('http:', 'https:');
-    }
     return rel;
   }
   
-  // Relative path - build full URL
-  let uploadUrl = `${UPLOADS_BASE}${rel.startsWith('/') ? rel : `/${rel}`}`;
-  
-  // Fix mixed content
-  if (window.location.protocol === 'https:' && uploadUrl.startsWith('http:')) {
-    uploadUrl = uploadUrl.replace('http:', 'https:');
-  }
-  
-  return uploadUrl;
+  const normalizedRel = rel.startsWith('/') ? rel : `/${rel}`;
+  return `${UPLOADS_BASE}${normalizedRel}`;
 };
 
-import { toast } from 'react-toastify';
-
-// Enhanced fetch function
-export const apiRequest = async (endpoint, options = {}) => {
+// Enhanced API request function
+const apiRequest = async (endpoint, options = {}) => {
   const url = buildApi(endpoint);
   
   const config = {
@@ -82,6 +55,7 @@ export const apiRequest = async (endpoint, options = {}) => {
       'Accept': 'application/json',
       ...options.headers,
     },
+    credentials: 'include',
     ...options,
   };
 
@@ -92,6 +66,8 @@ export const apiRequest = async (endpoint, options = {}) => {
   }
 
   try {
+    console.log(`[api] Making request to: ${url}`);
+    
     const response = await fetch(url, config);
     
     // Handle authentication issues
@@ -99,94 +75,66 @@ export const apiRequest = async (endpoint, options = {}) => {
       localStorage.removeItem('user_token');
       localStorage.removeItem('user_role');
       localStorage.removeItem('user_id');
-      toast.error('Session expired. Please log in again.');
       window.location.href = '/login';
       throw new Error('Session expired');
     }
 
-    // Handle server errors
     if (!response.ok) {
-      let errorMessage = 'An error occurred';
-      
+      const errorText = await response.text();
+      let errorData;
       try {
-        const errorData = await response.json();
-        errorMessage = errorData.message || errorData.error || errorMessage;
-      } catch (e) {
-        // If response is not JSON, use status text
-        errorMessage = response.statusText || errorMessage;
+        errorData = JSON.parse(errorText);
+      } catch {
+        errorData = { message: errorText || 'Request failed' };
       }
-
-      // Show appropriate toast based on status code
-      switch (response.status) {
-        case 403:
-          toast.error(`Access denied: ${errorMessage}`);
-          break;
-        case 404:
-          toast.error(`Not found: ${errorMessage}`);
-          break;
-        case 413:
-          toast.error('File too large. Please choose a smaller file.');
-          break;
-        case 429:
-          toast.error('Too many requests. Please wait a moment.');
-          break;
-        case 500:
-          toast.error('Server error. Please try again later.');
-          break;
-        case 502:
-        case 503:
-          toast.error('Service temporarily unavailable. Please try again later.');
-          break;
-        default:
-          toast.error(errorMessage);
-      }
-      throw new Error(errorMessage);
+      throw new Error(errorData.message || `HTTP ${response.status}`);
     }
 
-    // Parse successful response
-    const data = await response.json();
-    return data;
+    return await response.json();
     
   } catch (error) {
     console.error(`[api] Request failed for ${endpoint}:`, error);
     
-    // Only show toast for non-authentication errors
-    if (!error.message.includes('Session expired')) {
-      toast.error('Network error. Please check your connection.');
+    // Provide helpful error messages
+    if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+      if (isDevelopment) {
+        console.error(`[api] Development Tip: Make sure your backend is running on ${API_BASE}`);
+        console.error(`[api] You can start it with: npm run dev`);
+      }
+      throw new Error('Cannot connect to server. Please check if the backend is running.');
     }
     
     throw error;
   }
 };
 
-// Utility function to normalize API responses
-export const normalizePayload = (payload, preferredKeys = ['data', 'result', 'messages', 'applications']) => {
+// Utility functions
+const normalizePayload = (payload) => {
   if (!payload) return [];
   if (Array.isArray(payload)) return payload;
   
-  for (const k of preferredKeys) {
-    if (payload && Object.prototype.hasOwnProperty.call(payload, k) && Array.isArray(payload[k])) {
-      return payload[k];
+  const arrayKeys = ['data', 'result', 'messages', 'applications', 'users', 'properties'];
+  for (const key of arrayKeys) {
+    if (payload[key] && Array.isArray(payload[key])) {
+      return payload[key];
     }
   }
   
-  const values = Object.values(payload).filter(v => Array.isArray(v));
-  if (values.length) return values[0];
-  
-  return [];
+  return Object.values(payload).find(val => Array.isArray(val)) || [];
 };
 
-// Expose for debugging
-if (typeof window !== 'undefined' && isDevelopment) {
-  window.__APP_API_CONFIG__ = {
-    API_BASE,
-    API_URL,
-    UPLOADS_BASE,
-    currentUrl: window.location.href,
-    buildApi: (path) => buildApi(path)
-  };
-}
+// Named exports - FIXED: Added all required exports
+export { 
+  API_BASE, 
+  API_URL, 
+  UPLOADS_BASE, 
+  buildApi, 
+  buildUpload,
+  apiRequest,
+  normalizePayload 
+};
 
+// Default export
 export default { 
   API_BASE, 
   API_URL, 
@@ -194,5 +142,5 @@ export default {
   buildApi, 
   buildUpload,
   apiRequest,
-  normalizePayload
+  normalizePayload 
 };
