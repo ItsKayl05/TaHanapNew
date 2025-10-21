@@ -78,6 +78,7 @@ const EditProperty = () => {
         customLandmark: ''
     });
 
+    const LISTING_TYPES = ['For Rent', 'For Sale'];
     const PROPERTY_TYPES = ['House','House and Lot','Apartment','Condominium','Townhouse','Dormitory','Bedspace','Studio Unit','Lot','Land','Commercial Space','Office Space','Warehouse','Building','Bungalow','Duplex','Triplex','Inner Lot','Corner Lot'];
 
     const barangays = [
@@ -140,9 +141,9 @@ const EditProperty = () => {
                     address: data.address || '',
                     price: String(data.price || ''),
                     barangay: data.barangay || '',
-                    // Fix: Ensure listingType and propertyType are properly set
-                    listingType: data.propertyType || '',  // For Rent or For Sale
-                    propertyType: data.propertyType || '',  // The actual property type
+                    // Correctly determine and set listing type and property type
+                    listingType: data.listingType || data.type || data.propertyListingType || '',  // Try different possible API field names
+                    propertyType: data.title || data.propertyType || '',  // The actual property type
                     petFriendly: Boolean(data.petFriendly),
                     allowedPets: Array.isArray(data.allowedPets) ? data.allowedPets : 
                         (typeof data.allowedPets === 'string' && data.allowedPets.trim() ? 
@@ -445,15 +446,34 @@ const EditProperty = () => {
         })();
     }, [propertyId]);
 
-    // Auto-clear fields when listing type changes
+    // Auto-clear fields and manage field visibility when listing type changes
+    const isForRent = formData.listingType === 'For Rent';
+    const isForSale = formData.listingType === 'For Sale';
+    
+    // Function to check if a field should be disabled based on listing type
+    const isFieldDisabled = (fieldName) => {
+        if (!formData.listingType) return true; // Disable all type-specific fields if no listing type selected
+        
+        const rentOnlyFields = ['occupancy', 'petFriendly', 'allowedPets', 'rules', 'billsIncluded'];
+        const saleOnlyFields = ['propertyCondition', 'marketHighlights'];
+        
+        if (isForRent && saleOnlyFields.includes(fieldName)) return true;
+        if (isForSale && rentOnlyFields.includes(fieldName)) return true;
+        
+        return false;
+    };
+    
     useEffect(() => {
-        const lt = formData.listingType;
+        if (!formData.listingType) return;
+        
         setFormData(prev => {
             const next = { ...prev };
-            if (lt === 'For Rent') {
+            if (isForRent) {
+                // Clear sale-only fields
                 next.propertyCondition = '';
                 next.marketHighlights = [];
-            } else if (lt === 'For Sale') {
+            } else if (isForSale) {
+                // Clear rent-only fields
                 next.occupancy = '';
                 next.petFriendly = false;
                 next.allowedPets = [];
@@ -487,10 +507,19 @@ const EditProperty = () => {
                 { key: 'numberOfFloors', ok: formData.numberOfFloors !== undefined && formData.numberOfFloors !== '', msg: "Please specify the number of floors" }
             ];
             
-            if (formData.listingType === 'For Rent') {
-                requiredChecks.push({ key: 'occupancy', ok: formData.occupancy && formData.occupancy.toString().trim() !== '' && !isNaN(Number(formData.occupancy)) && Number(formData.occupancy) > 0, msg: "Please specify maximum occupancy (must be greater than 0)" });
-            } else if (formData.listingType === 'For Sale') {
-                requiredChecks.push({ key: 'propertyCondition', ok: formData.propertyCondition && formData.propertyCondition.toString().trim() !== '', msg: "Please select the property condition" });
+            // Add conditional validations based on listing type
+            if (isForRent) {
+                requiredChecks.push({ 
+                    key: 'occupancy', 
+                    ok: formData.occupancy && formData.occupancy.toString().trim() !== '' && !isNaN(Number(formData.occupancy)) && Number(formData.occupancy) > 0, 
+                    msg: "Please specify maximum occupancy (must be greater than 0)" 
+                });
+            } else if (isForSale) {
+                requiredChecks.push({ 
+                    key: 'propertyCondition', 
+                    ok: formData.propertyCondition && formData.propertyCondition.toString().trim() !== '', 
+                    msg: "Please select the property condition" 
+                });
             }
             
             for (const chk of requiredChecks) {
@@ -581,7 +610,8 @@ const EditProperty = () => {
             const landmarksString = landmarksArr.join(', ');
 
             Object.entries(formData).forEach(([key, value]) => {
-                if (formData.listingType === 'For Sale' && key === 'billsIncluded') return;
+                // Skip validation for disabled fields based on listing type
+                if (isFieldDisabled(key)) return;
                 if (key === 'landmarks') {
                     formDataToSend.append('landmarks', landmarksString);
                 } else if (key === 'allowedPets') {
@@ -868,7 +898,7 @@ const EditProperty = () => {
                                                         return { ...prev, billsIncluded: arr };
                                                     });
                                                 }} 
-                                                disabled={formData.listingType === 'For Sale'} 
+                                                disabled={isFieldDisabled('billsIncluded')} 
                                             />
                                             {b}
                                         </label>
@@ -878,13 +908,14 @@ const EditProperty = () => {
                             </div>
 
                             <div className="field-group">
-                                <label className={formData.listingType === 'For Sale' ? 'required' : ''}>Property Condition</label>
+                                <label className={isForSale ? 'required' : ''}>Property Condition</label>
                                 <select 
                                     className="ll-field" 
                                     name="propertyCondition" 
                                     value={formData.propertyCondition} 
                                     onChange={handleChange} 
-                                    required={formData.listingType === 'For Sale'}
+                                    required={isForSale}
+                                    disabled={isFieldDisabled('propertyCondition')}
                                 >
                                     <option value="">Select Property Condition</option>
                                     <option value="Fully Furnished">Fully Furnished</option>
