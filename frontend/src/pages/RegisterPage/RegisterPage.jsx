@@ -1,0 +1,332 @@
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import "./RegisterPage.css";
+import TermPopup from "../../components/TermPopup/TermPopup";
+import { 
+    AiOutlineUser, AiOutlineMail, AiOutlineLock, AiOutlineEye, 
+    AiOutlineEyeInvisible, AiOutlineHome, AiOutlinePhone, AiOutlineIdcard, AiOutlineEnvironment 
+} from "react-icons/ai";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { buildApi, apiRequest } from '../../services/apiConfig';
+
+const RegisterPage = () => {
+    const navigate = useNavigate();
+
+    const [formData, setFormData] = useState({
+        username: "",
+        email: "",
+        fullName: "",
+        address: "",
+        contactNumber: "",
+        password: "",
+        role: "tenant",
+        termsAccepted: false
+    });
+
+    const [passwordVisible, setPasswordVisible] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const [passwordStrength, setPasswordStrength] = useState(0);
+    const [pwdScore, setPwdScore] = useState(0); // 0-100
+    const [pwdLabel, setPwdLabel] = useState('');
+    const [isPopupOpen, setIsPopupOpen] = useState(false); // State for terms popup
+    const MIN_PASSWORD_LENGTH = 8;
+
+    const handleChange = (e) => {
+        const { name, value, type, checked } = e.target;
+        
+        // Special handling for contact number - only allow numbers and limit to 11 digits
+        if (name === "contactNumber") {
+            // Remove any non-digit characters
+            const numbersOnly = value.replace(/\D/g, '');
+            // Limit to 11 digits
+            const limitedValue = numbersOnly.slice(0, 11);
+            setFormData((prev) => ({ ...prev, [name]: limitedValue }));
+        } else {
+            setFormData((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+        }
+
+        if (name === "password") {
+            // keep legacy simple score for progress bar (0-4) for compatibility
+            setPasswordStrength(value ? Math.min(4, Math.floor((value.length / 6))) : 0);
+        }
+    };
+
+    // Password strength scoring (copied from LoginPage logic)
+    useEffect(()=>{
+        const pwd = formData.password || '';
+        if(!pwd){ setPwdScore(0); setPwdLabel(''); return; }
+        let score = 0;
+        const length = pwd.length;
+        if(length >= 6) score += 20;
+        if(length >= 10) score += 15;
+        if(length >= 14) score += 10;
+        if(/[a-z]/.test(pwd)) score += 10;
+        if(/[A-Z]/.test(pwd)) score += 15;
+        if(/[0-9]/.test(pwd)) score += 15;
+        if(/[^A-Za-z0-9]/.test(pwd)) score += 15;
+        if(length >= 18) score += 10;
+        if(score > 100) score = 100;
+        setPwdScore(score);
+        let label = 'Weak';
+        if(score >= 80) label = 'Strong'; else if(score >= 55) label = 'Medium';
+        setPwdLabel(label);
+    },[formData.password]);
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setError(null);
+      
+        if (!formData.termsAccepted) {
+            toast.error("You must accept the terms and agreement.");
+            setLoading(false);
+            return;
+        }
+
+        // Validate contact number - must be exactly 11 digits
+        if (formData.contactNumber.length !== 11) {
+            toast.error("Contact number must be exactly 11 digits.");
+            setLoading(false);
+            return;
+        }
+
+        // Validate other required fields
+        if (!formData.username || !formData.email || !formData.fullName || !formData.address || !formData.password) {
+            toast.error("Please fill in all required fields.");
+            setLoading(false);
+            return;
+        }
+
+        // Validate email format
+        const emailRegex = /\S+@\S+\.\S+/;
+        if (!emailRegex.test(formData.email)) {
+            toast.error("Please enter a valid email address.");
+            setLoading(false);
+            return;
+        }
+
+        // Validate password length
+        if (formData.password.length < MIN_PASSWORD_LENGTH) {
+            toast.error(`Password must be at least ${MIN_PASSWORD_LENGTH} characters long and include an uppercase letter, a number, and a special character`);
+            setLoading(false);
+            return;
+        }
+      
+        try {
+            // Use shared apiRequest which handles HTML responses and attaches auth headers
+            const data = await apiRequest('/auth/register', {
+                method: 'POST',
+                body: JSON.stringify(formData),
+            });
+
+            // apiRequest already throws on non-OK, so if we reach here it's success
+            toast.success(data?.msg || 'OTP sent to your email. Please verify.');
+            // Do not expose OTP in responses. Rely on email delivery for verification.
+            localStorage.setItem('user_email', formData.email);
+            setTimeout(() => navigate('/verify-otp'), 1200);
+        } catch (error) {
+            // apiRequest throws friendly errors (including when server returns HTML)
+            console.error('Registration error:', error);
+            const msg = error?.message || 'Registration failed. Please try again.';
+            setError(msg);
+            toast.error(msg);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="register-page with-illustration">
+            <div className="auth-illustration" aria-hidden="true">
+                <picture className="illu-art">
+                    <source srcSet="/auth-hero.svg" type="image/svg+xml" />
+                    <img src="/auth-hero.svg" alt="Decorative abstract housing illustration" loading="lazy" />
+                </picture>
+                <div className="illu-inner">
+                    <h2>Find Your Next Home</h2>
+                    <p>Register now to save favorites, contact property owners, and manage your rentals effortlessly.</p>
+                </div>
+            </div>
+            <div className="auth-form-wrap">
+            <h1>Sign Up</h1>
+            <form className="register-form" onSubmit={handleSubmit}>
+                {error && <div className="error-message">{error}</div>}
+
+                <div className="input-group">
+                    <label htmlFor="username">Username</label>
+                    <div className="input-wrapper">
+                        <AiOutlineUser size={20} color="#777" />
+                        <input
+                            type="text"
+                            name="username"
+                            id="username"
+                            value={formData.username}
+                            onChange={handleChange}
+                            placeholder="Username"
+                            autoComplete="username"
+                            required
+                        />
+                    </div>
+                </div>
+
+                <div className="input-group">
+                    <label htmlFor="fullName">Full Name</label>
+                    <div className="input-wrapper">
+                        <AiOutlineIdcard size={20} color="#777" />
+                        <input
+                            type="text"
+                            name="fullName"
+                            id="fullName"
+                            value={formData.fullName}
+                            onChange={handleChange}
+                            placeholder="Full Name"
+                            autoComplete="name"
+                            required
+                        />
+                    </div>
+                </div>
+
+                <div className="input-group">
+                    <label htmlFor="email">Email</label>
+                    <div className="input-wrapper">
+                        <AiOutlineMail size={20} color="#777" />
+                        <input
+                            type="email"
+                            name="email"
+                            id="email"
+                            value={formData.email}
+                            onChange={handleChange}
+                            placeholder="Email"
+                            autoComplete="email"
+                            required
+                        />
+                    </div>
+                </div>
+
+                <div className="input-group">
+                    <label htmlFor="address">Address</label>
+                    <div className="input-wrapper">
+                        <AiOutlineEnvironment size={20} color="#777" />
+                        <input
+                            type="text"
+                            name="address"
+                            id="address"
+                            value={formData.address}
+                            onChange={handleChange}
+                            placeholder="Address"
+                            autoComplete="address"
+                            required
+                        />
+                    </div>
+                </div>
+
+                <div className="input-group">
+                    <label htmlFor="role">Select Role</label>
+                    <div className="input-wrapper">
+                        {formData.role === "tenant" ? (
+                            <AiOutlineUser size={20} color="#777" />
+                        ) : (
+                            <AiOutlineHome size={20} color="#777" />
+                        )}
+                        <select name="role" id="role" value={formData.role} onChange={handleChange}>
+                                <option value="tenant">Property Seeker</option>
+                            <option value="landlord">Property Owner</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div className="input-group">
+                    <label htmlFor="contactNumber">Contact Number</label>
+                    <div className="input-wrapper">
+                        <AiOutlinePhone size={20} color="#777" />
+                        <input
+                            type="tel"
+                            name="contactNumber"
+                            id="contactNumber"
+                            value={formData.contactNumber}
+                            onChange={handleChange}
+                            placeholder="11-digit number"
+                            autoComplete="tel"
+                            pattern="[0-9]{11}"
+                            maxLength="11"
+                            required
+                        />
+                    </div>
+                    {formData.contactNumber && (
+                        <div className="contact-number-info">
+                            <small className={formData.contactNumber.length === 11 ? "valid" : "invalid"}>
+                                {formData.contactNumber.length}/11 digits
+                            </small>
+                        </div>
+                    )}
+                </div>
+
+                <div className="input-group full">
+                    <label htmlFor="password">Password</label>
+                    <div className="input-wrapper">
+                        <AiOutlineLock size={20} color="#777" />
+                        <input
+                            type={passwordVisible ? "text" : "password"}
+                            name="password"
+                            id="password"
+                            value={formData.password}
+                            onChange={handleChange}
+                            placeholder="Password"
+                            autoComplete="new-password"
+                            required
+                        />
+                        <div className="eye-icon" onClick={() => setPasswordVisible(!passwordVisible)}>
+                            {passwordVisible ? <AiOutlineEyeInvisible size={20} color="#777" /> : <AiOutlineEye size={20} color="#777" />}
+                        </div>
+                    </div>
+                    {formData.password && (
+                        <div className="password-strength">
+                            <progress value={passwordStrength} max={4}></progress>
+                            {pwdLabel && (
+                                <div className={`pwd-meta ${pwdLabel.toLowerCase()}`}>{pwdLabel}</div>
+                            )}
+                        </div>
+                    )}
+                    {/* Inline hint / error for minimum password length */}
+                    {formData.password && formData.password.length < MIN_PASSWORD_LENGTH ? (
+                        <div className="field-error small" style={{color:'var(--danger)', marginTop:6}}>
+                            Password must be at least {MIN_PASSWORD_LENGTH} characters long.
+                        </div>
+                    ) : (
+                        <div className="field-hint small">Minimum {MIN_PASSWORD_LENGTH} characters. Use letters, numbers, and symbols for a stronger password.</div>
+                    )}
+                </div>
+
+                <div className="input-group full">
+                    <label>
+                        <input
+                            type="checkbox"
+                            name="termsAccepted"
+                            checked={formData.termsAccepted}
+                            onChange={handleChange}
+                            required
+                        />
+                        ‎ I accept the <span className="terms-link" onClick={() => setIsPopupOpen(true)}>Terms & Agreement</span>
+                    </label>
+                </div>
+
+                <button className="register-btn" type="submit" disabled={loading}>
+                    {loading ? "Signing Up..." : "Sign Up"}
+                </button>
+
+                <div className="signup-link">
+                    Already have an account? <a href="/login">Log In</a>
+                </div>
+            </form>
+            </div>
+
+            <TermPopup isOpen={isPopupOpen} onClose={() => setIsPopupOpen(false)} />
+
+            <ToastContainer position="top-right" autoClose={5000} hideProgressBar />
+        </div>
+    );
+};
+
+export default RegisterPage;

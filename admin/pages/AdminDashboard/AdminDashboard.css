@@ -1,0 +1,58 @@
+/* Barangay stats tables */
+.barangay-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #f8fafc;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px 0 rgba(59,130,246,0.07);
+  margin-bottom: 1.5rem;
+}
+.barangay-table th, .barangay-table td {
+  padding: 0.7rem 1.1rem;
+  text-align: left;
+}
+.barangay-table th {
+  background: #e0e7ef;
+  color: #334155;
+  font-size: 1rem;
+  font-weight: 700;
+  border-bottom: 2px solid #cbd5e1;
+}
+.barangay-table td {
+  color: #475569;
+  font-size: 0.98rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+.barangay-table tr:last-child td {
+  border-bottom: none;
+}
+/* Dashboard Theme Revamp */
+:root {
+  --ad-gap: clamp(1rem,1.8vw,2rem);
+  --ad-card-bg:#ffffff;
+  --ad-border:#e2e8f0;
+  --ad-shadow:0 4px 14px -2px rgba(0,0,0,.12),0 0 0 1px rgba(0,0,0,.04);
+  --ad-gradient:linear-gradient(135deg,#38bdf8 0%,#6366f1 45%,#8b5cf6 100%);
+}
+
+.admin-dashboard { display:flex; min-height:100vh; background:#0f172a; background-image:radial-gradient(circle at 20% 25%,rgba(255,255,255,.09),transparent 60%), radial-gradient(circle at 80% 70%,rgba(255,255,255,.05),transparent 65%); }
+.dashboard-body { display:flex; flex:1; }
+.dashboard-content { flex:1; padding:var(--ad-gap); margin:1.25rem 1.5rem; position:relative; background:var(--ad-card-bg); border:1px solid var(--ad-border); border-radius:16px; box-shadow:var(--ad-shadow); overflow:hidden; display:flex; flex-direction:column; }
+.dashboard-content::before { content:""; position:absolute; inset:0; background:linear-gradient(120deg,rgba(56,189,248,.10),rgba(99,102,241,.12)); opacity:.55; pointer-events:none; }
+.dashboard-content h1 { margin:0 0 .35rem; font-size:clamp(1.4rem,1.1rem + .9vw,2.15rem); font-weight:600; letter-spacing:.5px; background:var(--ad-gradient); -webkit-background-clip:text; background-clip:text; color:transparent; }
+.dashboard-content p { margin:0 0 1.1rem; color:#64748b; font-size:.95rem; }
+
+.dashboard-cards { position:relative; z-index:2; display:grid; gap:1.1rem; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); margin-top:.25rem; }
+
+/* user-breakdown removed in favor of dedicated DashboardCard entries */
+
+/* Card enhancements (if DashboardCard lacks styling) */
+.dashboard-cards .dashboard-card { position:relative; border:1px solid var(--ad-border); border-radius:14px; background:#fff; padding:1.2rem 1.1rem 1.05rem; box-shadow:0 2px 6px rgba(0,0,0,0.05); overflow:hidden; }
+.dashboard-cards .dashboard-card::after { content:""; position:absolute; inset:0; background:linear-gradient(150deg,rgba(56,189,248,.18),rgba(99,102,241,0.08)); opacity:.55; mix-blend-mode:overlay; pointer-events:none; }
+.dashboard-cards .dashboard-card h3 { margin:0 0 .45rem; font-size:.8rem; letter-spacing:.09em; font-weight:600; text-transform:uppercase; color:#64748b; }
+.dashboard-cards .dashboard-card .value { font-size:2rem; font-weight:600; line-height:1; letter-spacing:.5px; background:var(--ad-gradient); -webkit-background-clip:text; background-clip:text; color:transparent; }
+
+/* Responsive adjustments */
+@media (max-width:1100px){ .dashboard-content { margin:1rem 1rem 1.25rem; } }
+@media (max-width:860px){ .admin-dashboard { flex-direction:column; } .dashboard-body { flex-direction:column; } .dashboard-content { margin:5.5rem 1rem 1.25rem; } }

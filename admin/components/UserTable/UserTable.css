@@ -1,0 +1,55 @@
+/* Modern table container */
+.user-table { margin-bottom:2rem; overflow-x:auto; border:1px solid #e2e8f0; border-radius:10px; background:#ffffff; box-shadow:0 2px 6px rgba(0,0,0,0.05); }
+.user-table table { width:100%; border-collapse:separate; border-spacing:0; font-size:.9rem; }
+.user-table thead th { position:sticky; top:0; background:#f1f5f9; backdrop-filter:blur(6px); z-index:2; }
+.user-table th, .user-table td { padding:11px 14px; text-align:left; white-space:nowrap; }
+.user-table thead th { font-weight:600; letter-spacing:.04em; font-size:.68rem; text-transform:uppercase; color:#475569; border-bottom:1px solid #e2e8f0; }
+.user-table tbody td { border-top:1px solid #f1f5f9; font-size:.85rem; color:#1e293b; }
+
+/* Skeleton */
+.skeleton-body tr { background:transparent !important; }
+.sk-line { position:relative; overflow:hidden; height:12px; border-radius:6px; background:#e2e8f0; }
+.sk-line::after { content:""; position:absolute; inset:0; background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,.65),rgba(255,255,255,0)); animation:shimmer 1.35s infinite; }
+@keyframes shimmer { 0% { transform:translateX(-100%);} 100% { transform:translateX(100%);} }
+
+/* Zebra + hover */
+.user-table tbody tr:nth-child(even) { background:#f8fafc; }
+.user-table tbody tr:hover { background:#eff6ff; box-shadow:inset 2px 0 0 #3b82f6; }
+
+/* Banned row subtle tone */
+.user-table tr.banned { background:linear-gradient(90deg, #fff5f5, #fff); }
+.user-table tr.banned:hover { background:linear-gradient(90deg,#ffe2e2,#fff5f5); }
+.user-table tr.banned td { color:#64748b; }
+
+/* Status badge */
+.status-badge { padding:4px 10px; border-radius:999px; font-size:.65rem; font-weight:600; letter-spacing:.05em; text-transform:uppercase; display:inline-flex; align-items:center; gap:4px; position:relative; }
+.status-badge::before { content:""; width:6px; height:6px; border-radius:50%; background:currentColor; box-shadow:0 0 0 3px rgba(0,0,0,0.06); }
+.status-badge.active { background:#ecfdf5; color:#059669; }
+.status-badge.banned { background:#fef2f2; color:#dc2626; }
+
+/* Action buttons group */
+.ban-btn, .unban-btn, .delete-btn { position:relative; padding:6px 11px 6px 12px; margin-right:6px; border:none; border-radius:6px; font-size:.7rem; font-weight:600; letter-spacing:.05em; cursor:pointer; display:inline-flex; align-items:center; gap:6px; text-transform:uppercase; transition:background .18s, transform .18s, box-shadow .18s; }
+.ban-btn:active, .unban-btn:active, .delete-btn:active { transform:translateY(1px); }
+.ban-btn { background:#fee2e2; color:#dc2626; }
+.ban-btn:hover { background:#fecaca; }
+.unban-btn { background:#dcfce7; color:#15803d; }
+.unban-btn:hover { background:#bbf7d0; }
+.delete-btn { background:#fef2f2; color:#b91c1c; }
+.delete-btn:hover { background:#fee2e2; }
+
+/* Focus states */
+.ban-btn:focus-visible, .unban-btn:focus-visible, .delete-btn:focus-visible { outline:2px solid #3b82f6; outline-offset:2px; }
+
+/* Responsive condense */
+@media (max-width: 860px) {
+  .user-table th:nth-child(1), .user-table td:nth-child(1) { display:none; }
+  .user-table table { font-size:.85rem; }
+  .ban-btn, .unban-btn, .delete-btn { font-size:.6rem; padding:5px 8px; }
+}
+@media (max-width: 560px) {
+  .user-table th:nth-child(5), .user-table td:nth-child(5) { white-space:normal; }
+  .user-table tbody tr { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:.25rem .75rem; padding:.6rem 0; }
+  .user-table tbody td { border:none; padding:4px 10px; }
+  .user-table tbody td:last-child { grid-column:1 / -1; }
+  .status-badge { font-size:.55rem; }
+}

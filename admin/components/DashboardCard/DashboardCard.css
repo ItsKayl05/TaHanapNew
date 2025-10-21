@@ -1,0 +1,25 @@
+.dashboard-card {
+  display: flex;
+  align-items: center;
+  background: white;
+  padding: 18px;
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(15,23,42,0.06);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+  
+.dashboard-card:hover { transform: translateY(-6px); box-shadow: 0 10px 30px rgba(15,23,42,0.08); }
+
+.card-icon { width:56px; height:56px; display:flex; align-items:center; justify-content:center; border-radius:12px; font-size:26px; color:#fff; margin-right:14px; flex-shrink:0; }
+
+.card-info h3 { font-size:13px; margin:0 0 6px; color:#6b7280; text-transform:uppercase; letter-spacing:0.08em; }
+.card-info p { font-size:22px; color:#0f172a; font-weight:700; margin:0; }
+
+/* Accent variants (use by adding a wrapper class or inline styles) */
+.card-accent-blue .card-icon { background: linear-gradient(135deg,#60a5fa,#6366f1); }
+.card-accent-green .card-icon { background: linear-gradient(135deg,#34d399,#10b981); }
+.card-accent-yellow .card-icon { background: linear-gradient(135deg,#f59e0b,#f97316); }
+.card-accent-purple .card-icon { background: linear-gradient(135deg,#8b5cf6,#7c3aed); }
+
+@media (max-width:600px){ .card-info p { font-size:18px; } .card-icon { width:48px; height:48px; font-size:22px; } }
+  

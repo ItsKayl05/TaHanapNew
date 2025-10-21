@@ -1,0 +1,105 @@
+.error-boundary {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background-color: #f8f9fa;
+}
+
+.error-content {
+  background: white;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  max-width: 600px;
+  width: 100%;
+  text-align: center;
+}
+
+.error-content h1 {
+  color: #dc3545;
+  margin-bottom: 1rem;
+  font-size: 2rem;
+}
+
+.error-content p {
+  color: #6c757d;
+  margin-bottom: 1.5rem;
+}
+
+.error-content ul {
+  list-style-type: none;
+  padding: 0;
+  margin-bottom: 2rem;
+  text-align: left;
+  display: inline-block;
+}
+
+.error-content ul li {
+  color: #495057;
+  margin-bottom: 0.5rem;
+  padding-left: 1.5rem;
+  position: relative;
+}
+
+.error-content ul li:before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: #007bff;
+}
+
+.error-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 1.5rem;
+}
+
+.error-actions button {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-weight: 500;
+}
+
+.error-actions button:first-child {
+  background-color: #007bff;
+  color: white;
+}
+
+.error-actions button:last-child {
+  background-color: #6c757d;
+  color: white;
+}
+
+.error-actions button:hover {
+  opacity: 0.9;
+}
+
+.error-details {
+  margin-top: 2rem;
+  text-align: left;
+  border-top: 1px solid #dee2e6;
+  padding-top: 1rem;
+}
+
+.error-details summary {
+  cursor: pointer;
+  color: #6c757d;
+  font-weight: 500;
+  margin-bottom: 1rem;
+}
+
+.error-details pre {
+  background-color: #f8f9fa;
+  padding: 1rem;
+  border-radius: 4px;
+  overflow-x: auto;
+  font-size: 0.875rem;
+  color: #495057;
+  margin-bottom: 0.5rem;
+}

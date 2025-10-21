@@ -1,0 +1,17 @@
+.confirm-overlay { position:fixed; inset:0; background:rgba(15,23,42,.55); display:flex; align-items:center; justify-content:center; z-index:2000; backdrop-filter: blur(3px); }
+.confirm-box { background:#fff; width: min(440px,90%); border-radius:18px; padding:26px 28px 24px; box-shadow:0 16px 40px -8px rgba(0,0,0,.28),0 4px 10px rgba(0,0,0,.12); animation:popIn .28s ease; position:relative; }
+.confirm-box[aria-busy="true"] { opacity:.85; }
+.confirm-box h4 { margin:0; font-size:1.08rem; letter-spacing:.015em; color:#0f172a; }
+.cd-header { display:flex; align-items:center; gap:12px; margin:0 0 10px; }
+.cd-icon { width:42px; height:42px; border-radius:12px; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg,#eff6ff,#dbeafe); color:#1d4ed8; font-size:1.4rem; box-shadow:inset 0 0 0 1px #bfdbfe; }
+.confirm-box p { margin:0 0 18px; font-size:.8rem; line-height:1.35rem; color:#475569; }
+.confirm-actions { display:flex; gap:10px; justify-content:flex-end; }
+.confirm-actions button { font-size:.7rem; font-weight:600; letter-spacing:.05em; padding:8px 16px; border-radius:10px; border:1px solid transparent; cursor:pointer; transition:.18s background,.18s color,.18s border; }
+.primary-btn { background:#2563eb; color:#fff; }
+.primary-btn:hover { background:#1d4ed8; }
+.danger-btn { background:#dc2626; color:#fff; }
+.danger-btn:hover { background:#b91c1c; }
+.secondary-btn { background:#f1f5f9; color:#0f172a; border:1px solid #e2e8f0; }
+.secondary-btn:hover { background:#e2e8f0; }
+.confirm-box.danger h4 { color:#b91c1c; }
+@keyframes popIn { from { transform:translateY(10px) scale(.96); opacity:0 } to { transform:translateY(0) scale(1); opacity:1 } }

@@ -1,0 +1,505 @@
+/* Brand block for logo and tagline */
+.navbar-brand-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.15rem;
+  margin-left: 0;
+}
+
+.navbar-brand-image {
+  height: 38px;
+  width: auto;
+  display: block;
+  margin: 0;
+  object-fit: contain;
+  align-self: flex-start;
+}
+
+.navbar-tagline {
+  margin-top: 0.1rem;
+  font-size: 0.85rem;
+  color: #e0e7ef;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  text-align: left;
+  width: 100%;
+}
+
+/* Navbar Container */
+.navbar {
+  width: 100%;
+  position: relative;
+  z-index: 200;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px clamp(1rem, 2vw, 2.25rem);
+  background: rgba(15, 23, 42, 0.95);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+  flex-wrap: nowrap;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* Logo Styling */
+.navbar-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: transform 0.2s ease-out;
+  flex-shrink: 0;
+}
+
+.navbar-logo:hover {
+  transform: scale(1.05);
+}
+
+.navbar-brand-image {
+  height: 38px;
+  width: auto;
+  display: block;
+  margin: 0 auto;
+  object-fit: contain;
+}
+
+/* Centered Navbar Links */
+.navbar-links {
+  list-style: none;
+  display: flex;
+  gap: 28px;
+  margin: 0 auto;
+  padding: 0;
+  flex: 1 1 auto;
+  justify-content: center;
+  min-width: 0;
+}
+
+.navbar-links li {
+  display: flex;
+  align-items: center;
+}
+
+.navbar-links li a {
+  color: #e2e8f0; 
+  text-decoration: none; 
+  font-size: .9rem; 
+  display: flex; 
+  align-items: center; 
+  gap: 10px; 
+  font-weight: 500; 
+  letter-spacing: .4px; 
+  padding: 8px 14px; 
+  border-radius: 10px; 
+  position: relative; 
+  transition: all 0.2s ease-out;
+}
+
+.navbar-links li a:hover {
+  color: #ffffff; 
+  background: rgba(255, 255, 255, 0.08); 
+  transform: translateY(-2px);
+}
+
+.navbar-links li a.active { 
+  color: #fff; 
+  background: linear-gradient(90deg, #38bdf8, #6366f1); 
+  box-shadow: 0 4px 14px -2px rgba(56, 189, 248, 0.45); 
+}
+
+/* Navbar Login/Register & Dashboard Button */
+.navbar-login {
+  display: flex;
+  align-items: center;
+  margin-left: 12px;
+  flex-shrink: 0;
+}
+
+/* Common styles for both Login/Register & Dashboard buttons */
+.navbar-login .login-register,
+.navbar-login .dashboard-link {
+  display: flex; 
+  align-items: center; 
+  gap: 8px; 
+  font-size: .8rem; 
+  font-weight: 600; 
+  letter-spacing: .05em; 
+  text-decoration: none; 
+  color: #fff; 
+  padding: 10px 18px; 
+  border-radius: 12px; 
+  position: relative; 
+  background: linear-gradient(135deg, #6366f1, #3b82f6); 
+  box-shadow: 0 4px 18px -2px rgba(99, 102, 241, 0.5); 
+  overflow: hidden; 
+  transition: all 0.2s ease-out;
+}
+
+.navbar-login .login-register:hover,
+.navbar-login .dashboard-link:hover {
+  filter: brightness(1.1); 
+  transform: translateY(-2px);
+}
+
+/* Ensures icon in Login/Register & Dashboard aligns correctly */
+.navbar-login .navbar-icon {
+  font-size: 20px;
+  transition: transform 0.2s ease-out;
+}
+
+/* Icon Hover Effect */
+.navbar-login .login-register:hover .navbar-icon,
+.navbar-login .dashboard-link:hover .navbar-icon {
+  transform: scale(1.15);
+}
+
+/* Logo Image */
+.navbar-logo-image { 
+  width: 46px; 
+  height: 46px; 
+  border-radius: 14px; 
+  object-fit: cover; 
+  position: relative; 
+  z-index: 2; 
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.4); 
+  outline: 2px solid rgba(255, 255, 255, 0.15); 
+  transition: all 0.3s ease-out;
+}
+
+.navbar-logo-image:hover { 
+  transform: rotate(12deg) scale(1.05); 
+  filter: brightness(1.15); 
+}
+
+/* Navbar Links Hover Effect */
+.navbar-links li a:hover .navbar-icon {
+  transform: scale(1.15);
+}
+
+/* ========== MOBILE RESPONSIVE STYLES ========== */
+
+/* Mobile Menu Toggle */
+.mobile-menu-toggle {
+  display: flex;
+  align-items: center;
+}
+
+.menu-toggle-btn {
+  background: none;
+  border: none;
+  color: #e2e8f0;
+  font-size: 1.4rem;
+  cursor: pointer;
+  padding: 10px;
+  border-radius: 10px;
+  transition: all 0.15s ease-out;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.menu-toggle-btn:hover,
+.menu-toggle-btn:active {
+  background: rgba(255, 255, 255, 0.12);
+  transform: scale(1.1);
+}
+
+.menu-toggle-btn.active {
+  background: rgba(255, 255, 255, 0.15);
+  transform: scale(1.1);
+}
+
+/* Mobile Menu Overlay - SIMPLIFIED */
+.mobile-menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 999;
+  display: flex;
+  justify-content: flex-end;
+  animation: overlayFadeIn 0.2s ease-out;
+}
+
+.mobile-menu-overlay.active {
+  display: flex;
+}
+
+@keyframes overlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.mobile-menu {
+  width: 85%;
+  max-width: 320px;
+  height: 100%;
+  background: #0f172a;
+  display: flex;
+  flex-direction: column;
+  animation: slideInRight 0.25s ease-out;
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.3);
+}
+
+.mobile-menu.active {
+  animation: slideInRight 0.25s ease-out;
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+/* Mobile Menu Header */
+.mobile-menu-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.95);
+}
+
+.mobile-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: transform 0.2s ease-out;
+}
+
+.mobile-logo:active {
+  transform: scale(0.98);
+}
+
+.mobile-logo-image {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  object-fit: cover;
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.4);
+  outline: 2px solid rgba(255, 255, 255, 0.15);
+}
+
+.mobile-brand-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.mobile-brand-image {
+  height: 26px;
+  width: auto;
+  object-fit: contain;
+}
+
+.mobile-tagline {
+  font-size: 0.78rem;
+  color: #e0e7ef;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.menu-close-btn {
+  background: none;
+  border: none;
+  color: #e2e8f0;
+  font-size: 1.4rem;
+  cursor: pointer;
+  padding: 10px;
+  border-radius: 10px;
+  transition: all 0.15s ease-out;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.menu-close-btn:hover,
+.menu-close-btn:active {
+  background: rgba(255, 255, 255, 0.12);
+  transform: scale(1.1);
+}
+
+/* Mobile Navigation Links */
+.mobile-nav-links {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobile-nav-links li {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.mobile-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 24px;
+  color: #e2e8f0;
+  text-decoration: none;
+  font-size: 1.05rem;
+  font-weight: 500;
+  transition: all 0.15s ease-out;
+  border-left: 4px solid transparent;
+  min-height: 60px;
+  cursor: pointer;
+}
+
+.mobile-nav-link:hover,
+.mobile-nav-link:active,
+.mobile-nav-link.active {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  border-left-color: #3b82f6;
+  transform: translateX(4px);
+}
+
+.mobile-nav-icon {
+  font-size: 1.3rem;
+  width: 24px;
+  text-align: center;
+  transition: transform 0.15s ease-out;
+}
+
+.mobile-nav-link:active .mobile-nav-icon {
+  transform: scale(1.1);
+}
+
+/* Mobile Login Section */
+.mobile-login-section {
+  padding: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.8);
+}
+
+.mobile-dashboard-link,
+.mobile-login-register {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  padding: 16px 20px;
+  border-radius: 12px;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 1.05rem;
+  transition: all 0.15s ease-out;
+  text-align: center;
+  min-height: 56px;
+  cursor: pointer;
+}
+
+.mobile-dashboard-link {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.mobile-login-register {
+  background: linear-gradient(135deg, #6366f1, #3b82f6);
+  color: white;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.mobile-dashboard-link:active,
+.mobile-login-register:active {
+  transform: translateY(-2px) scale(0.98);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+}
+
+/* Responsive Styles */
+@media screen and (max-width: 768px) {
+  .navbar {
+    padding: 10px 16px;
+    flex-wrap: nowrap;
+  }
+
+  .navbar-logo {
+    margin: 0;
+  }
+
+  /* Hide desktop elements on mobile */
+  .navbar-links,
+  .navbar-login {
+    display: none;
+  }
+
+  .navbar-brand-block {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .navbar {
+    padding: 8px 12px;
+  }
+
+  .mobile-menu {
+    width: 90%;
+    max-width: 280px;
+  }
+
+  .mobile-menu-header {
+    padding: 16px 18px;
+  }
+
+  .mobile-nav-link {
+    padding: 16px 20px;
+    font-size: 1rem;
+    min-height: 56px;
+  }
+
+  .mobile-login-section {
+    padding: 18px;
+  }
+
+  .mobile-dashboard-link,
+  .mobile-login-register {
+    padding: 15px 18px;
+    font-size: 1rem;
+    min-height: 52px;
+  }
+}
+
+/* Small screen adjustments */
+@media screen and (max-width: 360px) {
+  .navbar {
+    padding: 6px 10px;
+  }
+
+  .navbar-logo-image {
+    width: 40px;
+    height: 40px;
+  }
+
+  .mobile-menu {
+    width: 95%;
+  }
+
+  .mobile-nav-link {
+    padding: 14px 16px;
+    min-height: 52px;
+  }
+
+  .menu-toggle-btn,
+  .menu-close-btn {
+    min-width: 40px;
+    min-height: 40px;
+    padding: 8px;
+  }
+}

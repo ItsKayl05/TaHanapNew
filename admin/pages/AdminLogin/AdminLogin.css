@@ -1,0 +1,141 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap');
+
+* {
+  font-family: 'Poppins', sans-serif;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Updated responsive dark glass theme */
+.admin-login-container {
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  min-height:100vh;
+  padding:clamp(1.2rem,2vw,2.2rem);
+  background:radial-gradient(circle at 25% 20%,#1e3c72 0%,#0b1729 55%),linear-gradient(135deg,#101b2b,#112943 55%,#0e1e34);
+  overflow:auto;
+}
+
+.login-box {
+  position:relative;
+  width:clamp(320px, 92vw, 420px);
+  background:rgba(255,255,255,0.06);
+  -webkit-backdrop-filter:blur(18px);
+  backdrop-filter:blur(18px);
+  border:1px solid rgba(255,255,255,0.18);
+  padding:clamp(2rem,2.2rem,2.6rem);
+  border-radius:28px;
+  display:flex;
+  flex-direction:column;
+  gap:1.35rem;
+  box-shadow:0 10px 40px -10px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,0.08);
+  animation:fadeSlide .7s cubic-bezier(.16,.8,.24,1);
+}
+
+@keyframes fadeSlide { 0% {opacity:0; transform:translateY(-18px) scale(.98);} 100% {opacity:1; transform:translateY(0) scale(1);} }
+
+.login-box h2 {
+  margin:0 0 .35rem;
+  font-size:clamp(1.55rem,1.3rem + .6vw,2rem);
+  font-weight:600;
+  letter-spacing:.5px;
+  background:linear-gradient(90deg,#38bdf8,#6366f1,#3b82f6);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+}
+
+.login-box::before, .login-box::after {
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius:inherit;
+  pointer-events:none;
+}
+.login-box::before { background:linear-gradient(135deg,rgba(255,255,255,0.12),rgba(255,255,255,0)); opacity:.4; }
+.login-box::after { box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06); }
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  margin-bottom: 1.2rem;
+}
+
+.input-group label {
+  font-weight:600;
+  margin-bottom:6px;
+  color:#d1d9e6;
+  font-size:.75rem;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+}
+
+ .input-field {
+  display:flex;
+  align-items:center;
+  border:1px solid rgba(255,255,255,0.25);
+  border-radius:16px;
+  padding:14px 16px 14px 14px;
+  background:linear-gradient(145deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03));
+  transition:border-color .25s, box-shadow .35s;
+  position:relative;
+ }
+
+.input-field:focus-within { border-color:#6366f1; box-shadow:0 0 0 3px rgba(99,102,241,.4); }
+
+.icon { color:#94a3b8; margin-right:14px; font-size:1.2rem; transition:.3s; }
+.input-field:focus-within .icon { color:#38bdf8; }
+
+.input-field input { border:none; outline:none; flex:1; font-size:.95rem; background:transparent; color:#f1f5f9; font-weight:500; letter-spacing:.3px; }
+.input-field input::placeholder { color:#64748b; }
+
+ .toggle-password { cursor:pointer; color:#94a3b8; font-size:1.05rem; position:absolute; right:14px; top:50%; transform:translateY(-50%); transition:.25s; }
+ .toggle-password:hover { color:#38bdf8; }
+
+.toggle-password:hover {
+  color: #007bff;
+}
+
+button {
+  background:linear-gradient(90deg,#6366f1,#3b82f6);
+  color:#fff;
+  font-size:.98rem;
+  font-weight:600;
+  padding:14px 1rem;
+  border:none;
+  border-radius:16px;
+  cursor:pointer;
+  letter-spacing:.5px;
+  transition:.35s cubic-bezier(.16,.8,.24,1);
+  width:100%;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  position:relative;
+  overflow:hidden;
+}
+button::before {
+  content:""; position:absolute; inset:0; background:linear-gradient(120deg,rgba(255,255,255,.15),transparent 55%); opacity:0; transition:.45s; }
+button:hover::before { opacity:1; }
+button:hover { filter:brightness(1.08); transform:translateY(-2px); }
+button:active { transform:translateY(0) scale(.985); }
+button:disabled { background:linear-gradient(90deg,#4b5563,#475569); opacity:.55; cursor:not-allowed; }
+
+ .loading-spinner { width:22px; height:22px; border:3px solid rgba(255,255,255,.28); border-top:3px solid #fff; border-radius:50%; animation:spin 1s linear infinite; }
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+ .error-message { background:rgba(239,68,68,.15); border:1px solid rgba(239,68,68,.4); color:#fca5a5; padding:.85rem 1rem; border-radius:14px; font-size:.8rem; font-weight:500; backdrop-filter:blur(6px); margin-top:-.5rem; }
+
+@media (max-width:640px){
+  .admin-login-container { padding:1.4rem .9rem 2.2rem; }
+  .login-box { border-radius:24px; padding:1.9rem 1.6rem 2.2rem; }
+  .input-field { padding:12px 14px 12px 12px; }
+  button { padding:13px .9rem; }
+}
