@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { buildApi } from '../../apiConfig';
+import { buildApi, buildUpload } from '../../../../services/apiConfig';
 import { useFormPersistence } from '../../hooks/useFormPersistence';
 
 // Import all necessary components
