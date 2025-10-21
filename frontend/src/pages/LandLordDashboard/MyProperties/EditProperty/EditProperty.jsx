@@ -127,30 +127,39 @@ const EditProperty = () => {
                   landmarksArr = data.landmarks.split(',').map(l => l.trim()).filter(l => l);
                 }
                 
+                // Initialize formData with null checks and proper type conversions
                 setFormData({
-                    propertyType: data.title,
-                    billsIncluded: Array.isArray(data.billsIncluded) ? data.billsIncluded : (typeof data.billsIncluded === 'string' && data.billsIncluded.trim() ? data.billsIncluded.split(',').map(s=>s.trim()) : []),
+                    propertyType: data.title || '',
+                    billsIncluded: Array.isArray(data.billsIncluded) ? data.billsIncluded : 
+                        (typeof data.billsIncluded === 'string' && data.billsIncluded.trim() ? 
+                            data.billsIncluded.split(',').map(s=>s.trim()) : []),
                     propertyCondition: data.propertyCondition || '',
-                    marketHighlights: Array.isArray(data.marketHighlights) ? data.marketHighlights : (typeof data.marketHighlights === 'string' && data.marketHighlights.trim() ? data.marketHighlights.split(',').map(s=>s.trim()) : []),
-                    address: data.address,
-                    price: data.price,
-                    barangay: data.barangay,
-                    listingType: data.propertyType,
-                    petFriendly: data.petFriendly,
-                    allowedPets: Array.isArray(data.allowedPets) ? data.allowedPets : (typeof data.allowedPets === 'string' && data.allowedPets.trim() ? data.allowedPets.split(',').map(s=>s.trim()) : []),
-                    occupancy: data.occupancy,
-                    availabilityStatus: data.availabilityStatus ?? 'Available',
-                    parking: data.parking,
-                    rules: data.rules,
+                    marketHighlights: Array.isArray(data.marketHighlights) ? data.marketHighlights : 
+                        (typeof data.marketHighlights === 'string' && data.marketHighlights.trim() ? 
+                            data.marketHighlights.split(',').map(s=>s.trim()) : []),
+                    address: data.address || '',
+                    price: String(data.price || ''),
+                    barangay: data.barangay || '',
+                    // Fix: Ensure listingType and propertyType are properly set
+                    listingType: data.propertyType || '',  // For Rent or For Sale
+                    propertyType: data.propertyType || '',  // The actual property type
+                    petFriendly: Boolean(data.petFriendly),
+                    allowedPets: Array.isArray(data.allowedPets) ? data.allowedPets : 
+                        (typeof data.allowedPets === 'string' && data.allowedPets.trim() ? 
+                            data.allowedPets.split(',').map(s=>s.trim()) : []),
+                    occupancy: String(data.occupancy || ''),
+                    availabilityStatus: data.availabilityStatus || 'Available',
+                    parking: Boolean(data.parking),
+                    rules: data.rules || '',
                     landmarks: landmarksArr,
                     customLandmark: '',
-                    numberOfRooms: data.numberOfRooms ?? "",
-                    areaSqm: data.areaSqm ?? "",
-                    floorArea: data.floorArea ?? "",
-                    lotArea: data.lotArea ?? "",
-                    numberOfFloors: data.numberOfFloors ?? "",
-                    latitude: data.latitude ?? "",
-                    longitude: data.longitude ?? ""
+                    numberOfRooms: String(data.numberOfRooms || ''),
+                    areaSqm: String(data.areaSqm || ''),
+                    floorArea: String(data.floorArea || ''),
+                    lotArea: String(data.lotArea || ''),
+                    numberOfFloors: String(data.numberOfFloors || ''),
+                    latitude: String(data.latitude || ''),
+                    longitude: String(data.longitude || '')
                 });
                 
                 setOriginalLatLng({
@@ -644,8 +653,26 @@ const EditProperty = () => {
             if (videoFile) formDataToSend.append('video', videoFile);
             if (removeVideo) formDataToSend.append('removeVideo', 'true');
             
-            // Handle panorama images
-            newPanoramaImages.forEach(file => {
+            // Handle panorama images - convert existing ones to files if needed
+            const existingPanoramaFiles = await Promise.all(
+                panoramaImages.map(async (url) => {
+                    if (url.startsWith('blob:')) return null;
+                    try {
+                        const response = await fetch(url);
+                        const blob = await response.blob();
+                        return new File([blob], url.split('/').pop(), { type: blob.type });
+                    } catch (e) {
+                        console.error('Failed to convert panorama URL to file:', e);
+                        return null;
+                    }
+                })
+            );
+
+            // Combine existing and new panorama files, filtering out nulls
+            const allPanoramaFiles = [...existingPanoramaFiles.filter(Boolean), ...newPanoramaImages];
+            
+            // Append all panorama images
+            allPanoramaFiles.forEach(file => {
                 formDataToSend.append('panorama360Images', file);
             });
             
