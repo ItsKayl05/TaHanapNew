@@ -651,10 +651,8 @@ const EditProperty = () => {
                     formDataToSend.append('propertyCondition', value || '');
                 } else if (key === 'customLandmark') {
                     // Skip custom landmark
-                } else if (key === 'price') {
-                    // Price handled separately
-                } else if (key === 'areaSqm') {
-                    // areaSqm handled separately
+                } else if (key === 'price' || key === 'areaSqm' || key === 'floorArea' || key === 'lotArea' || key === 'numberOfFloors') {
+                    // These numeric fields are handled separately
                 } else if (key === 'occupancy') {
                     // occupancy handled separately
                 } else if (value !== undefined && value !== null && value !== "") {
