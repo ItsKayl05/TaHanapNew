@@ -1,649 +1,642 @@
-import React, { useState, useEffect, useRef } from "react";
-import PhotoDomeViewer from '../../../../components/PhotoDomeViewer';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from "react-leaflet";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-import { useParams, useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
-import '../../landlord-theme.css';
-import '../MyProperties.css';
-import "./EditProperty.css";
-import Sidebar from "../../Sidebar/Sidebar";
-import { buildApi, buildUpload } from '../../../../services/apiConfig';
-import { saveFormState, loadFormState, saveFiles, loadFiles, clearFormPersistence } from '../../../../utils/formPersistence';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import { buildApi } from '../../apiConfig';
+import { useFormPersistence } from '../../hooks/useFormPersistence';
+
+// Import all necessary components
+import ImageUpload from '../../components/ImageUpload';
+import VideoUpload from '../../components/VideoUpload';
+import PanoramaUpload from '../../components/PanoramaUpload';
+import LocationSearch from '../../components/LocationSearch';
+import ArrayInput from '../../components/ArrayInput';
+import CheckboxGroup from '../../components/CheckboxGroup';
+
+const FORM_KEY = 'edit-property-form';
+
+// Image compression utility
+const compressImage = (file, maxWidth = 1200, quality = 0.7) => {
+  return new Promise((resolve) => {
+    // If file is small enough, return as is
+    if (file.size <= 2 * 1024 * 1024) { // 2MB
+      resolve(file);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let { width, height } = img;
+        
+        // Calculate new dimensions
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        canvas.toBlob(
+          (blob) => {
+            const compressedFile = new File([blob], file.name, {
+              type: 'image/jpeg',
+              lastModified: Date.now(),
+            });
+            resolve(compressedFile);
+          },
+          'image/jpeg',
+          quality
+        );
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+};
 
 const EditProperty = () => {
-    const { propertyId } = useParams();
-    const navigate = useNavigate();
+  const { id: propertyId } = useParams();
+  const navigate = useNavigate();
+  const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Form state - COMPLETE with all fields
+  const [formData, setFormData] = useState({
+    // Basic Information
+    propertyType: '',
+    title: '',
+    address: '',
+    price: '',
+    barangay: '',
+    listingType: '',
     
-    // Base states
-    const [loading, setLoading] = useState(true);
-    const [submitting, setSubmitting] = useState(false);
-    const [priceFocused, setPriceFocused] = useState(false);
-    const [priceError, setPriceError] = useState('');
-    const [manualPin, setManualPin] = useState(false);
-    const [mapCenter, setMapCenter] = useState([14.8386, 120.8153]);
-    const [mapZoom, setMapZoom] = useState(13);
-    const [isGeocoding, setIsGeocoding] = useState(false);
-    const [property, setProperty] = useState(null);
-    const [originalLatLng, setOriginalLatLng] = useState({ lat: "", lng: "" });
+    // Features
+    petFriendly: false,
+    allowedPets: [],
+    occupancy: 1,
+    parking: false,
+    rules: '',
+    landmarks: [],
     
-    // Media states
-    const [images, setImages] = useState([]);
-    const [newImages, setNewImages] = useState([]);
-    const [deletedImages, setDeletedImages] = useState([]);
-    const [videoFile, setVideoFile] = useState(null);
-    const [videoPreview, setVideoPreview] = useState(null);
-    const [removeVideo, setRemoveVideo] = useState(false);
+    // Property Details
+    numberOfRooms: 1,
+    numberOfBathrooms: 1,
+    areaSqm: '',
+    floorArea: '',
+    lotArea: '',
+    numberOfFloors: 1,
     
-    // Panorama state management - FIXED: consistent naming
-    const maxPanoramaImages = 5;
-    const [panoramaImages, setPanoramaImages] = useState([]);
-    const [newPanoramaImages, setNewPanoramaImages] = useState([]);
-    const [deletedPanoramaImages, setDeletedPanoramaImages] = useState([]);
-    const [panoramaPreviews, setPanoramaPreviews] = useState([]); // Correct name
-
-    // Panorama viewer state
-    const [expandedPanorama, setExpandedPanorama] = useState(null);
-
-    const handleExpandPanorama = (imageUrl) => {
-        setExpandedPanorama(imageUrl);
-    };
-
-    // Form data state - FIXED: Initialize with proper values
-    const [formData, setFormData] = useState({
-        listingType: '', // This will be properly set from API data
-        propertyType: '',
-        billsIncluded: [],
-        propertyCondition: '',
-        marketHighlights: [],
-        address: '',
-        barangay: '',
-        price: '',
-        numberOfRooms: '',
-        availabilityStatus: 'Available',
-        areaSqm: '',
-        floorArea: '',
-        lotArea: '',
-        numberOfFloors: '',
-        occupancy: '',
-        petFriendly: false,
-        allowedPets: [],
-        parking: false,
-        landmarks: [],
-        rules: '',
-        latitude: '',
-        longitude: '',
-        customLandmark: ''
-    });
-
-    const LISTING_TYPES = ['For Rent', 'For Sale'];
-    const PROPERTY_TYPES = ['House','House and Lot','Apartment','Condominium','Townhouse','Dormitory','Bedspace','Studio Unit','Lot','Land','Commercial Space','Office Space','Warehouse','Building','Bungalow','Duplex','Triplex','Inner Lot','Corner Lot'];
-
-    const barangays = [
-        "Assumption", "Bagong Buhay I", "Bagong Buhay II", "Bagong Buhay III",
-        "Ciudad Real", "Citrus", "Dulong Bayan", "Fatima I", "Fatima II", 
-        "Fatima III", "Fatima IV", "Fatima V", "Francisco Homes – Guijo", 
-        "Francisco Homes – Mulawin", "Francisco Homes – Narra", "Francisco Homes – Yakal",
-        "Gaya-gaya", "Graceville", "Gumaok Central", "Gumaok East", "Gumaok West",
-        "Kaybanban", "Kaypian", "Lawang Pare", "Maharlika", "Minuyan I", 
-        "Minuyan II", "Minuyan III", "Minuyan IV", "Minuyan V", "Minuyan Proper",
-        "Muzon East", "Muzon Proper", "Muzon South", "Muzon West", "Paradise III", 
-        "Poblacion", "Poblacion 1", "San Isidro", "San Manuel", "San Martin De Porres", 
-        "San Martin I", "San Martin II", "San Martin III", "San Martin IV", "San Pedro", 
-        "San Rafael I", "San Rafael II", "San Rafael III", "San Rafael IV", "San Rafael V",
-        "San Roque", "Sapang Palay Proper", "Sta. Cruz I", "Sta. Cruz II", "Sta. Cruz III", 
-        "Sta. Cruz IV", "Sta. Cruz V", "Sto. Cristo", "Sto. Nino I", "Sto. Nino II", 
-        "Tungkong Mangga"
-    ];
-
-    const LANDMARKS = [
-        "park", "church", "public market", "major highway", "public transport stops",
-        "banks and atms", "restaurant/food centers", "convenience store/supermarket",
-        "school/university", "hospital/health care"
-    ];
-
-    const FORM_KEY = `edit-property-${propertyId}-v1`;
-
-    // 🟡 FIX 1: Properly set listingType from API data
-    useEffect(() => {
-        const fetchProperty = async () => {
-            try {
-                const userToken = localStorage.getItem("user_token");
-                if (!userToken) throw new Error("Unauthorized access. Please log in.");
-
-                const response = await fetch(buildApi(`/properties/${propertyId}`), {
-                    headers: { Authorization: `Bearer ${userToken}` },
-                });
-
-                if (!response.ok) throw new Error("Failed to fetch property details.");
-
-                const data = await response.json();
-                setProperty(data);
-                
-                let landmarksArr = [];
-                if (Array.isArray(data.landmarks)) {
-                  landmarksArr = data.landmarks;
-                } else if (typeof data.landmarks === 'string' && data.landmarks.trim()) {
-                  landmarksArr = data.landmarks.split(',').map(l => l.trim()).filter(l => l);
-                }
-                
-                // 🟡 FIX 1: Properly extract listingType from API response
-                // Try multiple possible field names from API
-                const listingType = data.listingType || data.type || data.propertyListingType || '';
-                
-                console.log('🔍 Debug - API Data:', {
-                    listingTypeFromAPI: listingType,
-                    dataFields: Object.keys(data).filter(key => key.toLowerCase().includes('type'))
-                });
-
-                // Initialize formData with null checks and proper type conversions
-                // FIXED: Remove duplicate propertyType assignment
-                setFormData({
-                    propertyType: data.propertyType || data.title || '',
-                    billsIncluded: Array.isArray(data.billsIncluded) ? data.billsIncluded : 
-                        (typeof data.billsIncluded === 'string' && data.billsIncluded.trim() ? 
-                            data.billsIncluded.split(',').map(s=>s.trim()) : []),
-                    propertyCondition: data.propertyCondition || '',
-                    marketHighlights: Array.isArray(data.marketHighlights) ? data.marketHighlights : 
-                        (typeof data.marketHighlights === 'string' && data.marketHighlights.trim() ? 
-                            data.marketHighlights.split(',').map(s=>s.trim()) : []),
-                    address: data.address || '',
-                    price: String(data.price || ''),
-                    barangay: data.barangay || '',
-                    // 🟡 FIX 1: Set listingType from API data (SINGLE assignment)
-                    listingType: listingType,
-                    petFriendly: Boolean(data.petFriendly),
-                    allowedPets: Array.isArray(data.allowedPets) ? data.allowedPets : 
-                        (typeof data.allowedPets === 'string' && data.allowedPets.trim() ? 
-                            data.allowedPets.split(',').map(s=>s.trim()) : []),
-                    occupancy: String(data.occupancy || ''),
-                    availabilityStatus: data.availabilityStatus || 'Available',
-                    parking: Boolean(data.parking),
-                    rules: data.rules || '',
-                    landmarks: landmarksArr,
-                    customLandmark: '',
-                    numberOfRooms: String(data.numberOfRooms || ''),
-                    areaSqm: String(data.areaSqm || ''),
-                    floorArea: String(data.floorArea || ''),
-                    lotArea: String(data.lotArea || ''),
-                    numberOfFloors: String(data.numberOfFloors || ''),
-                    latitude: String(data.latitude || ''),
-                    longitude: String(data.longitude || '')
-                });
-                
-                setOriginalLatLng({
-                    lat: data.latitude ?? "",
-                    lng: data.longitude ?? ""
-                });
-                setImages(data.images || []);
-                if (data.video) {
-                    setVideoPreview(data.video.startsWith('http') ? data.video : buildUpload(data.video));
-                }
-                if (data.panorama360Images && Array.isArray(data.panorama360Images)) {
-                    setPanoramaImages(data.panorama360Images.map(url => 
-                        url.startsWith('http') ? url : buildUpload(url)
-                    ));
-                }
-                setLoading(false);
-            } catch (error) {
-                toast.error(error.message || "Error fetching property.");
-                setLoading(false);
-            }
-        };
-        fetchProperty();
-    }, [propertyId]);
-
-    useEffect(() => {
-        return () => {
-            if (videoFile && videoPreview?.startsWith('blob:')) URL.revokeObjectURL(videoPreview);
-            // Clean up panorama preview URLs
-            panoramaPreviews.forEach(url => {
-                if (url.startsWith('blob:')) URL.revokeObjectURL(url);
-            });
-        };
-    }, [videoFile, videoPreview, panoramaPreviews]);
-
-    const handlePanoramaChange = (e) => {
-        const files = Array.from(e.target.files || []);
-        if (!files.length) return;
-
-        // Check total number of images
-        const currentTotal = panoramaImages.length + newPanoramaImages.length;
-        if (currentTotal + files.length > maxPanoramaImages) {
-            toast.error(`Maximum ${maxPanoramaImages} panoramic images allowed. You can add ${maxPanoramaImages - currentTotal} more.`);
-            return;
-        }
-
-        // Validate each file
-        const validFiles = files.filter(file => {
-            const validType = file.type.startsWith('image/');
-            const sizeOk = file.size <= 10 * 1024 * 1024;
-            if (!validType) toast.error(`${file.name}: Only image files (JPG, PNG, WebP) allowed.`);
-            if (!sizeOk) toast.error(`${file.name}: Image size exceeds 10MB limit.`);
-            return validType && sizeOk;
-        });
-
-        if (!validFiles.length) return;
-
-        // Add new images
-        setNewPanoramaImages(prev => [...prev, ...validFiles]);
-        setPanoramaPreviews(prev => [
-            ...prev,
-            ...validFiles.map(file => URL.createObjectURL(file))
-        ]);
-    };
-
-    // 🟢 FIX 4: Enhanced Remove functions with confirmation
-    const handleRemoveNewPanorama = (index) => {
-        const confirmRemove = window.confirm("Are you sure you want to remove this panoramic image?");
-        if (!confirmRemove) return;
-        
-        setPanoramaPreviews(prev => {
-            const newPreviews = [...prev];
-            URL.revokeObjectURL(newPreviews[index]);
-            newPreviews.splice(index, 1);
-            return newPreviews;
-        });
-        setNewPanoramaImages(prev => {
-            const newImages = [...prev];
-            newImages.splice(index, 1);
-            return newImages;
-        });
-        toast.success("Panoramic image removed");
-    };
-
-    const handleRemovePanorama = (index) => {
-        const confirmRemove = window.confirm("Are you sure you want to remove this panoramic image?");
-        if (!confirmRemove) return;
-        
-        const imageToDelete = panoramaImages[index];
-        setPanoramaImages(prev => prev.filter((_, i) => i !== index));
-        setDeletedPanoramaImages(prev => [...prev, imageToDelete]);
-        toast.success("Panoramic image removed");
-    };
-
-    // Use stable toast IDs and debounce geocoding to avoid spammy repeated toasts
-    const GEOCODE_TOAST_WARN_ID = 'edit-geocode-warn';
-    const GEOCODE_TOAST_ERROR_ID = 'edit-geocode-error';
-
-    const geocodeAddress = async (address, barangay) => {
-        if (!address || !barangay) return null;
-        setIsGeocoding(true);
-        const query = `${address}, ${barangay}, San Jose del Monte, Bulacan, Philippines`;
-        try {
-            // Try backend geocode first (if available) via buildApi
-            const url = buildApi(`/geocode?q=${encodeURIComponent(query)}`);
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 8000);
-            const res = await fetch(url, { signal: controller.signal });
-            clearTimeout(timeout);
-            if (!res.ok) {
-                // Fallback to public Nominatim
-                try {
-                    const nomUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`;
-                    const nomRes = await fetch(nomUrl, { headers: { Accept: 'application/json' } });
-                    if (nomRes.ok) {
-                        const nomData = await nomRes.json().catch(() => null);
-                        if (nomData && Array.isArray(nomData) && nomData.length > 0) {
-                            const coords = { lat: parseFloat(nomData[0].lat), lon: parseFloat(nomData[0].lon) };
-                            setMapCenter([coords.lat, coords.lon]);
-                            setMapZoom(16);
-                            setFormData(prev => ({ ...prev, latitude: coords.lat.toString(), longitude: coords.lon.toString() }));
-                            setManualPin(false);
-                            return coords;
-                        }
-                    }
-                } catch (e) {
-                    // ignore
-                }
-                // Friendly guidance for users: address format often needs commas
-                toast.warn('Please include commas ( , ) in your address to get the correct location.', { toastId: GEOCODE_TOAST_ERROR_ID, autoClose: 5000 });
-                return null;
-            }
-            const data = await res.json().catch(() => null);
-            if (data && Array.isArray(data) && data.length > 0) {
-                const coords = { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
-                setMapCenter([coords.lat, coords.lon]);
-                setMapZoom(16);
-                setFormData(prev => ({
-                    ...prev,
-                    latitude: coords.lat.toString(),
-                    longitude: coords.lon.toString()
-                }));
-                setManualPin(false);
-                return coords;
-            }
-        } catch (err) {
-            // If backend aborted or failed, try nominatim as a fallback
-            try {
-                const nomUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`;
-                const nomRes = await fetch(nomUrl, { headers: { Accept: 'application/json' } });
-                if (nomRes.ok) {
-                    const nomData = await nomRes.json().catch(() => null);
-                    if (nomData && Array.isArray(nomData) && nomData.length > 0) {
-                        const coords = { lat: parseFloat(nomData[0].lat), lon: parseFloat(nomData[0].lon) };
-                        setMapCenter([coords.lat, coords.lon]);
-                        setMapZoom(16);
-                        setFormData(prev => ({ ...prev, latitude: coords.lat.toString(), longitude: coords.lon.toString() }));
-                        setManualPin(false);
-                        return coords;
-                    }
-                }
-            } catch (e) {
-                // ignore
-            }
-            toast.error('Error finding location. Please try again.', { toastId: GEOCODE_TOAST_ERROR_ID });
-        } finally {
-            setIsGeocoding(false);
-        }
-        return null;
-    };
-
-    // Debounce geocoding to reduce toast spam while typing
-    const geocodeTimeoutRef = useRef(null);
-    useEffect(() => {
-        return () => { if (geocodeTimeoutRef.current) clearTimeout(geocodeTimeoutRef.current); };
-    }, []);
-
-    const handleChange = async (e) => {
-        const { name, value, type, checked } = e.target;
-        let newValue = value;
-        
-        if (name === 'price') {
-            const parts = new Intl.NumberFormat(navigator.language).formatToParts(12345.6);
-            const group = parts.find(p => p.type === 'group')?.value || ',';
-            const decimal = parts.find(p => p.type === 'decimal')?.value || '.';
-            const esc = s => s.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
-            const allowedRegex = new RegExp(`[^0-9${esc(group)}${esc(decimal)}]`, 'g');
-            let sanitized = (value || '').replace(allowedRegex, '');
-            const decCount = (sanitized.match(new RegExp(esc(decimal), 'g')) || []).length;
-            if (decCount > 1) {
-                const first = sanitized.indexOf(decimal);
-                sanitized = sanitized.slice(0, first + 1) + sanitized.slice(first + 1).replace(new RegExp(esc(decimal), 'g'), '');
-            }
-            newValue = sanitized;
-        }
-        
-        // Handle numeric fields (floorArea, lotArea)
-        if (name === 'floorArea' || name === 'lotArea') {
-            // Allow only numbers and decimal point
-            const sanitized = value.replace(/[^\d.]/g, '');
-            // Ensure only one decimal point
-            const parts = sanitized.split('.');
-            newValue = parts[0] + (parts.length > 1 ? '.' + parts[1] : '');
-            console.log(`Debug - Field ${name} value:`, newValue);
-        }
-        
-        // Use functional update to ensure we work with latest state and avoid stale reads
-        setFormData(prev => {
-            const next = { ...prev, [name]: type === "checkbox" ? checked : newValue };
-
-            // Debounce geocoding trigger — wait a bit after user stops typing
-            if (name === "address" || name === "barangay") {
-                const nextAddress = next.address;
-                const nextBarangay = next.barangay;
-
-                if (geocodeTimeoutRef.current) clearTimeout(geocodeTimeoutRef.current);
-                geocodeTimeoutRef.current = setTimeout(async () => {
-                    if (nextAddress && nextBarangay) {
-                        await geocodeAddress(nextAddress, nextBarangay);
-                    }
-                }, 700);
-            }
-
-            return next;
-        });
-    };
-
-    const handleImageChange = (e) => {
-        const files = Array.from(e.target.files);
-        if (!files.length) return;
-        const MAX_FILES = 8;
-        const currentCount = images.length + newImages.length;
-        const availableSlots = MAX_FILES - currentCount;
-        if (availableSlots <= 0) {
-            toast.info(`Maximum of ${MAX_FILES} images reached.`);
-            return;
-        }
-        const accepted = files.slice(0, availableSlots).filter(file => {
-            const exists = newImages.some(f => f.name === file.name);
-            const validType = file.type.startsWith('image/');
-            const sizeOk = file.size <= 10 * 1024 * 1024;
-            if (!validType) toast.warn(`${file.name} skipped (not an image).`);
-            if (!sizeOk) toast.warn(`${file.name} skipped (image file too large, max 10MB).`);
-            if (exists) toast.warn(`${file.name} already added.`);
-            return !exists && validType && sizeOk;
-        });
-        if (!accepted.length) return;
-        setNewImages(prev => [...prev, ...accepted]);
-    };
-
-    const handleDeleteImage = (index, isExisting) => {
-        if (isExisting) {
-            const imageToDelete = images[index];
-            setDeletedImages((prev) => [...prev, imageToDelete]);
-            setImages(images.filter((_, i) => i !== index));
-        } else {
-            setNewImages(newImages.filter((_, i) => i !== index));
-        }
-    };
-
-    useEffect(() => {
-        const saved = loadFormState(FORM_KEY);
-        if (saved) {
-            const allowed = [
-                'propertyType','billsIncluded','propertyCondition','marketHighlights','address','price','barangay','listingType','petFriendly','allowedPets','occupancy','parking','rules','landmarks','numberOfRooms','areaSqm','floorArea','lotArea','numberOfFloors','latitude','longitude','availabilityStatus'
-            ];
-            const toRestore = {};
-            for (const k of allowed) {
-                if (saved.fields && Object.prototype.hasOwnProperty.call(saved.fields, k)) toRestore[k] = saved.fields[k];
-            }
-            setFormData(prev => ({ ...prev, ...toRestore }));
-        }
-        
-        (async () => {
-            try {
-                const imgs = await loadFiles(FORM_KEY, 'images');
-                if (imgs && imgs.length) {
-                    setNewImages(prev => [...prev, ...imgs.filter(i=>i.blob).map(i=>i.blob)]);
-                }
-                const vid = await loadFiles(FORM_KEY, 'video');
-                if (vid && vid.length) {
-                    setVideoFile(vid[0].blob || null);
-                    setVideoPreview(vid[0].url);
-                }
-                const pan = await loadFiles(FORM_KEY, 'panorama360Images');
-                if (pan && pan.length) {
-                    setNewPanoramaImages(pan.map(p => p.blob).filter(Boolean));
-                    setPanoramaPreviews(pan.map(p => p.url).filter(Boolean));
-                }
-            } catch (e) { console.error('restore edit persistence', e); }
-        })();
-    }, [propertyId]);
-
-    // 🟡 FIX 2: Enhanced conditional logic for listing type
-    const isForRent = formData.listingType === 'For Rent';
-    const isForSale = formData.listingType === 'For Sale';
+    // Location
+    latitude: null,
+    longitude: null,
+    city: 'San Jose del Monte',
+    province: 'Bulacan',
     
-    // Function to check if a field should be disabled based on listing type
-    const isFieldDisabled = (fieldName) => {
-        if (!formData.listingType) return true; // Disable all type-specific fields if no listing type selected
-        
-        const rentOnlyFields = ['occupancy', 'petFriendly', 'allowedPets', 'rules', 'billsIncluded'];
-        const saleOnlyFields = ['propertyCondition', 'marketHighlights'];
-        
-        if (isForRent && saleOnlyFields.includes(fieldName)) return true;
-        if (isForSale && rentOnlyFields.includes(fieldName)) return true;
-        
-        return false;
-    };
+    // Condition & Status
+    propertyCondition: '',
+    availabilityStatus: 'Available',
     
-    // 🟡 FIX 2: Enhanced field clearing with proper validation
-    useEffect(() => {
-        if (!formData.listingType) return;
-        
-        setFormData(prev => {
-            const next = { ...prev };
-            if (isForRent) {
-                // Clear sale-only fields
-                next.propertyCondition = '';
-                next.marketHighlights = [];
-            } else if (isForSale) {
-                // Clear rent-only fields
-                next.occupancy = '';
-                next.petFriendly = false;
-                next.allowedPets = [];
-                next.rules = '';
-                next.billsIncluded = [];
-            }
-            return next;
+    // Additional Features
+    billsIncluded: [],
+    marketHighlights: [],
+    amenities: [],
+    
+    // Media
+    images: [],
+    video: '',
+    panorama360Images: [],
+    
+    // Additional Details
+    description: '',
+    nearbySchools: [],
+    nearbyHospitals: [],
+    transportation: [],
+    securityFeatures: []
+  });
+
+  // File states
+  const [newImages, setNewImages] = useState([]);
+  const [deletedImages, setDeletedImages] = useState([]);
+  const [videoFile, setVideoFile] = useState(null);
+  const [removeVideo, setRemoveVideo] = useState(false);
+  const [newPanoramaImages, setNewPanoramaImages] = useState([]);
+  const [deletedPanoramaImages, setDeletedPanoramaImages] = useState([]);
+
+  // Additional state for complex components
+  const [selectedAmenities, setSelectedAmenities] = useState([]);
+  const [selectedBills, setSelectedBills] = useState([]);
+  const [marketHighlights, setMarketHighlights] = useState([]);
+
+  // Use form persistence
+  const { clearFormPersistence } = useFormPersistence(FORM_KEY, formData, setFormData);
+
+  // Available options for dropdowns and checkboxes
+  const propertyTypes = [
+    'Apartment', 'House', 'Condo', 'Townhouse', 
+    'Warehouse', 'Commercial', 'Land', 'Studio'
+  ];
+
+  const billsOptions = [
+    'Water', 'Electricity', 'Internet', 'Cable TV', 
+    'Association Dues', 'Property Tax', 'Maintenance'
+  ];
+
+  const amenitiesOptions = [
+    'Swimming Pool', 'Gym', 'Garden', 'Balcony',
+    'Air Conditioning', 'Heating', 'Furnished',
+    'Security', 'Elevator', 'Parking', 'Laundry'
+  ];
+
+  const marketHighlightsOptions = [
+    'Near School', 'Near Hospital', 'Near Mall',
+    'Near Transportation', 'Quiet Area', 'Safe Neighborhood',
+    'New Development', 'Green Area', 'City View'
+  ];
+
+  // Load property data - COMPLETE with all fields
+  useEffect(() => {
+    const loadProperty = async () => {
+      try {
+        const userToken = localStorage.getItem("user_token");
+        if (!userToken) {
+          throw new Error("Unauthorized access. Please log in.");
+        }
+
+        const response = await fetch(buildApi(`/properties/${propertyId}`), {
+          headers: {
+            'Authorization': `Bearer ${userToken}`
+          }
         });
-    }, [formData.listingType]);
 
-    useEffect(() => { if (newImages && newImages.length) saveFiles(FORM_KEY,'images', newImages.filter(f=> f instanceof File)).catch(()=>{}); }, [newImages]);
-    useEffect(() => { if (videoFile && videoFile instanceof File) saveFiles(FORM_KEY,'video',[videoFile]).catch(()=>{}); }, [videoFile]);
-    useEffect(() => { if (newPanoramaImages && newPanoramaImages.length) saveFiles(FORM_KEY,'panorama360Images', newPanoramaImages.filter(f=> f instanceof File)).catch(()=>{}); }, [newPanoramaImages]);
+        if (!response.ok) {
+          throw new Error('Failed to load property data');
+        }
 
-    // ⚠️ FIX 3: Enhanced submit handler with better error handling
-    const handleSubmit = async (e) => {
+        const propertyData = await response.json();
+        console.log('🔍 Debug - API Data:', propertyData);
+
+        // Set form data from API - ALL FIELDS
+        setFormData(prev => ({
+          ...prev,
+          // Basic Information
+          propertyType: propertyData.propertyType || '',
+          title: propertyData.title || propertyData.propertyType || '',
+          address: propertyData.address || '',
+          price: propertyData.price?.toString() || '',
+          barangay: propertyData.barangay || '',
+          listingType: propertyData.listingType || '',
+          
+          // Features
+          petFriendly: propertyData.petFriendly || false,
+          allowedPets: propertyData.allowedPets || [],
+          occupancy: propertyData.occupancy || 1,
+          parking: propertyData.parking || false,
+          rules: propertyData.rules || '',
+          landmarks: propertyData.landmarks || [],
+          
+          // Property Details
+          numberOfRooms: propertyData.numberOfRooms || 1,
+          numberOfBathrooms: propertyData.numberOfBathrooms || 1,
+          areaSqm: propertyData.areaSqm?.toString() || '',
+          floorArea: propertyData.floorArea?.toString() || '',
+          lotArea: propertyData.lotArea?.toString() || '',
+          numberOfFloors: propertyData.numberOfFloors || 1,
+          
+          // Location
+          latitude: propertyData.latitude || null,
+          longitude: propertyData.longitude || null,
+          city: propertyData.city || 'San Jose del Monte',
+          province: propertyData.province || 'Bulacan',
+          
+          // Condition & Status
+          propertyCondition: propertyData.propertyCondition || '',
+          availabilityStatus: propertyData.availabilityStatus || 'Available',
+          
+          // Additional Features
+          billsIncluded: propertyData.billsIncluded || [],
+          marketHighlights: propertyData.marketHighlights || [],
+          amenities: propertyData.amenities || [],
+          
+          // Media
+          images: propertyData.images || [],
+          video: propertyData.video || '',
+          panorama360Images: propertyData.panorama360Images || [],
+          
+          // Additional Details
+          description: propertyData.description || '',
+          nearbySchools: propertyData.nearbySchools || [],
+          nearbyHospitals: propertyData.nearbyHospitals || [],
+          transportation: propertyData.transportation || [],
+          securityFeatures: propertyData.securityFeatures || []
+        }));
+
+        // Set component states
+        setSelectedAmenities(propertyData.amenities || []);
+        setSelectedBills(propertyData.billsIncluded || []);
+        setMarketHighlights(propertyData.marketHighlights || []);
+
+      } catch (err) {
+        console.error('Error loading property:', err);
+        toast.error('Failed to load property data');
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProperty();
+  }, [propertyId]);
+
+  // Handle form input changes
+  const handleInputChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+  };
+
+  // Handle array field changes
+  const handleArrayChange = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  // Handle complex field changes
+  const handleComplexChange = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  // Handle location selection
+  const handleLocationSelect = (location) => {
+    setFormData(prev => ({
+      ...prev,
+      address: location.address,
+      latitude: location.lat,
+      longitude: location.lng,
+      barangay: location.barangay || '',
+      city: location.city || 'San Jose del Monte',
+      province: location.province || 'Bulacan'
+    }));
+  };
+
+  // Handle image changes
+  const handleImageChange = async (files) => {
+    try {
+      // Compress images before setting state
+      const compressedFiles = await Promise.all(
+        files.map(file => compressImage(file))
+      );
+      setNewImages(compressedFiles);
+    } catch (error) {
+      console.error('Error compressing images:', error);
+      toast.error('Failed to process images');
+    }
+  };
+
+  const handleImageDelete = (imageUrl) => {
+    setDeletedImages(prev => [...prev, imageUrl]);
+  };
+
+  // Handle video changes
+  const handleVideoChange = (file) => {
+    setVideoFile(file);
+    setRemoveVideo(false);
+  };
+
+  const handleVideoRemove = () => {
+    setRemoveVideo(true);
+    setVideoFile(null);
+  };
+
+  // Handle panorama changes
+  const handlePanoramaChange = async (files) => {
+    try {
+      // Compress panorama images
+      const compressedFiles = await Promise.all(
+        files.map(file => compressImage(file))
+      );
+      setNewPanoramaImages(compressedFiles);
+    } catch (error) {
+      console.error('Error compressing panorama images:', error);
+      toast.error('Failed to process panorama images');
+    }
+  };
+
+  const handlePanoramaDelete = (imageUrl) => {
+    setDeletedPanoramaImages(prev => [...prev, imageUrl]);
+  };
+
+  // Handle amenities selection
+  const handleAmenitiesChange = (amenities) => {
+    setSelectedAmenities(amenities);
+    setFormData(prev => ({
+      ...prev,
+      amenities: amenities
+    }));
+  };
+
+  // Handle bills included selection
+  const handleBillsChange = (bills) => {
+    setSelectedBills(bills);
+    setFormData(prev => ({
+      ...prev,
+      billsIncluded: bills
+    }));
+  };
+
+  // Handle market highlights selection
+  const handleMarketHighlightsChange = (highlights) => {
+    setMarketHighlights(highlights);
+    setFormData(prev => ({
+      ...prev,
+      marketHighlights: highlights
+    }));
+  };
+
+  // Handle allowed pets changes
+  const handleAllowedPetsChange = (pets) => {
+    setFormData(prev => ({
+      ...prev,
+      allowedPets: pets
+    }));
+  };
+
+  // Handle landmarks changes
+  const handleLandmarksChange = (landmarks) => {
+    setFormData(prev => ({
+      ...prev,
+      landmarks: landmarks
+    }));
+  };
+
+  // Handle description change
+  const handleDescriptionChange = (e) => {
+    setFormData(prev => ({
+      ...prev,
+      description: e.target.value
+    }));
+  };
+
+  // Handle nearby schools change
+  const handleNearbySchoolsChange = (schools) => {
+    setFormData(prev => ({
+      ...prev,
+      nearbySchools: schools
+    }));
+  };
+
+  // Handle nearby hospitals change
+  const handleNearbyHospitalsChange = (hospitals) => {
+    setFormData(prev => ({
+      ...prev,
+      nearbyHospitals: hospitals
+    }));
+  };
+
+  // Handle transportation change
+  const handleTransportationChange = (transport) => {
+    setFormData(prev => ({
+      ...prev,
+      transportation: transport
+    }));
+  };
+
+  // Handle security features change
+  const handleSecurityFeaturesChange = (features) => {
+    setFormData(prev => ({
+      ...prev,
+      securityFeatures: features
+    }));
+  };
+
+  // Validation function
+  const validateForm = () => {
+    const errors = [];
+
+    if (!formData.listingType) {
+      errors.push('Please select a listing type');
+    }
+
+    if (!formData.propertyType) {
+      errors.push('Please select a property type');
+    }
+
+    if (!formData.address) {
+      errors.push('Property address is required');
+    }
+
+    if (!formData.price || parseFloat(formData.price) <= 0) {
+      errors.push('Please enter a valid price');
+    }
+
+    if (!formData.barangay) {
+      errors.push('Please select a barangay');
+    }
+
+    if (!formData.areaSqm || parseFloat(formData.areaSqm) <= 0) {
+      errors.push('Please enter a valid area in square meters');
+    }
+
+    if (!formData.floorArea || parseFloat(formData.floorArea) <= 0) {
+      errors.push('Please enter a valid floor area');
+    }
+
+    if (!formData.lotArea || parseFloat(formData.lotArea) <= 0) {
+      errors.push('Please enter a valid lot area');
+    }
+
+    if (formData.listingType === 'For Rent' && (!formData.occupancy || formData.occupancy < 1)) {
+      errors.push('Please specify maximum occupancy');
+    }
+
+    if (formData.listingType === 'For Sale' && !formData.propertyCondition) {
+      errors.push('Please select property condition');
+    }
+
+    return errors;
+  };
+
+  // Main submit handler - COMPLETE with all fields
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (submitting) return;
 
     setSubmitting(true);
+    setError(null);
 
     try {
-        const userToken = localStorage.getItem("user_token");
-        if (!userToken) {
-            throw new Error("Unauthorized access. Please log in.");
+      const userToken = localStorage.getItem("user_token");
+      if (!userToken) {
+        throw new Error("Unauthorized access. Please log in.");
+      }
+
+      // Validate form
+      const validationErrors = validateForm();
+      if (validationErrors.length > 0) {
+        validationErrors.forEach(error => toast.error(error));
+        return;
+      }
+
+      // Parse numeric values
+      const parseNumeric = (val) => val ? parseFloat(String(val).replace(/,/g, '')) : NaN;
+      const priceNum = parseNumeric(formData.price);
+      const areaSqmNum = parseNumeric(formData.areaSqm);
+      const floorAreaNum = parseNumeric(formData.floorArea);
+      const lotAreaNum = parseNumeric(formData.lotArea);
+
+      // --- FormData Construction - ALL FIELDS ---
+      const formDataToSend = new FormData();
+
+      console.log('🔍 Form data being sent:', formData);
+
+      // Append all basic fields
+      const basicFields = [
+        'propertyType', 'title', 'address', 'barangay', 'listingType', 
+        'rules', 'propertyCondition', 'availabilityStatus', 'city', 'province',
+        'description'
+      ];
+
+      basicFields.forEach(field => {
+        if (formData[field] !== undefined && formData[field] !== null && formData[field] !== '') {
+          formDataToSend.append(field, formData[field].toString());
         }
+      });
 
-        // --- Validation ---
-        if (!formData.listingType) {
-            toast.error("Please select a listing type (For Rent or For Sale).");
-            return;
+      // Append numeric fields
+      const numericFields = [
+        'price', 'occupancy', 'numberOfRooms', 'numberOfBathrooms', 
+        'areaSqm', 'floorArea', 'lotArea', 'numberOfFloors'
+      ];
+      
+      numericFields.forEach(field => {
+        let value;
+        switch(field) {
+          case 'price': value = priceNum; break;
+          case 'areaSqm': value = areaSqmNum; break;
+          case 'floorArea': value = floorAreaNum; break;
+          case 'lotArea': value = lotAreaNum; break;
+          default: value = parseNumeric(formData[field]);
         }
+        
+        if (!isNaN(value) && value !== null) {
+          formDataToSend.append(field, value.toString());
+        }
+      });
 
-        const parseNumeric = (val) => val ? parseFloat(String(val).replace(/,/g, '')) : NaN;
-        const priceNum = parseNumeric(formData.price);
+      // Append boolean fields
+      formDataToSend.append('petFriendly', formData.petFriendly.toString());
+      formDataToSend.append('parking', formData.parking.toString());
 
-        if (!formData.propertyType) { toast.error("Please select a property type."); return; }
-        if (!formData.address) { toast.error("The property address cannot be empty."); return; }
-        if (isNaN(priceNum) || priceNum <= 0) { toast.error("Please set a valid price greater than 0."); return; }
-        if (!formData.barangay) { toast.error("Please select a barangay."); return; }
+      // Append array fields as JSON
+      const arrayFields = [
+        'billsIncluded', 'marketHighlights', 'landmarks', 'allowedPets',
+        'amenities', 'nearbySchools', 'nearbyHospitals', 'transportation',
+        'securityFeatures'
+      ];
+      
+      arrayFields.forEach(field => {
+        if (formData[field] && formData[field].length > 0) {
+          formDataToSend.append(field, JSON.stringify(formData[field]));
+        }
+      });
 
-        // --- FormData Construction ---
-        const formDataToSend = new FormData();
+      // Append coordinates
+      if (formData.latitude) {
+        formDataToSend.append('latitude', formData.latitude.toString());
+      }
+      if (formData.longitude) {
+        formDataToSend.append('longitude', formData.longitude.toString());
+      }
 
-        console.log('🔍 Form data being sent:', formData);
+      // --- File Handling ---
 
-        // Append all string, number, and boolean fields from state
-        Object.keys(formData).forEach(key => {
-            const value = formData[key];
-            
-            // Skip fields that should be handled separately or are empty
-            if (value === null || value === undefined || value === '') {
-                return;
-            }
-
-            if (key === 'price') {
-                formDataToSend.append('price', priceNum.toString());
-            } else if (Array.isArray(value)) {
-                // Handle array fields - send as JSON string for proper parsing
-                if (value.length > 0 && typeof value[0] !== 'object') {
-                    // For simple arrays (strings, numbers), send as JSON
-                    formDataToSend.append(key, JSON.stringify(value));
-                }
-                // Skip file arrays as they're handled separately
-            } else if (typeof value === 'boolean') {
-                formDataToSend.append(key, value.toString());
-            } else {
-                formDataToSend.append(key, value.toString());
-            }
+      // Append new image files
+      if (newImages.length > 0) {
+        console.log(`📸 Appending ${newImages.length} new images`);
+        newImages.forEach(file => {
+          formDataToSend.append('images', file);
         });
+      }
 
-        // Log what's being appended to FormData
-        console.log('📦 FormData contents:');
-        for (let [key, value] of formDataToSend.entries()) {
-            console.log(`  ${key}:`, value);
+      // Append deleted images
+      if (deletedImages.length > 0) {
+        console.log(`🗑️ Appending ${deletedImages.length} deleted images`);
+        formDataToSend.append('deletedImages', JSON.stringify(deletedImages));
+      }
+
+      // Handle video
+      if (videoFile) {
+        console.log(`🎥 Appending new video`);
+        formDataToSend.append('video', videoFile);
+      }
+      
+      if (removeVideo) {
+        console.log('❌ Removing existing video');
+        formDataToSend.append('removeVideo', 'true');
+      }
+
+      // Append new panorama images
+      if (newPanoramaImages.length > 0) {
+        console.log(`🔄 Appending ${newPanoramaImages.length} new panorama images`);
+        newPanoramaImages.forEach(file => {
+          formDataToSend.append('panorama360Images', file);
+        });
+      }
+
+      // Append deleted panoramas
+      if (deletedPanoramaImages.length > 0) {
+        console.log(`🗑️ Appending ${deletedPanoramaImages.length} deleted panoramas`);
+        formDataToSend.append('deletedPanoramaImages', JSON.stringify(deletedPanoramaImages));
+      }
+
+      // Log request info for debugging
+      let totalSize = 0;
+      let fileCount = 0;
+      for (let [key, value] of formDataToSend.entries()) {
+        if (value instanceof File) {
+          totalSize += value.size;
+          fileCount++;
+          console.log(`📁 ${key}: ${value.name} (${(value.size / 1024 / 1024).toFixed(2)}MB)`);
+        } else if (key.includes('deleted')) {
+          console.log(`🗑️ ${key}: ${value}`);
+        } else if (key === 'images' || key === 'panorama360Images') {
+          // Skip logging array contents
+        } else {
+          console.log(`📝 ${key}: ${value}`);
         }
+      }
+      console.log(`📊 Total upload: ${fileCount} files, ${(totalSize / 1024 / 1024).toFixed(2)}MB`);
 
-        // --- File Handling ---
+      // --- API Call with Enhanced Error Handling ---
+      console.log('🚀 Sending PUT request...');
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
 
-        // Append new image files
-        if (newImages && newImages.length > 0) {
-            console.log(`📸 Appending ${newImages.length} new images`);
-            newImages.forEach(file => {
-                formDataToSend.append('images', file);
-                console.log(`  - images:`, file.name, file.type, `${(file.size / 1024 / 1024).toFixed(2)}MB`);
-            });
-        }
-
-        // Append deleted image URLs (send full URLs, not just filenames)
-        if (deletedImages.length > 0) {
-            console.log(`🗑️ Appending ${deletedImages.length} deleted images`);
-            formDataToSend.append('deletedImages', JSON.stringify(deletedImages));
-            deletedImages.forEach(imgUrl => {
-                console.log(`  - deleted:`, imgUrl);
-            });
-        }
-
-        // Handle video
-        if (videoFile) {
-            console.log(`🎥 Appending new video:`, videoFile.name, `${(videoFile.size / 1024 / 1024).toFixed(2)}MB`);
-            formDataToSend.append('video', videoFile);
-        }
-        
-        // Only send removeVideo if explicitly set to true
-        if (removeVideo) {
-            console.log('❌ Removing existing video');
-            formDataToSend.append('removeVideo', 'true');
-        }
-
-        // Append new panorama images
-        if (newPanoramaImages && newPanoramaImages.length > 0) {
-            console.log(`🔄 Appending ${newPanoramaImages.length} new panorama images`);
-            newPanoramaImages.forEach(file => {
-                formDataToSend.append('panorama360Images', file);
-                console.log(`  - panorama360Images:`, file.name, file.type, `${(file.size / 1024 / 1024).toFixed(2)}MB`);
-            });
-        }
-
-        // Append deleted panorama image URLs (send full URLs)
-        if (deletedPanoramaImages.length > 0) {
-            console.log(`🗑️ Appending ${deletedPanoramaImages.length} deleted panoramas`);
-            formDataToSend.append('deletedPanoramaImages', JSON.stringify(deletedPanoramaImages));
-            deletedPanoramaImages.forEach(url => {
-                console.log(`  - deleted panorama:`, url);
-            });
-        }
-
-        // Log final FormData state
-        console.log('📤 Final FormData state before sending:');
-        const formDataEntries = {};
-        for (let [key, value] of formDataToSend.entries()) {
-            if (value instanceof File) {
-                formDataEntries[key] = `File: ${value.name} (${value.type}, ${(value.size / 1024 / 1024).toFixed(2)}MB)`;
-            } else if (key.includes('deleted')) {
-                formDataEntries[key] = `Array: ${value}`;
-            } else {
-                formDataEntries[key] = value;
-            }
-        }
-        console.log('FormData entries:', formDataEntries);
-
-        // --- API Call ---
-        console.log('🚀 Sending PUT request to:', `/properties/${propertyId}`);
-        
+      try {
         const response = await fetch(buildApi(`/properties/${propertyId}`), {
-            method: 'PUT',
-            headers: { 
-                Authorization: `Bearer ${userToken}`,
-                // Don't set Content-Type header - let browser set it with boundary
-            },
-            body: formDataToSend,
+          method: 'PUT',
+          headers: { 
+            Authorization: `Bearer ${userToken}`,
+          },
+          body: formDataToSend,
+          signal: controller.signal
         });
+
+        clearTimeout(timeoutId);
 
         console.log('📨 Response status:', response.status);
 
@@ -651,10 +644,13 @@ const EditProperty = () => {
         console.log('📨 Response data:', responseData);
 
         if (!response.ok) {
-            // Use the detailed error message from the backend
-            const errorMessage = responseData.error || responseData.details?.[0] || responseData.message || 'An unknown error occurred.';
-            console.error('❌ Backend Error Details:', responseData);
+          // Handle backend validation errors
+          if (responseData.details && Array.isArray(responseData.details)) {
+            const errorMessage = responseData.details.join(', ');
             throw new Error(errorMessage);
+          }
+          const errorMessage = responseData.error || responseData.message || `Server error: ${response.status}`;
+          throw new Error(errorMessage);
         }
 
         console.log('✅ Property updated successfully!');
@@ -664,694 +660,581 @@ const EditProperty = () => {
         await clearFormPersistence(FORM_KEY);
         navigate('/my-properties');
 
-    } catch (err) {
-        console.error('❌ Update property error:', err);
-        
-        // Enhanced error handling
-        if (err.name === 'TypeError' && err.message.includes('Failed to fetch')) {
-            toast.error('Network error. Please check your connection and try again.');
-        } else if (err.message.includes('Unexpected end of form')) {
-            toast.error('Upload failed. The file might be too large or the connection was interrupted.');
-        } else {
-            toast.error(err.message || 'Failed to update property. Please try again.');
+      } catch (fetchError) {
+        if (fetchError.name === 'AbortError') {
+          throw new Error('Request timeout. Please try again with smaller files or better connection.');
         }
+        throw fetchError;
+      }
+
+    } catch (err) {
+      console.error('❌ Update property error:', err);
+      
+      // Enhanced error handling
+      if (err.name === 'TypeError' && err.message.includes('Failed to fetch')) {
+        toast.error('Network error. Please check your connection and try again.');
+      } else if (err.message.includes('timeout')) {
+        toast.error('Request timeout. Try uploading fewer or smaller files.');
+      } else if (err.message.includes('too large')) {
+        toast.error(err.message);
+      } else if (err.message.includes('Unexpected end of form') || err.message.includes('truncated')) {
+        toast.error('Upload failed. File might be too large. Try compressing images or using smaller files.');
+      } else {
+        toast.error(err.message || 'Failed to update property. Please try again.');
+      }
+      
+      setError(err.message);
     } finally {
-        setSubmitting(false);
+      setSubmitting(false);
     }
-};
+  };
 
+  // Loading state
+  if (loading) {
     return (
-        <div className="dashboard-container landlord-dashboard">
-            <Sidebar activeItem="my-properties" />
-            <div className="landlord-main edit-property-main">
-                {loading ? (
-                    <div className="ll-card skeleton-card">
-                        <div className="skeleton line w-50" />
-                        <div className="skeleton line w-80" />
-                        <div className="skeleton line w-40" />
-                        <div className="skeleton line w-70" />
-                    </div>
-                ) : (
-                    <form onSubmit={handleSubmit} className="ll-card edit-property-form" noValidate>
-                        <div className="map-preview-section ll-card" style={{padding: '24px', borderRadius: '12px', boxShadow: '0 2px 12px rgba(0,0,0,0.05)', background: '#fafafa', marginBottom: '32px'}}>
-                            <div style={{display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '18px'}}>
-                                <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
-                                    <h3 style={{margin: 0}}>Property Location</h3>
-                                    {isGeocoding && (
-                                        <div style={{display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9em', color: '#666'}}>
-                                            <div style={{width: '16px', height: '16px', border: '2px solid #666', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite'}}></div>
-                                            Finding location...
-                                        </div>
-                                    )}
-                                </div>
-                                <div style={{
-                                    padding: '12px',
-                                    background: '#fff',
-                                    border: '1px solid #e0e0e0',
-                                    borderRadius: '8px',
-                                    fontSize: '0.9em',
-                                    color: '#555'
-                                }}>
-                                    <div style={{fontWeight: 'bold', marginBottom: '8px'}}>📍 How to update your property's location:</div>
-                                    <ol style={{margin: '0', paddingLeft: '20px'}}>
-                                        <li>Update address or barangay for automatic pin placement</li>
-                                        <li>Fine-tune the location by either:
-                                            <ul style={{marginTop: '4px'}}>
-                                                <li>Clicking anywhere on the map to move the pin</li>
-                                                <li>Dragging the red pin marker to the exact location</li>
-                                            </ul>
-                                        </li>
-                                        <li>Zoom in/out using the +/- buttons or mouse wheel for better accuracy</li>
-                                        <li>Click "Reset Pin" to restore the original location</li>
-                                    </ol>
-                                </div>
-                            </div>
-                            <div style={{ height: "300px", width: "100%", marginBottom: "1rem", borderRadius: "8px", overflow: "hidden", boxShadow: "0 2px 8px #0001" }}>
-                                <MapContainer
-                                    center={formData.latitude && formData.longitude ? [parseFloat(formData.latitude), parseFloat(formData.longitude)] : mapCenter}
-                                    zoom={mapZoom}
-                                    style={{ height: "100%", width: "100%" }}
-                                >
-                                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                                    {formData.latitude && formData.longitude && (
-                                        <Marker
-                                            position={[parseFloat(formData.latitude), parseFloat(formData.longitude)]}
-                                            draggable={true}
-                                            eventHandlers={{
-                                                dragstart: () => {
-                                                    toast.info('Dragging pin to adjust location...', {autoClose: 2000});
-                                                },
-                                                dragend: (e) => {
-                                                    const latlng = e.target.getLatLng();
-                                                    setFormData(f => ({ ...f, latitude: latlng.lat.toString(), longitude: latlng.lng.toString() }));
-                                                    setManualPin(true);
-                                                    toast.success('Location updated! ✨', {autoClose: 2000});
-                                                }
-                                            }}
-                                            icon={L.icon({
-                                                iconUrl: "https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png",
-                                                iconSize: [25, 41],
-                                                iconAnchor: [12, 41],
-                                                popupAnchor: [1, -34],
-                                                shadowUrl: "https://unpkg.com/leaflet@1.9.3/dist/images/marker-shadow.png",
-                                                shadowSize: [41, 41]
-                                            })}
-                                        >
-                                            <Popup>
-                                                <div style={{fontSize: '0.9em', padding: '4px'}}>
-                                                    <div style={{fontWeight: 'bold', marginBottom: '4px'}}>{formData.propertyType || 'Property'}</div>
-                                                    <div style={{color: '#666', marginBottom: '4px'}}>{formData.address}</div>
-                                                    {formData.price && <div style={{color: '#2c5282', fontWeight: 'bold', marginBottom: '4px'}}>₱{formData.price}</div>}
-                                                    <div style={{fontSize: '0.8em', color: '#666', marginTop: '8px'}}>
-                                                        {manualPin ? '✏️ Manually placed' : '🎯 Auto-located'}<br/>
-                                                        Drag pin or click map to adjust
-                                                    </div>
-                                                </div>
-                                            </Popup>
-                                        </Marker>
-                                    )}
-                                </MapContainer>
-                            </div>
-                            <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
-                                <input className="ll-field" type="text" name="latitude" value={formData.latitude} onChange={handleChange} placeholder="Latitude" style={{ width: "120px" }} />
-                                <input className="ll-field" type="text" name="longitude" value={formData.longitude} onChange={handleChange} placeholder="Longitude" style={{ width: "120px" }} />
-                                <button type="button" className="ll-btn tiny" onClick={() => {
-                                    setFormData(f => ({
-                                        ...f,
-                                        latitude: originalLatLng.lat,
-                                        longitude: originalLatLng.lng
-                                    }));
-                                    setManualPin(false);
-                                    toast.info("Pin reset to original property location.");
-                                }}>Reset Pin</button>
-                                {manualPin && <span className="field-hint" style={{ color: "#1976d2" }}>Manual pin active</span>}
-                            </div>
-                        </div>
-                        <div className="form-header">
-                            <h2 className="form-title">Edit Property</h2>
-                            <p className="form-subtitle">Update your listing details and images. Changes go live immediately after saving.</p>
-                        </div>
-                        <div className="form-grid">
-                            {/* 🟡 FIX 1: Listing Type with proper value binding */}
-                            <div className="field-group">
-                                <label className="required">Listing Type</label>
-                                <select 
-                                    className="ll-field" 
-                                    name="listingType" 
-                                    value={formData.listingType} // Using value instead of defaultValue
-                                    onChange={handleChange} 
-                                    required
-                                >
-                                    <option value="">Select Listing Type</option>
-                                    <option value="For Rent">For Rent</option>
-                                    <option value="For Sale">For Sale</option>
-                                </select>
-                                {formData.listingType && (
-                                    <div className="field-hint small" style={{color: '#10b981'}}>
-                                        ✓ Currently set to: {formData.listingType}
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="field-group">
-                                <label className="required">Property Type</label>
-                                <select className="ll-field" name="propertyType" value={formData.propertyType} onChange={handleChange} required>
-                                    <option value="">Select Property Type</option>
-                                    {PROPERTY_TYPES.map(pt => <option key={pt} value={pt}>{pt}</option>)}
-                                </select>
-                            </div>
-
-                            {/* 🟡 FIX 2: Conditional display for Bills Included */}
-                            <div className={`field-group full ${isForSale ? 'field-disabled' : ''}`}>
-                                <label>Bills Included</label>
-                                <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
-                                    {['Water','Electricity'].map(b => (
-                                        <label key={b} style={{display:'flex',alignItems:'center',gap:8,fontWeight:500}}>
-                                            <input 
-                                                type="checkbox" 
-                                                name="billsIncluded" 
-                                                value={b} 
-                                                checked={Array.isArray(formData.billsIncluded) ? formData.billsIncluded.includes(b) : false} 
-                                                onChange={(e)=>{
-                                                    const checked = e.target.checked;
-                                                    setFormData(prev => {
-                                                        const arr = Array.isArray(prev.billsIncluded) ? [...prev.billsIncluded] : [];
-                                                        if (checked) {
-                                                            if (!arr.includes(b)) arr.push(b);
-                                                        } else {
-                                                            const idx = arr.indexOf(b); if (idx>=0) arr.splice(idx,1);
-                                                        }
-                                                        return { ...prev, billsIncluded: arr };
-                                                    });
-                                                }} 
-                                                disabled={isFieldDisabled('billsIncluded')} 
-                                            />
-                                            {b}
-                                        </label>
-                                    ))}
-                                </div>
-                                <div className="field-hint small">
-                                    {isForSale ? 'Not applicable for sale listings' : 'Check bills that are included in the rent (optional)'}
-                                </div>
-                            </div>
-
-                            {/* 🟡 FIX 2: Conditional display for Property Condition */}
-                            <div className={`field-group ${isForRent ? 'field-disabled' : ''}`}>
-                                <label className={isForSale ? 'required' : ''}>Property Condition</label>
-                                <select 
-                                    className="ll-field" 
-                                    name="propertyCondition" 
-                                    value={formData.propertyCondition} 
-                                    onChange={handleChange} 
-                                    required={isForSale}
-                                    disabled={isFieldDisabled('propertyCondition')}
-                                >
-                                    <option value="">Select Property Condition</option>
-                                    <option value="Fully Furnished">Fully Furnished</option>
-                                    <option value="Semi-Furnished">Semi-Furnished</option>
-                                    <option value="Unfurnished">Unfurnished</option>
-                                    <option value="Brand New">Brand New</option>
-                                    <option value="Pre-owned / Resale">Pre-owned / Resale</option>
-                                </select>
-                                {isForRent && <div className="field-hint small" style={{color:'#666'}}>Not applicable for rent listings</div>}
-                            </div>
-
-                            {/* 🟡 FIX 2: Conditional display for Market Highlights */}
-                            <div className={`field-group full ${isForRent ? 'field-disabled' : ''}`}>
-                                <label>Market Highlights</label>
-                                <div style={{display:'flex',flexDirection:'column',gap:8}}>
-                                    {['Ready for Occupancy (RFO)','Pre-selling (under construction)','Negotiable Price','Clean Title','Inclusive of Taxes and Fees','Good Investment Opportunity','Rush Sale / Below Market Value'].map(mh => (
-                                        <label key={mh} style={{display:'flex',alignItems:'center',gap:8,fontWeight:500}}>
-                                            <input 
-                                                type="checkbox" 
-                                                name="marketHighlights" 
-                                                value={mh} 
-                                                checked={Array.isArray(formData.marketHighlights) ? formData.marketHighlights.includes(mh) : false} 
-                                                onChange={(e)=>{
-                                                    const checked = e.target.checked;
-                                                    setFormData(prev => {
-                                                        const arr = Array.isArray(prev.marketHighlights) ? [...prev.marketHighlights] : [];
-                                                        if (checked) {
-                                                            if (!arr.includes(mh)) arr.push(mh);
-                                                        } else {
-                                                            const idx = arr.indexOf(mh); if (idx>=0) arr.splice(idx,1);
-                                                        }
-                                                        return { ...prev, marketHighlights: arr };
-                                                    });
-                                                }} 
-                                                disabled={isFieldDisabled('marketHighlights')}
-                                            />
-                                            {mh}
-                                        </label>
-                                    ))}
-                                </div>
-                                <div className="field-hint small">
-                                    {isForRent ? 'Not applicable for rent listings' : 'Optional - check any market highlights that apply.'}
-                                </div>
-                            </div>
-
-                            <div className="field-group">
-                                <label className="required">Address</label>
-                                <input className="ll-field" name="address" value={formData.address} onChange={handleChange} required placeholder="E.g., Heroesville 1, Blk 15, Lot 8" />
-                                <div className="field-hint small">Tip: Include commas to separate street, block, lot (e.g., "Street, Blk, Lot") for better geocoding.</div>
-                            </div>
-
-                            <div className="field-group">
-                                <label className="required">Barangay</label>
-                                <select className="ll-field" name="barangay" value={formData.barangay} onChange={handleChange} required>
-                                    <option value="">Select barangay</option>
-                                    {barangays.map(brgy => <option key={brgy} value={brgy}>{brgy}</option>)}
-                                </select>
-                            </div>
-                            
-                            <div className="field-group">
-                                <label className="required">Price (₱)</label>
-                                <input
-                                    className="ll-field"
-                                    type="text"
-                                    name="price"
-                                    value={formData.price}
-                                    onChange={handleChange}
-                                    onFocus={() => { setPriceFocused(true); setPriceError(''); }}
-                                    onBlur={() => {
-                                        setPriceFocused(false);
-                                        const num = (function parseLocaleNumberLocal(str){
-                                            if (str === undefined || str === null || String(str).trim() === '') return NaN;
-                                            const nfParts = new Intl.NumberFormat(navigator.language).formatToParts(12345.6);
-                                            const group = nfParts.find(p => p.type === 'group')?.value || ',';
-                                            const decimal = nfParts.find(p => p.type === 'decimal')?.value || '.';
-                                            const esc = s => s.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
-                                            let normalized = String(str).replace(new RegExp(esc(group), 'g'), '');
-                                            if (decimal !== '.') normalized = normalized.replace(new RegExp(esc(decimal)), '.');
-                                            normalized = normalized.replace(/\s/g, '');
-                                            normalized = normalized.replace(/[^0-9.\-]/g, '');
-                                            const num = Number(normalized);
-                                            return isNaN(num) ? NaN : num;
-                                        })(formData.price);
-                                        if (isNaN(num) || num <= 0) {
-                                            setPriceError('Please enter a valid price greater than 0');
-                                        } else {
-                                            try {
-                                                const formatted = new Intl.NumberFormat(navigator.language, { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(num);
-                                                setFormData(prev => ({ ...prev, price: String(formatted) }));
-                                                setPriceError('');
-                                            } catch (e) {
-                                                setPriceError('');
-                                            }
-                                        }
-                                    }}
-                                    required
-                                    placeholder="E.g., 1500.00"
-                                />
-                                {priceError && <div className="field-error small" style={{color:'var(--danger)', marginTop:6}}>{priceError}</div>}
-                            </div>
-
-                            <div className="field-group">
-                                <label>Number of Rooms</label>
-                                <select className="ll-field" name="numberOfRooms" value={formData.numberOfRooms} onChange={handleChange}>
-                                    <option value="">Select number</option>
-                                    {[1,2,3,4,5].map(n => <option key={n} value={n}>{n}</option>)}
-                                </select>
-                            </div>
-
-                            <div className="field-group">
-                                <label className="required">Availability</label>
-                                <select className="ll-field" name="availabilityStatus" value={formData.availabilityStatus} onChange={handleChange} required>
-                                    <option value="Available">Available</option>
-                                    <option value="Not Available">Not Available</option>
-                                </select>
-                                <div className="field-hint small">Choose the current availability for this listing.</div>
-                            </div>
-
-                            <div className="field-group">
-                                <label className="required">Property Size (sqm)</label>
-                                <input className="ll-field" type="number" min={0.1} step={0.1} name="areaSqm" value={formData.areaSqm} onChange={handleChange} placeholder="e.g. 45" required />
-                            </div>
-
-                            <div className="field-group">
-                                <label className="required">Floor Area (sqm)</label>
-                                <input className="ll-field" type="text" name="floorArea" value={formData.floorArea} onChange={handleChange} placeholder="e.g. 45 or 45.5" required />
-                                <div className="field-hint small">Total usable floor area in sqm (numbers only; decimals allowed). Required.</div>
-                            </div>
-
-                            <div className="field-group">
-                                <label className="required">Lot Area (sqm)</label>
-                                <input className="ll-field" type="text" name="lotArea" value={formData.lotArea} onChange={handleChange} placeholder="e.g. 100" required />
-                                <div className="field-hint small">Lot size in sqm. Required.</div>
-                            </div>
-
-                            <div className="field-group">
-                                <label className="required">Number of Floors</label>
-                                <select className="ll-field" name="numberOfFloors" value={formData.numberOfFloors} onChange={handleChange} required>
-                                    <option value="">Select number</option>
-                                    {[1,2,3,4,5].map(n => <option key={n} value={n}>{n}</option>)}
-                                </select>
-                                <div className="field-hint small">Number of floors (1–5). Required.</div>
-                            </div>
-
-                            {/* 🟡 FIX 2: Conditional display for Max Occupancy */}
-                            <div className={`field-group ${isForSale ? 'field-disabled' : ''}`}>
-                                <label className={formData.listingType === 'For Rent' ? 'required' : ''}>Max Occupancy</label>
-                                <select 
-                                    className="ll-field" 
-                                    name="occupancy" 
-                                    value={formData.occupancy} 
-                                    onChange={handleChange} 
-                                    required={formData.listingType === 'For Rent'} 
-                                    disabled={formData.listingType === 'For Sale'}
-                                >
-                                    <option value="">Select number</option>
-                                    {[1,2,3,4,5].map(n => <option key={n} value={n}>{n}</option>)}
-                                </select>
-                                {formData.listingType === 'For Sale' && <div className="field-hint small" style={{color:'#666'}}>Disabled for For Sale listings</div>}
-                            </div>
-
-                            {/* 🟡 FIX 2: Conditional display for Pet Friendly */}
-                            <div className={`field-group toggle-field ${isForSale ? 'field-disabled' : ''}`}>
-                                <label className="checkbox-label">
-                                    <input 
-                                        type="checkbox" 
-                                        name="petFriendly" 
-                                        checked={formData.petFriendly} 
-                                        onChange={handleChange} 
-                                        disabled={formData.listingType === 'For Sale'} 
-                                    /> 
-                                    Pet Friendly
-                                </label>
-                                {formData.petFriendly && formData.listingType !== 'For Sale' && (
-                                    <div className="ll-field mt-6 pet-types" style={{display:'flex',gap:12,flexWrap:'wrap'}}>
-                                        {['Cat','Dog','Bird','Fish'].map(p=> (
-                                            <label key={p} style={{display:'flex',alignItems:'center',gap:8,fontWeight:500}}>
-                                                <input 
-                                                    type="checkbox" 
-                                                    name="allowedPets" 
-                                                    value={p} 
-                                                    checked={Array.isArray(formData.allowedPets) ? formData.allowedPets.includes(p) : false} 
-                                                    onChange={(e)=>{
-                                                        const checked = e.target.checked;
-                                                        setFormData(prev=>{
-                                                            const arr = Array.isArray(prev.allowedPets) ? [...prev.allowedPets] : [];
-                                                            if (checked) { if (!arr.includes(p)) arr.push(p); }
-                                                            else { const idx = arr.indexOf(p); if (idx>=0) arr.splice(idx,1); }
-                                                            return { ...prev, allowedPets: arr };
-                                                        });
-                                                    }} 
-                                                />
-                                                {p}
-                                            </label>
-                                        ))}
-                                    </div>
-                                )}
-                                {formData.listingType === 'For Sale' && <div className="field-hint small" style={{color:'#666'}}>Pets not applicable for sale listings</div>}
-                            </div>
-
-                            <div className="field-group toggle-field">
-                                <label className="checkbox-label">
-                                    <input 
-                                        type="checkbox" 
-                                        name="parking" 
-                                        checked={formData.parking} 
-                                        onChange={handleChange} 
-                                    /> 
-                                    Parking Available
-                                </label>
-                            </div>
-
-                            <div className="field-group full">
-                                <label>Nearby Landmarks</label>
-                                <div style={{
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '12px',
-                                    alignItems: 'stretch',
-                                    marginBottom: '8px'
-                                }}>
-                                    <div style={{
-                                        display: 'grid',
-                                        gridTemplateColumns: window.innerWidth < 768 ? '1fr' : 'repeat(2, 1fr)',
-                                        gap: '8px 16px',
-                                    }}>
-                                        {LANDMARKS.map(l => (
-                                            <label key={l} style={{display:'flex',alignItems:'center',gap:'8px',fontWeight:400,fontSize:'0.98em'}}>
-                                                <input
-                                                    type="checkbox"
-                                                    name="landmarks"
-                                                    value={l}
-                                                    checked={Array.isArray(formData.landmarks) ? formData.landmarks.includes(l) : false}
-                                                    onChange={e => {
-                                                        const checked = e.target.checked;
-                                                        setFormData(prev => {
-                                                            let landmarksArr = Array.isArray(prev.landmarks) ? [...prev.landmarks] : [];
-                                                            if (checked) {
-                                                                if (!landmarksArr.includes(l)) landmarksArr.push(l);
-                                                            } else {
-                                                                landmarksArr = landmarksArr.filter(x => x !== l);
-                                                            }
-                                                            return { ...prev, landmarks: landmarksArr };
-                                                        });
-                                                    }}
-                                                />
-                                                {l.split(' ').map(word => word.includes('/') ? word.split('/').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('/') : word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-                                            </label>
-                                        ))}
-                                    </div>
-                                </div>
-                                <div className="field-hint small">Check all that apply.</div>
-                            </div>
-
-                            {/* 🟡 FIX 2: Conditional display for House Rules */}
-                            <div className={`field-group full ${isForSale ? 'field-disabled' : ''}`}>
-                                <label>House Rules</label>
-                                <textarea 
-                                    className="ll-field" 
-                                    name="rules" 
-                                    value={formData.rules} 
-                                    onChange={handleChange} 
-                                    placeholder="No loud noises after 10 PM, No smoking inside" 
-                                    rows={3} 
-                                    disabled={formData.listingType === 'For Sale'} 
-                                />
-                                {formData.listingType === 'For Sale' && <div className="field-hint small" style={{color:'#666'}}>Not used for sale listings</div>}
-                            </div>
-                        </div>
-
-                        {/* 🟢 FIX 4: Enhanced Panorama Section with Remove Buttons */}
-                        <div className="panorama-section" style={{marginTop:'32px'}}>
-                            <div className="section-header">
-                                <h3 className="section-title">
-                                    360° Panoramic Views
-                                    <span className="count-badge">
-                                        {panoramaImages.length + newPanoramaImages.length}/{maxPanoramaImages}
-                                    </span>
-                                </h3>
-                                <p className="field-hint">
-                                    Add up to {maxPanoramaImages} panoramic photos to showcase different areas of your property. 
-                                    Each photo should be a 360° view of a room or space for an immersive viewing experience.
-                                </p>
-                            </div>
-                            
-                            <div className="panorama-grid">
-                                {/* Existing Panoramas */}
-                                {panoramaImages.map((url, index) => (
-                                    <div key={`existing-${index}`} className="panorama-card">
-                                        <div className="panorama-preview">
-                                            <div className="panorama-preview-overlay">
-                                                <button 
-                                                    type="button"
-                                                    className="panorama-control-btn expand"
-                                                    title="View Fullscreen"
-                                                    onClick={() => handleExpandPanorama(url)}
-                                                >
-                                                    <i className="fas fa-expand"></i>
-                                                </button>
-                                            </div>
-                                            <PhotoDomeViewer 
-                                                imageUrl={url} 
-                                                mode="MONOSCOPIC"
-                                            />
-                                        </div>
-                                        <div className="panorama-actions">
-                                            <div className="panorama-info">
-                                                <i className="fas fa-vr-cardboard"></i>
-                                                Room View {index + 1}
-                                            </div>
-                                            {/* 🟢 FIX 4: Remove button in actions area */}
-                                            <button 
-                                                type="button"
-                                                className="panorama-remove-btn"
-                                                title="Remove Image"
-                                                onClick={() => handleRemovePanorama(index)}
-                                            >
-                                                <i className="fas fa-times"></i> Remove
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
-
-                                {/* New Panorama Previews */}
-                                {panoramaPreviews.map((preview, index) => (
-                                    <div key={`new-${index}`} className="panorama-card">
-                                        <div className="panorama-preview">
-                                            <div className="panorama-preview-overlay">
-                                                <button 
-                                                    type="button"
-                                                    className="panorama-control-btn expand"
-                                                    title="View Fullscreen"
-                                                    onClick={() => handleExpandPanorama(preview)}
-                                                >
-                                                    <i className="fas fa-expand"></i>
-                                                </button>
-                                            </div>
-                                            <PhotoDomeViewer 
-                                                imageUrl={preview} 
-                                                mode="MONOSCOPIC"
-                                            />
-                                        </div>
-                                        <div className="panorama-actions">
-                                            <div className="panorama-info">
-                                                <i className="fas fa-vr-cardboard"></i>
-                                                New Room View
-                                            </div>
-                                            {/* 🟢 FIX 4: Remove button in actions area */}
-                                            <button 
-                                                type="button"
-                                                className="panorama-remove-btn"
-                                                title="Remove Image"
-                                                onClick={() => handleRemoveNewPanorama(index)}
-                                            >
-                                                <i className="fas fa-times"></i> Remove
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-
-                            {/* Upload Section */}
-                            <div className={`panorama-upload ${panoramaImages.length + newPanoramaImages.length >= maxPanoramaImages ? 'disabled' : ''}`}>
-                                <label 
-                                    htmlFor="panorama-input"
-                                    style={{ cursor: panoramaImages.length + newPanoramaImages.length >= maxPanoramaImages ? 'not-allowed' : 'pointer' }}
-                                >
-                                    <input
-                                        id="panorama-input"
-                                        type="file"
-                                        accept="image/*"
-                                        multiple
-                                        onChange={handlePanoramaChange}
-                                        disabled={panoramaImages.length + newPanoramaImages.length >= maxPanoramaImages}
-                                        style={{ display: 'none' }}
-                                    />
-                                    <div className="panorama-upload-text">
-                                        {panoramaImages.length + newPanoramaImages.length >= maxPanoramaImages
-                                            ? "Maximum number of panoramic images reached"
-                                            : "Click or drag 360° panoramic images here to upload"}
-                                    </div>
-                                    <div className="panorama-count">
-                                        <span className="count-current">{panoramaImages.length + newPanoramaImages.length}</span>
-                                        <span className="count-separator">/</span>
-                                        <span className="count-max">{maxPanoramaImages} images</span>
-                                    </div>
-                                </label>
-                            </div>
-                        </div>
-
-                        <div className="images-section">
-                            {(() => {
-                                const existingCount = Array.isArray(images) ? images.length : 0;
-                                const newCount = Array.isArray(newImages) ? newImages.length : 0;
-                                return (<h3 className="section-title">Images <span style={{color:'red', marginLeft:'4px'}}>*</span> <span style={{fontWeight:400, fontSize:'0.7rem'}}>({existingCount + newCount}/8 total)</span></h3>);
-                            })()}
-                            <p className="field-hint">You can keep, remove, or add new images (max 8 total, JPG/PNG/WebP up to 10MB each).</p>
-                            <div className="current-images-grid">
-                                {images.length ? images.map((img, i) => {
-                                    const url = img.startsWith('http') ? img : buildUpload(img);
-                                    return (
-                                        <div key={i} className="image-chip">
-                                            <img src={url} alt={`Property ${i}`} />
-                                            <button type="button" aria-label="Remove image" onClick={() => handleDeleteImage(i, true)}>&times;</button>
-                                        </div>
-                                    );
-                                }) : <div className="placeholder">No images</div>}
-                            </div>
-                            <div className="new-upload-block">
-                                <label className="file-drop-modern">
-                                    <input type="file" multiple accept="image/*" onChange={handleImageChange} />
-                                    <span>Add Images</span>
-                                </label>
-                                {newImages.length > 0 && (
-                                    <div className="new-images-grid">
-                                        {newImages.map((file, i) => (
-                                            <div key={i} className="image-chip pending">
-                                                <img src={URL.createObjectURL(file)} alt={`New ${i}`} />
-                                                <button type="button" aria-label="Remove pending image" onClick={() => handleDeleteImage(i, false)}>&times;</button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="video-section">
-                            <h3 className="section-title">Property Video <span style={{fontWeight:400, fontSize:'0.7rem'}}>({removeVideo ? 'will remove' : (videoFile ? 'new video selected' : (videoPreview ? 'existing' : 'none'))})</span></h3>
-                            <p className="field-hint">Optional walkthrough clip (MP4/WebM/OGG, up to 50MB). Uploading a new one replaces the existing video.</p>
-                            {!videoPreview && !videoFile && !removeVideo && (
-                                <label className="file-drop-modern">
-                                    <input type="file" accept="video/mp4,video/webm,video/ogg" onChange={(e)=>{
-                                        const file = e.target.files?.[0];
-                                        if (!file) return;
-                                        const allowed = ['video/mp4','video/webm','video/ogg'];
-                                        if (!allowed.includes(file.type)) { toast.error('Invalid video format.'); return; }
-                                        if (file.size > 50*1024*1024) { toast.error('Video file too large (max 50MB).'); return; }
-                                        setVideoFile(file);
-                                        setVideoPreview(URL.createObjectURL(file));
-                                        setRemoveVideo(false);
-                                    }} />
-                                    <span>Select Video</span>
-                                </label>
-                            )}
-                            {(videoPreview || videoFile) && !removeVideo && (
-                                <div className="video-preview-wrapper">
-                                    <video src={videoPreview} controls preload="none" className="video-preview" />
-                                    <button type="button" className="ll-btn tiny danger" onClick={()=> {
-                                        if (videoFile && videoPreview?.startsWith('blob:')) URL.revokeObjectURL(videoPreview);
-                                        setVideoFile(null); 
-                                        setVideoPreview(null); 
-                                        setRemoveVideo(true);
-                                    }}>Remove Video</button>
-                                </div>
-                            )}
-                            {removeVideo && (
-                                <div className="removed-note">Video will be removed. <button type="button" className="link-btn" onClick={()=>setRemoveVideo(false)}>Undo</button></div>
-                            )}
-                        </div>
-
-                        <div className="form-actions">
-                            <button type="button" className="ll-btn outline" onClick={() => navigate(-1)}>Cancel</button>
-                            <button type="submit" className="ll-btn primary" disabled={submitting}>{submitting ? 'Saving...' : 'Save Changes'}</button>
-                        </div>
-                    </form>
-                )}
-
-                {/* Fullscreen Panorama Viewer */}
-                {expandedPanorama && (
-                    <div className="fullscreen-panorama">
-                        <button 
-                            type="button"
-                            className="close-fullscreen"
-                            onClick={() => setExpandedPanorama(null)}
-                        >
-                            <i className="fas fa-times"></i>
-                        </button>
-                        <PhotoDomeViewer 
-                            imageUrl={expandedPanorama}
-                            mode="MONOSCOPIC"
-                            containerStyle={{ width: '100vw', height: '100vh' }}
-                        />
-                    </div>
-                )}
-            </div>
-        </div>
+      <div className="flex justify-center items-center min-h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <span className="ml-4 text-gray-600">Loading property data...</span>
+      </div>
     );
+  }
+
+  return (
+    <div className="max-w-6xl mx-auto px-4 py-8">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900">Edit Property</h1>
+        <p className="text-gray-600 mt-2">Update your property listing information</p>
+      </div>
+      
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6">
+          <strong>Error:</strong> {error}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-8">
+        {/* Basic Information Section */}
+        <div className="bg-white shadow rounded-lg p-6">
+          <h2 className="text-xl font-semibold mb-4">Basic Information</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Listing Type *
+              </label>
+              <select
+                name="listingType"
+                value={formData.listingType}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              >
+                <option value="">Select Listing Type</option>
+                <option value="For Rent">For Rent</option>
+                <option value="For Sale">For Sale</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Property Type *
+              </label>
+              <select
+                name="propertyType"
+                value={formData.propertyType}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              >
+                <option value="">Select Property Type</option>
+                {propertyTypes.map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Property Title
+              </label>
+              <input
+                type="text"
+                name="title"
+                value={formData.title}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="e.g., Spacious 2-Bedroom Apartment"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Location Section */}
+        <div className="bg-white shadow rounded-lg p-6">
+          <h2 className="text-xl font-semibold mb-4">Location</h2>
+          
+          <div className="space-y-4">
+            <LocationSearch onLocationSelect={handleLocationSelect} />
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Address *
+                </label>
+                <input
+                  type="text"
+                  name="address"
+                  value={formData.address}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Barangay *
+                </label>
+                <input
+                  type="text"
+                  name="barangay"
+                  value={formData.barangay}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  City
+                </label>
+                <input
+                  type="text"
+                  name="city"
+                  value={formData.city}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Province
+                </label>
+                <input
+                  type="text"
+                  name="province"
+                  value={formData.province}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Price & Details Section */}
+        <div className="bg-white shadow rounded-lg p-6">
+          <h2 className="text-xl font-semibold mb-4">Price & Details</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Price *
+              </label>
+              <input
+                type="text"
+                name="price"
+                value={formData.price}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Area (sqm) *
+              </label>
+              <input
+                type="text"
+                name="areaSqm"
+                value={formData.areaSqm}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Floor Area *
+              </label>
+              <input
+                type="text"
+                name="floorArea"
+                value={formData.floorArea}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Lot Area *
+              </label>
+              <input
+                type="text"
+                name="lotArea"
+                value={formData.lotArea}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Number of Floors *
+              </label>
+              <select
+                name="numberOfFloors"
+                value={formData.numberOfFloors}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              >
+                {[1,2,3,4,5].map(num => (
+                  <option key={num} value={num}>{num}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Number of Rooms *
+              </label>
+              <select
+                name="numberOfRooms"
+                value={formData.numberOfRooms}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              >
+                {[1,2,3,4,5].map(num => (
+                  <option key={num} value={num}>{num}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Number of Bathrooms
+              </label>
+              <select
+                name="numberOfBathrooms"
+                value={formData.numberOfBathrooms}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {[1,2,3,4,5].map(num => (
+                  <option key={num} value={num}>{num}</option>
+                ))}
+              </select>
+            </div>
+
+            {formData.listingType === 'For Rent' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Maximum Occupancy *
+                </label>
+                <select
+                  name="occupancy"
+                  value={formData.occupancy}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                >
+                  {[1,2,3,4,5].map(num => (
+                    <option key={num} value={num}>{num} {num === 1 ? 'person' : 'people'}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {formData.listingType === 'For Sale' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Property Condition *
+                </label>
+                <select
+                  name="propertyCondition"
+                  value={formData.propertyCondition}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                >
+                  <option value="">Select Condition</option>
+                  <option value="Brand New">Brand New</option>
+                  <option value="Like New">Like New</option>
+                  <option value="Good">Good</option>
+                  <option value="Needs Renovation">Needs Renovation</option>
+                </select>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Availability Status
+              </label>
+              <select
+                name="availabilityStatus"
+                value={formData.availabilityStatus}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="Available">Available</option>
+                <option value="Not Available">Not Available</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Additional Fields */}
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                name="petFriendly"
+                checked={formData.petFriendly}
+                onChange={handleInputChange}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <label className="ml-2 block text-sm text-gray-700">
+                Pet Friendly
+              </label>
+            </div>
+
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                name="parking"
+                checked={formData.parking}
+                onChange={handleInputChange}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <label className="ml-2 block text-sm text-gray-700">
+                Parking Available
+              </label>
+            </div>
+          </div>
+
+          {/* Description */}
+          <div className="mt-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Property Description
+            </label>
+            <textarea
+              name="description"
+              value={formData.description}
+              onChange={handleDescriptionChange}
+              rows={4}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Describe your property in detail..."
+            />
+          </div>
+
+          {/* House Rules */}
+          <div className="mt-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              House Rules
+            </label>
+            <textarea
+              name="rules"
+              value={formData.rules}
+              onChange={handleInputChange}
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Any specific rules for tenants or buyers..."
+            />
+          </div>
+        </div>
+
+        {/* Features & Amenities Section */}
+        <div className="bg-white shadow rounded-lg p-6">
+          <h2 className="text-xl font-semibold mb-4">Features & Amenities</h2>
+          
+          <div className="space-y-6">
+            {/* Amenities */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Amenities
+              </label>
+              <CheckboxGroup
+                options={amenitiesOptions}
+                selectedValues={selectedAmenities}
+                onChange={handleAmenitiesChange}
+                columns={3}
+              />
+            </div>
+
+            {/* Bills Included */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Bills Included
+              </label>
+              <CheckboxGroup
+                options={billsOptions}
+                selectedValues={selectedBills}
+                onChange={handleBillsChange}
+                columns={2}
+              />
+            </div>
+
+            {/* Market Highlights */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Market Highlights
+              </label>
+              <CheckboxGroup
+                options={marketHighlightsOptions}
+                selectedValues={marketHighlights}
+                onChange={handleMarketHighlightsChange}
+                columns={3}
+              />
+            </div>
+
+            {/* Allowed Pets */}
+            {formData.petFriendly && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Allowed Pets
+                </label>
+                <ArrayInput
+                  values={formData.allowedPets}
+                  onChange={handleAllowedPetsChange}
+                  placeholder="Add allowed pet types..."
+                />
+              </div>
+            )}
+
+            {/* Landmarks */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Nearby Landmarks
+              </label>
+              <ArrayInput
+                values={formData.landmarks}
+                onChange={handleLandmarksChange}
+                placeholder="Add nearby landmarks..."
+              />
+            </div>
+
+            {/* Nearby Schools */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Nearby Schools
+              </label>
+              <ArrayInput
+                values={formData.nearbySchools}
+                onChange={handleNearbySchoolsChange}
+                placeholder="Add nearby schools..."
+              />
+            </div>
+
+            {/* Nearby Hospitals */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Nearby Hospitals
+              </label>
+              <ArrayInput
+                values={formData.nearbyHospitals}
+                onChange={handleNearbyHospitalsChange}
+                placeholder="Add nearby hospitals..."
+              />
+            </div>
+
+            {/* Transportation */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Transportation Options
+              </label>
+              <ArrayInput
+                values={formData.transportation}
+                onChange={handleTransportationChange}
+                placeholder="Add transportation options..."
+              />
+            </div>
+
+            {/* Security Features */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Security Features
+              </label>
+              <ArrayInput
+                values={formData.securityFeatures}
+                onChange={handleSecurityFeaturesChange}
+                placeholder="Add security features..."
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Media Upload Sections */}
+        <ImageUpload
+          existingImages={formData.images || []}
+          newImages={newImages}
+          deletedImages={deletedImages}
+          onImageChange={handleImageChange}
+          onImageDelete={handleImageDelete}
+        />
+
+        <VideoUpload
+          existingVideo={formData.video}
+          newVideo={videoFile}
+          removeVideo={removeVideo}
+          onVideoChange={handleVideoChange}
+          onVideoRemove={handleVideoRemove}
+        />
+
+        <PanoramaUpload
+          existingPanoramas={formData.panorama360Images || []}
+          newPanoramas={newPanoramaImages}
+          deletedPanoramas={deletedPanoramaImages}
+          onPanoramaChange={handlePanoramaChange}
+          onPanoramaDelete={handlePanoramaDelete}
+        />
+
+        {/* Submit Button */}
+        <div className="flex justify-end space-x-4 pt-6 border-t">
+          <button
+            type="button"
+            onClick={() => navigate('/my-properties')}
+            className="px-8 py-3 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="px-8 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {submitting ? (
+              <span className="flex items-center">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Updating Property...
+              </span>
+            ) : (
+              'Update Property'
+            )}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
 };
 
 export default EditProperty;
