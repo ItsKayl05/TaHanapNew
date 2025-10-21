@@ -901,7 +901,7 @@ const AddProperties = () => {
                 <div className="new-upload-block">
                   <label className="file-drop-modern">
                     <input type="file" multiple accept="image/*" onChange={handleImageChange} />
-                    <span>Add Images</span>
+                    <span>Add Imag</span>
                   </label>
                 </div>
               </div>
