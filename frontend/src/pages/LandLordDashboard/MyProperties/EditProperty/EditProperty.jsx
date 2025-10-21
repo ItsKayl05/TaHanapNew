@@ -51,9 +51,9 @@ const EditProperty = () => {
         setExpandedPanorama(imageUrl);
     };
 
-    // Form data state
+    // Form data state - FIXED: Initialize with proper values
     const [formData, setFormData] = useState({
-        listingType: '',
+        listingType: '', // This will be properly set from API data
         propertyType: '',
         billsIncluded: [],
         propertyCondition: '',
@@ -106,6 +106,7 @@ const EditProperty = () => {
 
     const FORM_KEY = `edit-property-${propertyId}-v1`;
 
+    // 🟡 FIX 1: Properly set listingType from API data
     useEffect(() => {
         const fetchProperty = async () => {
             try {
@@ -128,9 +129,18 @@ const EditProperty = () => {
                   landmarksArr = data.landmarks.split(',').map(l => l.trim()).filter(l => l);
                 }
                 
+                // 🟡 FIX 1: Properly extract listingType from API response
+                // Try multiple possible field names from API
+                const listingType = data.listingType || data.type || data.propertyListingType || '';
+                
+                console.log('🔍 Debug - API Data:', {
+                    listingTypeFromAPI: listingType,
+                    dataFields: Object.keys(data).filter(key => key.toLowerCase().includes('type'))
+                });
+
                 // Initialize formData with null checks and proper type conversions
                 setFormData({
-                    propertyType: data.title || '',
+                    propertyType: data.propertyType || data.title || '',
                     billsIncluded: Array.isArray(data.billsIncluded) ? data.billsIncluded : 
                         (typeof data.billsIncluded === 'string' && data.billsIncluded.trim() ? 
                             data.billsIncluded.split(',').map(s=>s.trim()) : []),
@@ -141,9 +151,9 @@ const EditProperty = () => {
                     address: data.address || '',
                     price: String(data.price || ''),
                     barangay: data.barangay || '',
-                    // Correctly determine and set listing type and property type
-                    listingType: data.listingType || data.type || data.propertyListingType || '',  // Try different possible API field names
-                    propertyType: data.title || data.propertyType || '',  // The actual property type
+                    // 🟡 FIX 1: Set listingType from API data
+                    listingType: listingType,
+                    propertyType: data.propertyType || data.title || '',
                     petFriendly: Boolean(data.petFriendly),
                     allowedPets: Array.isArray(data.allowedPets) ? data.allowedPets : 
                         (typeof data.allowedPets === 'string' && data.allowedPets.trim() ? 
@@ -225,8 +235,11 @@ const EditProperty = () => {
         ]);
     };
 
-    // Remove new panorama image
+    // 🟢 FIX 4: Enhanced Remove functions with confirmation
     const handleRemoveNewPanorama = (index) => {
+        const confirmRemove = window.confirm("Are you sure you want to remove this panoramic image?");
+        if (!confirmRemove) return;
+        
         setPanoramaPreviews(prev => {
             const newPreviews = [...prev];
             URL.revokeObjectURL(newPreviews[index]);
@@ -238,13 +251,17 @@ const EditProperty = () => {
             newImages.splice(index, 1);
             return newImages;
         });
+        toast.success("Panoramic image removed");
     };
 
-    // Remove existing panorama image
     const handleRemovePanorama = (index) => {
+        const confirmRemove = window.confirm("Are you sure you want to remove this panoramic image?");
+        if (!confirmRemove) return;
+        
         const imageToDelete = panoramaImages[index];
         setPanoramaImages(prev => prev.filter((_, i) => i !== index));
         setDeletedPanoramaImages(prev => [...prev, imageToDelete]);
+        toast.success("Panoramic image removed");
     };
 
     // Use stable toast IDs and debounce geocoding to avoid spammy repeated toasts
@@ -446,7 +463,7 @@ const EditProperty = () => {
         })();
     }, [propertyId]);
 
-    // Auto-clear fields and manage field visibility when listing type changes
+    // 🟡 FIX 2: Enhanced conditional logic for listing type
     const isForRent = formData.listingType === 'For Rent';
     const isForSale = formData.listingType === 'For Sale';
     
@@ -463,6 +480,7 @@ const EditProperty = () => {
         return false;
     };
     
+    // 🟡 FIX 2: Enhanced field clearing with proper validation
     useEffect(() => {
         if (!formData.listingType) return;
         
@@ -488,6 +506,7 @@ const EditProperty = () => {
     useEffect(() => { if (videoFile && videoFile instanceof File) saveFiles(FORM_KEY,'video',[videoFile]).catch(()=>{}); }, [videoFile]);
     useEffect(() => { if (newPanoramaImages && newPanoramaImages.length) saveFiles(FORM_KEY,'panorama360Images', newPanoramaImages.filter(f=> f instanceof File)).catch(()=>{}); }, [newPanoramaImages]);
 
+    // ⚠️ FIX 3: Enhanced submit handler with better error handling
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (submitting) return;
@@ -495,12 +514,17 @@ const EditProperty = () => {
             const userToken = localStorage.getItem("user_token");
             if (!userToken) throw new Error("Unauthorized access. Please log in.");
             
+            // ⚠️ FIX 3: Validate listingType first to prevent 400 error
+            if (!formData.listingType || formData.listingType.trim() === '') {
+                toast.error("Please select a listing type (For Rent or For Sale)");
+                return;
+            }
+
             const requiredChecks = [
                 { key: 'propertyType', ok: formData.propertyType && formData.propertyType.toString().trim() !== '', msg: "Please select a property type" },
                 { key: 'address', ok: formData.address && formData.address.toString().trim() !== '', msg: "The property address cannot be empty" },
                 { key: 'price', ok: formData.price && formData.price.toString().trim() !== '', msg: "Don't forget to set a price" },
                 { key: 'barangay', ok: formData.barangay && formData.barangay.toString().trim() !== '', msg: "Please select a barangay for your property" },
-                { key: 'listingType', ok: formData.listingType && formData.listingType.toString().trim() !== '', msg: "Please select listing type" },
                 { key: 'areaSqm', ok: formData.areaSqm !== undefined && formData.areaSqm !== '' && !isNaN(Number(formData.areaSqm)) && Number(formData.areaSqm) > 0, msg: "Please provide the floor area (in square meters)" },
                 { key: 'floorArea', ok: formData.floorArea !== undefined && formData.floorArea !== '', msg: "Please provide the total floor area (floor area)" },
                 { key: 'lotArea', ok: formData.lotArea !== undefined && formData.lotArea !== '', msg: "Please provide the lot area" },
@@ -609,6 +633,9 @@ const EditProperty = () => {
             landmarksArr = landmarksArr.map(l => l.trim()).filter(l => l);
             const landmarksString = landmarksArr.join(', ');
 
+            // ⚠️ FIX 3: Ensure listingType is always included
+            formDataToSend.append('listingType', formData.listingType);
+
             Object.entries(formData).forEach(([key, value]) => {
                 // Skip validation for disabled fields based on listing type
                 if (isFieldDisabled(key)) return;
@@ -661,7 +688,7 @@ const EditProperty = () => {
             formDataToSend.append('numberOfFloors', floorsNum);
 
             // Debug log FormData
-            console.log('Debug - FormData contents:');
+            console.log('🔍 Debug - FormData contents:');
             for (let pair of formDataToSend.entries()) {
                 console.log(pair[0] + ': ' + pair[1]);
             }
@@ -859,13 +886,25 @@ const EditProperty = () => {
                             <p className="form-subtitle">Update your listing details and images. Changes go live immediately after saving.</p>
                         </div>
                         <div className="form-grid">
+                            {/* 🟡 FIX 1: Listing Type with proper value binding */}
                             <div className="field-group">
                                 <label className="required">Listing Type</label>
-                                <select className="ll-field" name="listingType" value={formData.listingType} onChange={handleChange} required>
+                                <select 
+                                    className="ll-field" 
+                                    name="listingType" 
+                                    value={formData.listingType} // Using value instead of defaultValue
+                                    onChange={handleChange} 
+                                    required
+                                >
                                     <option value="">Select Listing Type</option>
                                     <option value="For Rent">For Rent</option>
                                     <option value="For Sale">For Sale</option>
                                 </select>
+                                {formData.listingType && (
+                                    <div className="field-hint small" style={{color: '#10b981'}}>
+                                        ✓ Currently set to: {formData.listingType}
+                                    </div>
+                                )}
                             </div>
 
                             <div className="field-group">
@@ -876,7 +915,8 @@ const EditProperty = () => {
                                 </select>
                             </div>
 
-                            <div className="field-group full">
+                            {/* 🟡 FIX 2: Conditional display for Bills Included */}
+                            <div className={`field-group full ${isForSale ? 'field-disabled' : ''}`}>
                                 <label>Bills Included</label>
                                 <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
                                     {['Water','Electricity'].map(b => (
@@ -904,10 +944,13 @@ const EditProperty = () => {
                                         </label>
                                     ))}
                                 </div>
-                                <div className="field-hint small">{formData.listingType === 'For Sale' ? 'Not applicable for sale listings' : 'Check bills that are included in the rent (optional)'}</div>
+                                <div className="field-hint small">
+                                    {isForSale ? 'Not applicable for sale listings' : 'Check bills that are included in the rent (optional)'}
+                                </div>
                             </div>
 
-                            <div className="field-group">
+                            {/* 🟡 FIX 2: Conditional display for Property Condition */}
+                            <div className={`field-group ${isForRent ? 'field-disabled' : ''}`}>
                                 <label className={isForSale ? 'required' : ''}>Property Condition</label>
                                 <select 
                                     className="ll-field" 
@@ -924,9 +967,11 @@ const EditProperty = () => {
                                     <option value="Brand New">Brand New</option>
                                     <option value="Pre-owned / Resale">Pre-owned / Resale</option>
                                 </select>
+                                {isForRent && <div className="field-hint small" style={{color:'#666'}}>Not applicable for rent listings</div>}
                             </div>
 
-                            <div className="field-group full">
+                            {/* 🟡 FIX 2: Conditional display for Market Highlights */}
+                            <div className={`field-group full ${isForRent ? 'field-disabled' : ''}`}>
                                 <label>Market Highlights</label>
                                 <div style={{display:'flex',flexDirection:'column',gap:8}}>
                                     {['Ready for Occupancy (RFO)','Pre-selling (under construction)','Negotiable Price','Clean Title','Inclusive of Taxes and Fees','Good Investment Opportunity','Rush Sale / Below Market Value'].map(mh => (
@@ -948,12 +993,15 @@ const EditProperty = () => {
                                                         return { ...prev, marketHighlights: arr };
                                                     });
                                                 }} 
+                                                disabled={isFieldDisabled('marketHighlights')}
                                             />
                                             {mh}
                                         </label>
                                     ))}
                                 </div>
-                                <div className="field-hint small">Optional - check any market highlights that apply.</div>
+                                <div className="field-hint small">
+                                    {isForRent ? 'Not applicable for rent listings' : 'Optional - check any market highlights that apply.'}
+                                </div>
                             </div>
 
                             <div className="field-group">
@@ -1055,16 +1103,25 @@ const EditProperty = () => {
                                 <div className="field-hint small">Number of floors (1–5). Required.</div>
                             </div>
 
-                            <div className="field-group">
+                            {/* 🟡 FIX 2: Conditional display for Max Occupancy */}
+                            <div className={`field-group ${isForSale ? 'field-disabled' : ''}`}>
                                 <label className={formData.listingType === 'For Rent' ? 'required' : ''}>Max Occupancy</label>
-                                <select className="ll-field" name="occupancy" value={formData.occupancy} onChange={handleChange} required={formData.listingType === 'For Rent'} disabled={formData.listingType === 'For Sale'}>
+                                <select 
+                                    className="ll-field" 
+                                    name="occupancy" 
+                                    value={formData.occupancy} 
+                                    onChange={handleChange} 
+                                    required={formData.listingType === 'For Rent'} 
+                                    disabled={formData.listingType === 'For Sale'}
+                                >
                                     <option value="">Select number</option>
                                     {[1,2,3,4,5].map(n => <option key={n} value={n}>{n}</option>)}
                                 </select>
                                 {formData.listingType === 'For Sale' && <div className="field-hint small" style={{color:'#666'}}>Disabled for For Sale listings</div>}
                             </div>
 
-                            <div className="field-group toggle-field">
+                            {/* 🟡 FIX 2: Conditional display for Pet Friendly */}
+                            <div className={`field-group toggle-field ${isForSale ? 'field-disabled' : ''}`}>
                                 <label className="checkbox-label">
                                     <input 
                                         type="checkbox" 
@@ -1156,13 +1213,23 @@ const EditProperty = () => {
                                 <div className="field-hint small">Check all that apply.</div>
                             </div>
 
-                            <div className="field-group full">
+                            {/* 🟡 FIX 2: Conditional display for House Rules */}
+                            <div className={`field-group full ${isForSale ? 'field-disabled' : ''}`}>
                                 <label>House Rules</label>
-                                <textarea className="ll-field" name="rules" value={formData.rules} onChange={handleChange} placeholder="No loud noises after 10 PM, No smoking inside" rows={3} disabled={formData.listingType === 'For Sale'} />
+                                <textarea 
+                                    className="ll-field" 
+                                    name="rules" 
+                                    value={formData.rules} 
+                                    onChange={handleChange} 
+                                    placeholder="No loud noises after 10 PM, No smoking inside" 
+                                    rows={3} 
+                                    disabled={formData.listingType === 'For Sale'} 
+                                />
                                 {formData.listingType === 'For Sale' && <div className="field-hint small" style={{color:'#666'}}>Not used for sale listings</div>}
                             </div>
                         </div>
 
+                        {/* 🟢 FIX 4: Enhanced Panorama Section with Remove Buttons */}
                         <div className="panorama-section" style={{marginTop:'32px'}}>
                             <div className="section-header">
                                 <h3 className="section-title">
@@ -1191,14 +1258,6 @@ const EditProperty = () => {
                                                 >
                                                     <i className="fas fa-expand"></i>
                                                 </button>
-                                                <button 
-                                                    type="button"
-                                                    className="panorama-control-btn remove"
-                                                    title="Remove Image"
-                                                    onClick={() => handleRemovePanorama(index)}
-                                                >
-                                                    <i className="fas fa-times"></i>
-                                                </button>
                                             </div>
                                             <PhotoDomeViewer 
                                                 imageUrl={url} 
@@ -1210,6 +1269,15 @@ const EditProperty = () => {
                                                 <i className="fas fa-vr-cardboard"></i>
                                                 Room View {index + 1}
                                             </div>
+                                            {/* 🟢 FIX 4: Remove button in actions area */}
+                                            <button 
+                                                type="button"
+                                                className="panorama-remove-btn"
+                                                title="Remove Image"
+                                                onClick={() => handleRemovePanorama(index)}
+                                            >
+                                                <i className="fas fa-times"></i> Remove
+                                            </button>
                                         </div>
                                     </div>
                                 ))}
@@ -1227,14 +1295,6 @@ const EditProperty = () => {
                                                 >
                                                     <i className="fas fa-expand"></i>
                                                 </button>
-                                                <button 
-                                                    type="button"
-                                                    className="panorama-control-btn remove"
-                                                    title="Remove Image"
-                                                    onClick={() => handleRemoveNewPanorama(index)}
-                                                >
-                                                    <i className="fas fa-times"></i>
-                                                </button>
                                             </div>
                                             <PhotoDomeViewer 
                                                 imageUrl={preview} 
@@ -1246,6 +1306,15 @@ const EditProperty = () => {
                                                 <i className="fas fa-vr-cardboard"></i>
                                                 New Room View
                                             </div>
+                                            {/* 🟢 FIX 4: Remove button in actions area */}
+                                            <button 
+                                                type="button"
+                                                className="panorama-remove-btn"
+                                                title="Remove Image"
+                                                onClick={() => handleRemoveNewPanorama(index)}
+                                            >
+                                                <i className="fas fa-times"></i> Remove
+                                            </button>
                                         </div>
                                     </div>
                                 ))}
