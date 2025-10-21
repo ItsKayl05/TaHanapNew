@@ -3,6 +3,16 @@ import mongoose from "mongoose";
 export const PROPERTY_TYPES = ['House','House and Lot','Apartment','Condominium','Townhouse','Dormitory','Bedspace','Studio Unit','Lot','Land','Commercial Space','Office Space','Warehouse','Building','Bungalow','Duplex','Triplex','Inner Lot','Corner Lot'];
 
 const propertySchema = new mongoose.Schema({
+  panorama360Images: {
+    type: [String],
+    default: [],
+    validate: {
+      validator: function(v) {
+        return Array.isArray(v) && v.length <= 5; // Maximum 5 panoramic images
+      },
+      message: 'Maximum 5 panoramic images allowed'
+    }
+  },
   landlord: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
@@ -117,9 +127,10 @@ const propertySchema = new mongoose.Schema({
     type: String,
     default: "",
   },
-  panorama360: {
-    type: String,
-    default: "",
+  panorama360Images: {
+    type: [String],
+    default: [],
+    validate: [arr => arr.length <= 5, 'Maximum of 5 panoramic images allowed']
   },
   status: {
     type: String,

@@ -9,21 +9,26 @@ const memoryUpload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 50 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
-        if (file.fieldname === 'images' || file.fieldname === 'panorama360') {
+        // Handle image fields
+        if (file.fieldname === 'images' || file.fieldname === 'panorama360Images' || file.fieldname === 'panorama360') {
             if (!file.mimetype.startsWith('image/')) return cb(new Error('Only image files allowed in ' + file.fieldname + ' field'));
             return cb(null, true);
         }
+        // Handle video field
         if (file.fieldname === 'video') {
             const allowedVideo = ['video/mp4', 'video/webm', 'video/ogg'];
             if (!allowedVideo.includes(file.mimetype)) return cb(new Error('Invalid video format. Allowed: mp4, webm, ogg'));
             return cb(null, true);
         }
+        // Log unexpected field for debugging
+        console.warn('Unexpected field received:', file.fieldname);
         cb(new Error('Unexpected field: ' + file.fieldname));
     }
 }).fields([
     { name: 'images', maxCount: MAX_IMAGES },
     { name: 'video', maxCount: 1 },
-    { name: 'panorama360', maxCount: 1 }
+    { name: 'panorama360Images', maxCount: 5 }, // Allow up to 5 panoramic images
+    { name: 'panorama360', maxCount: 5 } // For backward compatibility
 ]);
 
 export const uploadMemory = memoryUpload;
@@ -109,7 +114,7 @@ const uploadToCloudinary = async (files, folder, resourceType = 'image') => {
 export const addProperty = async (req, res) => {
     let images = [];
     let video = '';
-    let panorama360 = '';
+    let panorama360Images = [];
 
     uploadMemory(req, res, async (err) => {
         if (err) {
@@ -373,24 +378,37 @@ export const addProperty = async (req, res) => {
                 }
             }
             
-            // Upload panorama
-            if (req.files?.panorama360 && req.files.panorama360.length > 0) {
+            // Upload panorama images - handle both field names for compatibility
+            const panoramaFiles = req.files?.panorama360Images || req.files?.panorama360 || [];
+            if (panoramaFiles.length > 0) {
                 try {
-                    const panoramaFile = req.files.panorama360[0];
-                    if (panoramaFile.size > 10 * 1024 * 1024) {
-                        throw new Error('360° Panorama image exceeds 10MB size limit');
+                    // Validate each panorama file
+                    for (const panoramaFile of panoramaFiles) {
+                        if (panoramaFile.size > 10 * 1024 * 1024) {
+                            throw new Error(`360° Panorama image "${panoramaFile.originalname}" exceeds 10MB size limit`);
+                        }
+                        if (!panoramaFile.mimetype.startsWith('image/')) {
+                            throw new Error(`360° Panorama "${panoramaFile.originalname}" must be an image file (JPG, PNG, or WebP)`);
+                        }
                     }
-                    if (!panoramaFile.mimetype.startsWith('image/')) {
-                        throw new Error('360° Panorama must be an image file (JPG, PNG, or WebP)');
+
+                    // Check if total panorama images don't exceed limit
+                    if (panoramaFiles.length > 5) {
+                        throw new Error('Maximum of 5 panoramic images allowed');
                     }
-                    const panoramaResult = await uploadToCloudinary(req.files.panorama360, 'panorama', 'image');
-                    panorama360 = panoramaResult[0] || '';
+
+                    // Upload all panorama images
+                    panorama360Images = await uploadToCloudinary(panoramaFiles, 'panorama', 'image');
                 } catch (error) {
+                    // Cleanup any uploaded files on error
                     if (images.length > 0) {
                         await deleteCloudinaryAssets(images);
                     }
                     if (video) {
                         await deleteCloudinaryAssets([video]);
+                    }
+                    if (panorama360Images.length > 0) {
+                        await deleteCloudinaryAssets(panorama360Images);
                     }
                     return res.status(400).json({ error: error.message });
                 }
@@ -450,7 +468,7 @@ export const addProperty = async (req, res) => {
                 marketHighlights: normalizedHighlights,
                 images,
                 video,
-                panorama360,
+                panorama360Images,
                 latitude: latitude ? parseFloat(latitude) : null,
                 longitude: longitude ? parseFloat(longitude) : null,
                 status: 'approved',
@@ -476,7 +494,7 @@ export const addProperty = async (req, res) => {
                 ...newProperty._doc,
                 images: newProperty.images,
                 video: newProperty.video,
-                panorama360: newProperty.panorama360,
+                panorama360Images: newProperty.panorama360Images,
                 // NEW: Ensure new fields are included in response
                 floorArea: newProperty.floorArea,
                 lotArea: newProperty.lotArea,
@@ -815,7 +833,7 @@ export const updateProperty = async (req, res) => {
 
             let updatedImages = [...property.images];
             let updatedVideo = property.video || '';
-            let updatedPanorama = property.panorama360 || '';
+            let updatedPanoramaImages = [...(property.panorama360Images || [])];
 
             // Handle deleted images
             if (req.body.deletedImages) {
@@ -876,19 +894,58 @@ export const updateProperty = async (req, res) => {
             }
 
             // Handle panorama updates
-            if (req.files?.panorama360 && req.files.panorama360.length > 0) {
-                if (updatedPanorama) {
-                    await deleteCloudinaryAssets([updatedPanorama]);
+            if (req.files?.panorama360Images && req.files.panorama360Images.length > 0) {
+                // Validate each new panorama file
+                for (const panoramaFile of req.files.panorama360Images) {
+                    if (panoramaFile.size > 10 * 1024 * 1024) {
+                        throw new Error(`360° Panorama image "${panoramaFile.originalname}" exceeds 10MB size limit`);
+                    }
+                    if (!panoramaFile.mimetype.startsWith('image/')) {
+                        throw new Error(`360° Panorama "${panoramaFile.originalname}" must be an image file (JPG, PNG, or WebP)`);
+                    }
                 }
-                const newPanorama = await uploadToCloudinary(req.files.panorama360, 'panorama', 'image');
-                updatedPanorama = newPanorama[0] || '';
+
+                const newPanoramaImages = await uploadToCloudinary(req.files.panorama360Images, 'panorama', 'image');
+                updatedPanoramaImages = [...updatedPanoramaImages, ...newPanoramaImages];
+
+                // Check if total panorama images don't exceed limit
+                if (updatedPanoramaImages.length > 5) {
+                    const overflow = updatedPanoramaImages.length - 5;
+                    const panoramasToDelete = updatedPanoramaImages.slice(-overflow);
+                    await deleteCloudinaryAssets(panoramasToDelete);
+                    return res.status(400).json({ error: 'Maximum of 5 panoramic images allowed' });
+                }
             }
 
-            if (req.body.removePanorama === 'true' && updatedPanorama) {
-                await deleteCloudinaryAssets([updatedPanorama]);
-                updatedPanorama = '';
-            }
+            // Handle deleted panoramas
+            if (req.body.deletedPanoramaImages) {
+                let deletedPanoramasArray;
+                try {
+                    if (Array.isArray(req.body.deletedPanoramaImages)) {
+                        deletedPanoramasArray = req.body.deletedPanoramaImages;
+                    } else {
+                        try {
+                            deletedPanoramasArray = JSON.parse(req.body.deletedPanoramaImages);
+                        } catch (e) {
+                            deletedPanoramasArray = [req.body.deletedPanoramaImages];
+                        }
+                    }
+                } catch (e) {
+                    deletedPanoramasArray = [];
+                }
 
+                const panoramasToDelete = updatedPanoramaImages.filter(img => 
+                    deletedPanoramasArray.some(deleted => img.includes(deleted))
+                );
+
+                if (panoramasToDelete.length > 0) {
+                    await deleteCloudinaryAssets(panoramasToDelete);
+                }
+
+                updatedPanoramaImages = updatedPanoramaImages.filter(img => 
+                    !deletedPanoramasArray.some(deleted => img.includes(deleted))
+                );
+            }
             if (req.body.status) delete req.body.status;
 
             const allowedAvailability = ['Available','Not Available'];
@@ -925,7 +982,7 @@ export const updateProperty = async (req, res) => {
                 numberOfFloors: req.body.numberOfFloors !== undefined ? num(req.body.numberOfFloors, property.numberOfFloors || 0) : (property.numberOfFloors || 0),
                 images: updatedImages,
                 video: updatedVideo,
-                panorama360: updatedPanorama
+                panorama360Images: updatedPanoramaImages
             };
 
             // Handle propertyCondition based on listing type
@@ -970,7 +1027,7 @@ export const updateProperty = async (req, res) => {
                 floorArea: updatedProperty.floorArea,
                 lotArea: updatedProperty.lotArea,
                 numberOfFloors: updatedProperty.numberOfFloors,
-                panorama360: updatedProperty.panorama360,
+                panorama360Images: updatedProperty.panorama360Images,
                 landlordProfile: updatedProperty.landlord ? {
                     id: updatedProperty.landlord._id,
                     fullName: updatedProperty.landlord.fullName || updatedProperty.landlord.username || 'Landlord',
@@ -1023,7 +1080,7 @@ export const deleteProperty = async (req, res) => {
         const assetsToDelete = [
             ...property.images,
             property.video,
-            property.panorama360
+            ...(property.panorama360Images || [])
         ].filter(Boolean);
 
         await deleteCloudinaryAssets(assetsToDelete);

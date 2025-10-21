@@ -36,11 +36,20 @@ const EditProperty = () => {
     const [videoFile, setVideoFile] = useState(null);
     const [videoPreview, setVideoPreview] = useState(null);
     const [removeVideo, setRemoveVideo] = useState(false);
-    const [panoramas, setPanoramas] = useState([]);
-    const [panoramaPreviews, setPanoramaPreviews] = useState([]);
-    const [panorama, setPanorama] = useState(null);
-    const [panoramaPreview, setPanoramaPreview] = useState(null);
-    const [existingPanorama, setExistingPanorama] = useState(null);
+    
+    // Panorama state management - FIXED: consistent naming
+    const maxPanoramaImages = 5;
+    const [panoramaImages, setPanoramaImages] = useState([]);
+    const [newPanoramaImages, setNewPanoramaImages] = useState([]);
+    const [deletedPanoramaImages, setDeletedPanoramaImages] = useState([]);
+    const [panoramaPreviews, setPanoramaPreviews] = useState([]); // Correct name
+
+    // Panorama viewer state
+    const [expandedPanorama, setExpandedPanorama] = useState(null);
+
+    const handleExpandPanorama = (imageUrl) => {
+        setExpandedPanorama(imageUrl);
+    };
 
     // Form data state
     const [formData, setFormData] = useState({
@@ -152,8 +161,10 @@ const EditProperty = () => {
                 if (data.video) {
                     setVideoPreview(data.video.startsWith('http') ? data.video : buildUpload(data.video));
                 }
-                if (data.panorama360) {
-                    setExistingPanorama(data.panorama360.startsWith('http') ? data.panorama360 : buildUpload(data.panorama360));
+                if (data.panorama360Images && Array.isArray(data.panorama360Images)) {
+                    setPanoramaImages(data.panorama360Images.map(url => 
+                        url.startsWith('http') ? url : buildUpload(url)
+                    ));
                 }
                 setLoading(false);
             } catch (error) {
@@ -167,15 +178,25 @@ const EditProperty = () => {
     useEffect(() => {
         return () => {
             if (videoFile && videoPreview?.startsWith('blob:')) URL.revokeObjectURL(videoPreview);
-            if (panoramaPreview && panoramaPreview.startsWith && panoramaPreview.startsWith('blob:')) URL.revokeObjectURL(panoramaPreview);
-            panoramaPreviews.forEach(url => URL.revokeObjectURL(url));
+            // Clean up panorama preview URLs
+            panoramaPreviews.forEach(url => {
+                if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+            });
         };
-    }, [videoFile, videoPreview, panoramaPreviews, panoramaPreview]);
+    }, [videoFile, videoPreview, panoramaPreviews]);
 
     const handlePanoramaChange = (e) => {
         const files = Array.from(e.target.files || []);
         if (!files.length) return;
-        // Only allow one panorama file (backend only supports one)
+
+        // Check total number of images
+        const currentTotal = panoramaImages.length + newPanoramaImages.length;
+        if (currentTotal + files.length > maxPanoramaImages) {
+            toast.error(`Maximum ${maxPanoramaImages} panoramic images allowed. You can add ${maxPanoramaImages - currentTotal} more.`);
+            return;
+        }
+
+        // Validate each file
         const validFiles = files.filter(file => {
             const validType = file.type.startsWith('image/');
             const sizeOk = file.size <= 10 * 1024 * 1024;
@@ -183,22 +204,37 @@ const EditProperty = () => {
             if (!sizeOk) toast.error(`${file.name}: Image size exceeds 10MB limit.`);
             return validType && sizeOk;
         });
+
         if (!validFiles.length) return;
-        // Only keep the first valid file
-        const file = validFiles[0];
-        setPanoramas([file]);
+
+        // Add new images
+        setNewPanoramaImages(prev => [...prev, ...validFiles]);
+        setPanoramaPreviews(prev => [
+            ...prev,
+            ...validFiles.map(file => URL.createObjectURL(file))
+        ]);
+    };
+
+    // Remove new panorama image
+    const handleRemoveNewPanorama = (index) => {
         setPanoramaPreviews(prev => {
-            prev.forEach(url => URL.revokeObjectURL(url));
-            return [URL.createObjectURL(file)];
+            const newPreviews = [...prev];
+            URL.revokeObjectURL(newPreviews[index]);
+            newPreviews.splice(index, 1);
+            return newPreviews;
+        });
+        setNewPanoramaImages(prev => {
+            const newImages = [...prev];
+            newImages.splice(index, 1);
+            return newImages;
         });
     };
 
-    const removePanorama = (idx) => {
-        setPanoramaPreviews(prev => {
-            if (prev[idx]) URL.revokeObjectURL(prev[idx]);
-            return prev.filter((_,i)=>i!==idx);
-        });
-        setPanoramas(prev => prev.filter((_,i)=>i!==idx));
+    // Remove existing panorama image
+    const handleRemovePanorama = (index) => {
+        const imageToDelete = panoramaImages[index];
+        setPanoramaImages(prev => prev.filter((_, i) => i !== index));
+        setDeletedPanoramaImages(prev => [...prev, imageToDelete]);
     };
 
     // Use stable toast IDs and debounce geocoding to avoid spammy repeated toasts
@@ -243,7 +279,7 @@ const EditProperty = () => {
             if (data && Array.isArray(data) && data.length > 0) {
                 const coords = { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
                 setMapCenter([coords.lat, coords.lon]);
-                setMapZoom(16); // Zoom in closer to show the area better
+                setMapZoom(16);
                 setFormData(prev => ({
                     ...prev,
                     latitude: coords.lat.toString(),
@@ -391,10 +427,10 @@ const EditProperty = () => {
                     setVideoFile(vid[0].blob || null);
                     setVideoPreview(vid[0].url);
                 }
-                const pan = await loadFiles(FORM_KEY, 'panorama');
+                const pan = await loadFiles(FORM_KEY, 'panorama360Images');
                 if (pan && pan.length) {
-                    setPanorama(pan[0].blob || null);
-                    setPanoramaPreview(pan[0].url);
+                    setNewPanoramaImages(pan.map(p => p.blob).filter(Boolean));
+                    setPanoramaPreviews(pan.map(p => p.url).filter(Boolean));
                 }
             } catch (e) { console.error('restore edit persistence', e); }
         })();
@@ -421,7 +457,7 @@ const EditProperty = () => {
 
     useEffect(() => { if (newImages && newImages.length) saveFiles(FORM_KEY,'images', newImages.filter(f=> f instanceof File)).catch(()=>{}); }, [newImages]);
     useEffect(() => { if (videoFile && videoFile instanceof File) saveFiles(FORM_KEY,'video',[videoFile]).catch(()=>{}); }, [videoFile]);
-    useEffect(() => { if (panorama && panorama instanceof File) saveFiles(FORM_KEY,'panorama',[panorama]).catch(()=>{}); }, [panorama]);
+    useEffect(() => { if (newPanoramaImages && newPanoramaImages.length) saveFiles(FORM_KEY,'panorama360Images', newPanoramaImages.filter(f=> f instanceof File)).catch(()=>{}); }, [newPanoramaImages]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -565,7 +601,6 @@ const EditProperty = () => {
             formDataToSend.append('areaSqm', areaSqmNum.toString());
             
             // Add the floor area, lot area, and number of floors
-            // Debug logs for numeric fields
             console.log('Debug - Form Values:', {
                 rawFloorArea: formData.floorArea,
                 parsedFloorArea: floorAreaNum,
@@ -576,7 +611,6 @@ const EditProperty = () => {
             });
 
             // Add the required numeric fields with proper validation
-            // Debug log before appending to FormData
             console.log('Debug - Values being appended to FormData:', {
                 floorArea: floorAreaNum,
                 lotArea: lotAreaNum,
@@ -610,10 +644,16 @@ const EditProperty = () => {
             if (videoFile) formDataToSend.append('video', videoFile);
             if (removeVideo) formDataToSend.append('removeVideo', 'true');
             
-            // Handle panorama (only one allowed by backend)
-            if (panoramas.length) {
-                formDataToSend.append('panorama360', panoramas[0]);
-            }
+            // Handle panorama images
+            newPanoramaImages.forEach(file => {
+                formDataToSend.append('panorama360Images', file);
+            });
+            
+            // Add deleted panorama images to form data
+            deletedPanoramaImages.forEach(url => {
+                const filename = url.split('/').pop();
+                formDataToSend.append('deletedPanoramaImages', filename);
+            });
             
             const response = await fetch(buildApi(`/properties/${propertyId}`), {
                 method: 'PUT',
@@ -1066,22 +1106,120 @@ const EditProperty = () => {
                         </div>
 
                         <div className="panorama-section" style={{marginTop:'32px'}}>
-                            <h3 className="section-title">360° Panoramic Images</h3>
-                            <p className="field-hint">Optional: Add one or more panoramic 360° images (JPG/PNG/WebP, max 10MB each, equirectangular projection).</p>
-                            <label className="file-drop-modern">
-                                <input id="panorama-input" type="file" accept="image/*" style={{display:'none'}} onChange={handlePanoramaChange} />
-                                <span onClick={()=>document.getElementById('panorama-input').click()}>Add 360° Panoramic Image</span>
-                            </label>
-                            {panoramaPreviews.length > 0 && (
-                                <div style={{marginTop:'12px', display:'flex', gap:'16px', flexWrap:'wrap'}}>
-                                    <div style={{position:'relative', width:'180px'}}>
-                                        <div className="panorama-preview-container">
-                                            <PhotoDomeViewer imageUrl={panoramaPreviews[0]} mode="MONOSCOPIC" />
+                            <div className="section-header">
+                                <h3 className="section-title">
+                                    360° Panoramic Views
+                                    <span className="count-badge">
+                                        {panoramaImages.length + newPanoramaImages.length}/{maxPanoramaImages}
+                                    </span>
+                                </h3>
+                                <p className="field-hint">
+                                    Add up to {maxPanoramaImages} panoramic photos to showcase different areas of your property. 
+                                    Each photo should be a 360° view of a room or space for an immersive viewing experience.
+                                </p>
+                            </div>
+                            
+                            <div className="panorama-grid">
+                                {/* Existing Panoramas */}
+                                {panoramaImages.map((url, index) => (
+                                    <div key={`existing-${index}`} className="panorama-card">
+                                        <div className="panorama-preview">
+                                            <div className="panorama-preview-overlay">
+                                                <button 
+                                                    type="button"
+                                                    className="panorama-control-btn expand"
+                                                    title="View Fullscreen"
+                                                    onClick={() => handleExpandPanorama(url)}
+                                                >
+                                                    <i className="fas fa-expand"></i>
+                                                </button>
+                                                <button 
+                                                    type="button"
+                                                    className="panorama-control-btn remove"
+                                                    title="Remove Image"
+                                                    onClick={() => handleRemovePanorama(index)}
+                                                >
+                                                    <i className="fas fa-times"></i>
+                                                </button>
+                                            </div>
+                                            <PhotoDomeViewer 
+                                                imageUrl={url} 
+                                                mode="MONOSCOPIC"
+                                            />
                                         </div>
-                                        <button type="button" className="ll-btn tiny danger" style={{position:'absolute',top:4,right:4}} onClick={()=>removePanorama(0)}>Remove</button>
+                                        <div className="panorama-actions">
+                                            <div className="panorama-info">
+                                                <i className="fas fa-vr-cardboard"></i>
+                                                Room View {index + 1}
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                            )}
+                                ))}
+
+                                {/* New Panorama Previews */}
+                                {panoramaPreviews.map((preview, index) => (
+                                    <div key={`new-${index}`} className="panorama-card">
+                                        <div className="panorama-preview">
+                                            <div className="panorama-preview-overlay">
+                                                <button 
+                                                    type="button"
+                                                    className="panorama-control-btn expand"
+                                                    title="View Fullscreen"
+                                                    onClick={() => handleExpandPanorama(preview)}
+                                                >
+                                                    <i className="fas fa-expand"></i>
+                                                </button>
+                                                <button 
+                                                    type="button"
+                                                    className="panorama-control-btn remove"
+                                                    title="Remove Image"
+                                                    onClick={() => handleRemoveNewPanorama(index)}
+                                                >
+                                                    <i className="fas fa-times"></i>
+                                                </button>
+                                            </div>
+                                            <PhotoDomeViewer 
+                                                imageUrl={preview} 
+                                                mode="MONOSCOPIC"
+                                            />
+                                        </div>
+                                        <div className="panorama-actions">
+                                            <div className="panorama-info">
+                                                <i className="fas fa-vr-cardboard"></i>
+                                                New Room View
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Upload Section */}
+                            <div className={`panorama-upload ${panoramaImages.length + newPanoramaImages.length >= maxPanoramaImages ? 'disabled' : ''}`}>
+                                <label 
+                                    htmlFor="panorama-input"
+                                    style={{ cursor: panoramaImages.length + newPanoramaImages.length >= maxPanoramaImages ? 'not-allowed' : 'pointer' }}
+                                >
+                                    <input
+                                        id="panorama-input"
+                                        type="file"
+                                        accept="image/*"
+                                        multiple
+                                        onChange={handlePanoramaChange}
+                                        disabled={panoramaImages.length + newPanoramaImages.length >= maxPanoramaImages}
+                                        style={{ display: 'none' }}
+                                    />
+                                    <div className="panorama-upload-text">
+                                        {panoramaImages.length + newPanoramaImages.length >= maxPanoramaImages
+                                            ? "Maximum number of panoramic images reached"
+                                            : "Click or drag 360° panoramic images here to upload"}
+                                    </div>
+                                    <div className="panorama-count">
+                                        <span className="count-current">{panoramaImages.length + newPanoramaImages.length}</span>
+                                        <span className="count-separator">/</span>
+                                        <span className="count-max">{maxPanoramaImages} images</span>
+                                    </div>
+                                </label>
+                            </div>
                         </div>
 
                         <div className="images-section">
@@ -1159,6 +1297,24 @@ const EditProperty = () => {
                             <button type="submit" className="ll-btn primary" disabled={submitting}>{submitting ? 'Saving...' : 'Save Changes'}</button>
                         </div>
                     </form>
+                )}
+
+                {/* Fullscreen Panorama Viewer */}
+                {expandedPanorama && (
+                    <div className="fullscreen-panorama">
+                        <button 
+                            type="button"
+                            className="close-fullscreen"
+                            onClick={() => setExpandedPanorama(null)}
+                        >
+                            <i className="fas fa-times"></i>
+                        </button>
+                        <PhotoDomeViewer 
+                            imageUrl={expandedPanorama}
+                            mode="MONOSCOPIC"
+                            containerStyle={{ width: '100vw', height: '100vh' }}
+                        />
+                    </div>
                 )}
             </div>
         </div>

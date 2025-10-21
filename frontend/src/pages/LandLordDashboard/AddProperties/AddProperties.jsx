@@ -489,8 +489,14 @@ const AddProperties = () => {
     formData.append('lotArea', lotAreaNum.toString());
     formData.append('numberOfFloors', String(floorsNum));
     
+    // Handle panoramic images with the correct field name
     if (panoramas.length) {
-      panoramas.forEach(file => formData.append('panorama360', file));
+      if (panoramas.length > 5) {
+        toast.error('Maximum of 5 panoramic images allowed');
+        setIsSubmitting(false);
+        return;
+      }
+      panoramas.forEach(file => formData.append('panorama360Images', file));
     }
     
     try {

@@ -30,18 +30,42 @@ const PropertyDetailPage = () => {
                     throw new Error("⚠️ Unable to load property information");
                 }
                 const data = await response.json();
+                console.log('Property data received:', data); // Debug log
+                
                 // Normalize media URLs
                 const norm = { ...data };
-                if(norm.images) norm.images = norm.images.map(img => buildUpload(img));
-                if(norm.video) norm.video = buildUpload(norm.video);
+                
+                // Normalize images
+                if(norm.images) {
+                    norm.images = norm.images.map(img => 
+                        img.startsWith('http') ? img : buildUpload(img)
+                    );
+                }
+                
+                // Normalize video
+                if(norm.video) {
+                    norm.video = norm.video.startsWith('http') ? norm.video : buildUpload(norm.video);
+                }
+                
                 // landlordProfile media normalization
                 if(norm.landlordProfile && norm.landlordProfile.profilePic && !norm.landlordProfile.profilePic.startsWith('http')) {
                     norm.landlordProfile.profilePic = buildUpload(`/profiles/${norm.landlordProfile.profilePic}`);
                 }
-                // Normalize panorama URL
-                if (norm.panorama360 && !norm.panorama360.startsWith('http')) {
-                    norm.panorama360 = buildUpload(norm.panorama360);
+                
+                // Normalize panorama URLs - FIXED: More robust normalization
+                if (norm.panorama360Images && Array.isArray(norm.panorama360Images)) {
+                    console.log('Raw panorama images:', norm.panorama360Images); // Debug log
+                    norm.panorama360Images = norm.panorama360Images.map(panorama => {
+                        if (typeof panorama === 'string') {
+                            return panorama.startsWith('http') ? panorama : buildUpload(panorama);
+                        }
+                        return panorama; // Return as-is if not a string
+                    }).filter(panorama => panorama); // Remove any null/undefined values
+                    console.log('Normalized panorama images:', norm.panorama360Images); // Debug log
+                } else {
+                    console.log('No panorama images found or not an array:', norm.panorama360Images);
                 }
+                
                 setProperty(norm);
                 setLoading(false);
             } catch (error) {
@@ -51,6 +75,7 @@ const PropertyDetailPage = () => {
             }
         };
         fetchProperty();
+        
         // Join socket room for this property to receive realtime updates
         try {
             if (socket && socket.connected) {
@@ -61,7 +86,7 @@ const PropertyDetailPage = () => {
         return () => {
             try { if (socket && socket.connected) socket.emit('leaveRoom', { roomId: `property:${id}` }); } catch(e){}
         };
-    }, [id]);
+    }, [id, socket]);
 
     // Listen for realtime updates to this property (availability changes)
     useEffect(() => {
@@ -93,8 +118,14 @@ const PropertyDetailPage = () => {
                                 const resp = await fetch(buildApi(`/properties/${id}`));
                                 if (resp.ok) {
                                     const data = await resp.json();
+                                    // Re-normalize all media URLs
                                     if(data.images) data.images = data.images.map(img => buildUpload(img));
                                     if(data.video) data.video = buildUpload(data.video);
+                                    if(data.panorama360Images && Array.isArray(data.panorama360Images)) {
+                                        data.panorama360Images = data.panorama360Images.map(panorama => 
+                                            panorama.startsWith('http') ? panorama : buildUpload(panorama)
+                                        );
+                                    }
                                     setProperty(data);
                                 }
                             } catch(e) { console.warn('refetch after application update failed', e); }
@@ -188,18 +219,58 @@ const PropertyDetailPage = () => {
             <div className="property-content">
                 {/* Left Side: Media (Video if exists + Image Slideshow) */}
                 <div className="property-gallery glass-panel">
-                    {/* 360° Panoramic Image Viewer - FIXED */}
-                    {property.panorama360 && (
+                    {/* 360° Panoramic Image Viewers - IMPROVED: Better error handling and styling */}
+                    {property.panorama360Images && property.panorama360Images.length > 0 && (
                         <div className="panorama-section" style={{marginBottom:'2rem'}}>
-                            <h3 className="section-title white">360° Panoramic View</h3>
-                            <div style={{ width: '100%', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
-                                <PhotoDomeViewer 
-                                    imageUrl={property.panorama360} 
-                                    mode="MONOSCOPIC"
-                                />
+                            <h3 className="section-title white">360° Panoramic Views</h3>
+                            <p className="panorama-hint" style={{color: '#ccc', fontSize: '0.9rem', marginBottom: '1rem'}}>
+                                Drag to explore the 360° view of this property
+                            </p>
+                            <div style={{ 
+                                display: 'flex', 
+                                flexDirection: 'column', 
+                                gap: '1.5rem',
+                                alignItems: 'center'
+                            }}>
+                                {property.panorama360Images.map((panorama, index) => (
+                                    <div 
+                                        key={index} 
+                                        style={{ 
+                                            width: '100%', 
+                                            height: '400px', // Fixed height for better visibility
+                                            borderRadius: '16px', 
+                                            overflow: 'hidden', 
+                                            boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+                                            position: 'relative'
+                                        }}
+                                    >
+                                        <PhotoDomeViewer 
+                                            imageUrl={panorama} 
+                                            mode="MONOSCOPIC"
+                                            onError={(error) => {
+                                                console.error(`Failed to load panorama ${index}:`, error);
+                                                toast.error(`Failed to load 360° view ${index + 1}`);
+                                            }}
+                                        />
+                                        <div style={{
+                                            position: 'absolute',
+                                            bottom: '10px',
+                                            left: '10px',
+                                            background: 'rgba(0,0,0,0.7)',
+                                            color: 'white',
+                                            padding: '5px 10px',
+                                            borderRadius: '8px',
+                                            fontSize: '0.8rem'
+                                        }}>
+                                            Room View {index + 1}
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     )}
+
+                    {/* Video Section */}
                     {property.video && (
                         <div className="video-wrapper">
                             <video
@@ -208,33 +279,44 @@ const PropertyDetailPage = () => {
                                 preload="none"
                                 className="property-video-player"
                                 poster={property.images && property.images[0] ? property.images[0] : undefined}
-                                onError={(e)=>{ e.currentTarget.style.display='none'; }}
+                                onError={(e)=>{ 
+                                    console.error('Video failed to load:', e);
+                                    e.currentTarget.style.display='none'; 
+                                }}
                             />
                         </div>
                     )}
-                    <Slider {...sliderSettings}>
-                        {property.images && property.images.length > 0 ? (
-                            property.images.map((image, index) => (
-                                <div key={index} className="slider-item">
+
+                    {/* Image Slideshow */}
+                    <div className="image-slideshow-section">
+                        <h3 className="section-title white">Property Images</h3>
+                        <Slider {...sliderSettings}>
+                            {property.images && property.images.length > 0 ? (
+                                property.images.map((image, index) => (
+                                    <div key={index} className="slider-item">
+                                        <img
+                                            src={image}
+                                            alt={`Property ${index + 1}`}
+                                            className="property-gallery-image"
+                                            loading="lazy"
+                                            onError={(e) => { 
+                                                e.currentTarget.onerror = null; 
+                                                e.currentTarget.src = '/default-property.jpg'; 
+                                            }}
+                                        />
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="slider-item">
                                     <img
-                                        src={image}
-                                        alt={`Property ${index + 1}`}
+                                        src="/default-property.jpg"
+                                        alt="Default Property"
                                         className="property-gallery-image"
-                                        loading="lazy"
-                                        onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/default-property.jpg'; }}
                                     />
                                 </div>
-                            ))
-                        ) : (
-                            <div className="slider-item">
-                                <img
-                                    src="/default-property.jpg"
-                                    alt="Default Property"
-                                    className="property-gallery-image"
-                                />
-                            </div>
-                        )}
-                    </Slider>
+                            )}
+                        </Slider>
+                    </div>
                 </div>
 
                 {/* Right Side: Property Details */}

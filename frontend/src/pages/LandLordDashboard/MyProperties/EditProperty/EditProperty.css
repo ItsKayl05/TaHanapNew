@@ -49,29 +49,246 @@
 .panorama-section {
     border-top: 1px solid var(--color-border);
     padding-top: 1.4rem;
-    margin-bottom: 1.5rem;
+    margin-bottom: 2rem;
 }
+
 .panorama-section .section-title {
     display: flex;
     align-items: center;
     gap: 0.5em;
-    font-size: 1.08rem;
+    font-size: 1.1rem;
     color: #0a2540;
-}
-.panorama-section .field-hint {
-    color: #64748b;
-    font-size: 0.93em;
-    margin-bottom: 0.7em;
+    margin-bottom: 1rem;
 }
 
-/* Panorama Preview Container - NEW */
-.panorama-preview-container {
+.panorama-section .field-hint {
+    color: #64748b;
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+    line-height: 1.4;
+}
+
+/* Panorama Grid - UPDATED */
+.panorama-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.5rem;
+    margin: 1.5rem 0;
+    align-items: start;
+}
+
+@media (max-width: 1280px) {
+    .panorama-grid {
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .panorama-grid {
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .panorama-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Panorama Card - UPDATED */
+.panorama-card {
+    position: relative;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    overflow: hidden;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.panorama-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(0,0,0,0.15);
+}
+
+.panorama-preview {
+    position: relative;
+    width: 100%;
+    height: 240px;
+    background: #f1f5f9;
+    flex: 1;
+}
+
+.panorama-preview-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 64px;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.5), transparent);
+    z-index: 2;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px;
+}
+
+.panorama-control-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,0.9);
+    color: #0f172a;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(4px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.panorama-control-btn:hover {
+    background: #fff;
+    transform: scale(1.05);
+}
+
+.panorama-control-btn.remove {
+    color: #dc2626;
+    display: none; /* Hide remove from overlay - it's now in actions area */
+}
+
+.panorama-control-btn.expand {
+    color: #2563eb;
+}
+
+.panorama-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Panorama Actions - UPDATED */
+.panorama-actions {
+    padding: 12px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    min-height: 60px;
+}
+
+.panorama-info {
+    font-size: 0.85rem;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+}
+
+/* Remove Button in Actions Area - NEW */
+.panorama-remove-btn {
+    background: #dc2626;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 0.85em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.panorama-remove-btn:hover {
+    background: #b91c1c;
+    transform: translateY(-1px);
+}
+
+/* Upload Section - UPDATED */
+.panorama-upload {
+    margin: 1rem 0;
+    padding: 2rem;
+    border: 2px dashed #cbd5e1;
+    border-radius: 16px;
+    text-align: center;
+    background: #f8fafc;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.panorama-upload:hover:not(.disabled) {
+    border-color: #3b82f6;
+    background: #f0f7ff;
+}
+
+.panorama-upload.disabled {
+    opacity: 0.75;
+    cursor: not-allowed;
+    background: #f1f5f9;
+    border-color: #e2e8f0;
+}
+
+.panorama-upload-text {
+    font-size: 1rem;
+    color: #475569;
+    margin-bottom: 1.25rem;
+    font-weight: 500;
+}
+
+.panorama-upload.disabled .panorama-upload-text {
+    color: #94a3b8;
+}
+
+.panorama-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: #64748b;
+    margin-top: 1rem;
+    padding: 0.5rem 1rem;
+    background: #fff;
+    border-radius: 2rem;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.panorama-count .count-current {
+    color: #0f172a;
+    font-weight: 600;
+}
+
+.panorama-count .count-max {
+    color: #64748b;
+}
+
+/* Progress Indicator */
+.upload-progress {
+    margin-top: 0.5rem;
+    height: 4px;
+    background: #e2e8f0;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    background: #3b82f6;
+    transition: width 0.3s ease;
+}
+
+/* 360° Preview Container */
+.panorama-viewer {
     width: 100%;
     height: 300px;
     border-radius: 12px;
     overflow: hidden;
     box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-    margin-bottom: 12px;
+    margin-bottom: 1rem;
     background: #000;
 }
 
@@ -98,6 +315,55 @@
 .skeleton.line.w-70 { width:70%; }
 
 @keyframes shimmer { 0%{background-position:0 0;} 100%{background-position:-200% 0;} }
+
+/* Fullscreen Panorama Viewer */
+.fullscreen-panorama {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: #000;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.close-fullscreen {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.9);
+    border: none;
+    color: #0f172a;
+    font-size: 1.5rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    transition: all 0.2s ease;
+}
+
+.close-fullscreen:hover {
+    background: #fff;
+    transform: scale(1.05);
+}
+
+@media (max-width: 768px) {
+    .close-fullscreen {
+        top: 16px;
+        right: 16px;
+        width: 40px;
+        height: 40px;
+        font-size: 1.25rem;
+    }
+}
 
 /* Map Preview Section */
 .map-preview-section {
@@ -132,16 +398,87 @@
     .panorama-preview-container {
         height: 250px;
     }
+    
+    .panorama-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .panorama-preview {
+        height: 200px;
+    }
+    
+    .panorama-preview-overlay {
+        height: 56px;
+        padding: 8px;
+    }
+    
+    .panorama-control-btn {
+        width: 32px;
+        height: 32px;
+        font-size: 14px;
+    }
+    
+    .panorama-actions {
+        padding: 10px 12px;
+        min-height: 50px;
+        flex-direction: column;
+        gap: 8px;
+        align-items: stretch;
+    }
+    
+    .panorama-info {
+        justify-content: center;
+    }
+    
+    .panorama-remove-btn {
+        width: 100%;
+        text-align: center;
+    }
 }
 
 @media (max-width: 480px) {
     .panorama-preview-container {
         height: 200px;
     }
+    
+    .panorama-preview {
+        height: 180px;
+    }
+    
+    .panorama-upload {
+        padding: 1.5rem;
+    }
+    
+    .panorama-upload-text {
+        font-size: 0.9rem;
+    }
+    
+    .panorama-actions {
+        padding: 8px 10px;
+        min-height: 45px;
+    }
+    
+    .panorama-remove-btn {
+        padding: 6px 12px;
+        font-size: 0.8em;
+    }
 }
 
 @media (max-width: 360px) {
     .panorama-preview-container {
         height: 180px;
+    }
+    
+    .panorama-preview {
+        height: 160px;
+    }
+    
+    .panorama-upload {
+        padding: 1rem;
+    }
+    
+    .panorama-upload-text {
+        font-size: 0.85rem;
     }
 }
