@@ -42,6 +42,7 @@ const DEFAULT_ALLOWED_ORIGINS = [
     'http://localhost:5176',
     'https://tahanap-frontend-joyb.onrender.com',
     'https://tahanap-backend-g6mx.onrender.com',
+    'https://tahanap-backend.onrender.com',
     'https://tahanap-admin-o398.onrender.com',
     'https://tahanap.xyz',
     'https://www.tahanap.xyz',
