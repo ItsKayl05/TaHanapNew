@@ -1,3 +1,52 @@
+/* Panorama Navigation */
+.panorama-nav-button {
+    background: rgba(0,0,0,0.5);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: auto;
+    transition: all 0.3s ease;
+    opacity: 0.7;
+}
+
+.panorama-nav-button:hover {
+    background: rgba(0,0,0,0.7);
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+.panorama-nav-button:active {
+    transform: scale(0.95);
+}
+
+.panorama-nav-button:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.3);
+}
+
+.panorama-counter {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    background: rgba(0,0,0,0.7);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    z-index: 10;
+    transition: all 0.3s ease;
+}
+
+.panorama-counter:hover {
+    background: rgba(0,0,0,0.9);
+}
+
 /* General Styles */
 .property-detail-container { 
   max-width:1240px; 

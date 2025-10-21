@@ -5,7 +5,7 @@ import { toast } from "react-toastify";
 import Slider from "react-slick";
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
-import { FaArrowLeft, FaHome, FaMapMarkerAlt, FaTag, FaPaw, FaCar, FaUsers, FaInfoCircle, FaDoorOpen, FaRulerCombined, FaFlag, FaBolt, FaWater, FaChartLine } from "react-icons/fa";
+import { FaArrowLeft, FaHome, FaMapMarkerAlt, FaTag, FaPaw, FaCar, FaUsers, FaInfoCircle, FaDoorOpen, FaRulerCombined, FaFlag, FaBolt, FaWater, FaChartLine, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { buildApi, buildUpload } from '../../services/apiConfig';
 import { AuthContext } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
@@ -18,9 +18,38 @@ const PropertyDetailPage = () => {
     const [property, setProperty] = useState(null);
     const [loading, setLoading] = useState(true);
     const [applying, setApplying] = useState(false);
+    const [currentPanoramaIndex, setCurrentPanoramaIndex] = useState(0);
+    const [showPanorama, setShowPanorama] = useState(false);
     const { userRole } = useContext(AuthContext);
     const currentUserId = localStorage.getItem('user_id') || null;
     const { socket } = useSocket();
+
+    // Panorama navigation functions
+    const nextPanorama = () => {
+        if (!property?.panorama360Images?.length) return;
+        setCurrentPanoramaIndex(prev => 
+            prev === property.panorama360Images.length - 1 ? 0 : prev + 1
+        );
+    };
+
+    const previousPanorama = () => {
+        if (!property?.panorama360Images?.length) return;
+        setCurrentPanoramaIndex(prev => 
+            prev === 0 ? property.panorama360Images.length - 1 : prev - 1
+        );
+    };
+
+    // Add keyboard navigation for panorama views
+    useEffect(() => {
+        const handleKeyPress = (e) => {
+            if (!property?.panorama360Images?.length) return;
+            if (e.key === 'ArrowLeft') previousPanorama();
+            if (e.key === 'ArrowRight') nextPanorama();
+        };
+
+        window.addEventListener('keydown', handleKeyPress);
+        return () => window.removeEventListener('keydown', handleKeyPress);
+    }, [property?.panorama360Images]);
 
     useEffect(() => {
         const fetchProperty = async () => {
@@ -77,11 +106,11 @@ const PropertyDetailPage = () => {
         fetchProperty();
         
         // Join socket room for this property to receive realtime updates
-        try {
-            if (socket && socket.connected) {
-                socket.emit('joinRoom', { roomId: `property:${id}` });
-            }
-        } catch (e) { /* ignore */ }
+    try {
+        if (socket && socket.connected) {
+            socket.emit('joinRoom', { roomId: `property:${id}` });
+        }
+    } catch (e) { /* ignore */ }
 
         return () => {
             try { if (socket && socket.connected) socket.emit('leaveRoom', { roomId: `property:${id}` }); } catch(e){}
@@ -219,53 +248,87 @@ const PropertyDetailPage = () => {
             <div className="property-content">
                 {/* Left Side: Media (Video if exists + Image Slideshow) */}
                 <div className="property-gallery glass-panel">
-                    {/* 360° Panoramic Image Viewers - IMPROVED: Better error handling and styling */}
+                    {/* 360° Panoramic Image Viewers with Navigation */}
                     {property.panorama360Images && property.panorama360Images.length > 0 && (
                         <div className="panorama-section" style={{marginBottom:'2rem'}}>
                             <h3 className="section-title white">360° Panoramic Views</h3>
                             <p className="panorama-hint" style={{color: '#ccc', fontSize: '0.9rem', marginBottom: '1rem'}}>
-                                Drag to explore the 360° view of this property
+                                Drag to explore the 360° view • Use arrows to switch between views
                             </p>
                             <div style={{ 
                                 display: 'flex', 
                                 flexDirection: 'column', 
                                 gap: '1.5rem',
-                                alignItems: 'center'
+                                alignItems: 'center',
+                                position: 'relative'
                             }}>
-                                {property.panorama360Images.map((panorama, index) => (
-                                    <div 
-                                        key={index} 
-                                        style={{ 
-                                            width: '100%', 
-                                            height: '400px', // Fixed height for better visibility
-                                            borderRadius: '16px', 
-                                            overflow: 'hidden', 
-                                            boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-                                            position: 'relative'
+                                <div 
+                                    style={{ 
+                                        width: '100%', 
+                                        height: '400px',
+                                        borderRadius: '16px', 
+                                        overflow: 'hidden', 
+                                        boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+                                        position: 'relative'
+                                    }}
+                                >
+                                    <PhotoDomeViewer 
+                                        imageUrl={property.panorama360Images[currentPanoramaIndex]} 
+                                        mode="MONOSCOPIC"
+                                        key={currentPanoramaIndex} // Force re-render on image change
+                                        onError={(error) => {
+                                            console.error(`Failed to load panorama ${currentPanoramaIndex}:`, error);
+                                            toast.error(`Failed to load 360° view ${currentPanoramaIndex + 1}`);
                                         }}
-                                    >
-                                        <PhotoDomeViewer 
-                                            imageUrl={panorama} 
-                                            mode="MONOSCOPIC"
-                                            onError={(error) => {
-                                                console.error(`Failed to load panorama ${index}:`, error);
-                                                toast.error(`Failed to load 360° view ${index + 1}`);
-                                            }}
-                                        />
-                                        <div style={{
+                                    />
+                                    
+                                    {/* Navigation buttons */}
+                                    {property.panorama360Images.length > 1 && (
+                                        <div className="panorama-navigation" style={{
                                             position: 'absolute',
-                                            bottom: '10px',
-                                            left: '10px',
-                                            background: 'rgba(0,0,0,0.7)',
-                                            color: 'white',
-                                            padding: '5px 10px',
-                                            borderRadius: '8px',
-                                            fontSize: '0.8rem'
+                                            top: '0',
+                                            left: '0',
+                                            width: '100%',
+                                            height: '100%',
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            padding: '0 20px',
+                                            pointerEvents: 'none'
                                         }}>
-                                            Room View {index + 1}
+                                            <button
+                                                onClick={previousPanorama}
+                                                className="panorama-nav-button"
+                                                style={{ pointerEvents: 'auto' }}
+                                                aria-label="Previous panorama"
+                                            >
+                                                <FaChevronLeft size={24} />
+                                            </button>
+                                            <button
+                                                onClick={nextPanorama}
+                                                className="panorama-nav-button"
+                                                style={{ pointerEvents: 'auto' }}
+                                                aria-label="Next panorama"
+                                            >
+                                                <FaChevronRight size={24} />
+                                            </button>
                                         </div>
+                                    )}
+                                    
+                                    {/* View counter */}
+                                    <div className="panorama-counter" style={{
+                                        position: 'absolute',
+                                        bottom: '10px',
+                                        left: '10px',
+                                        backgroundColor: 'rgba(0,0,0,0.5)',
+                                        color: 'white',
+                                        padding: '5px 10px',
+                                        borderRadius: '4px',
+                                        fontSize: '0.9rem'
+                                    }}>
+                                        View {currentPanoramaIndex + 1} of {property.panorama360Images.length}
                                     </div>
-                                ))}
+                                </div>
                             </div>
                         </div>
                     )}
@@ -670,3 +733,21 @@ const PropertyDetailPage = () => {
 };
 
 export default PropertyDetailPage;
+
+// Add navigation arrows' icon styles
+const styles = {
+    navigationButton: {
+        background: 'rgba(0,0,0,0.5)',
+        color: 'white',
+        border: 'none',
+        borderRadius: '50%',
+        width: '40px',
+        height: '40px',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        pointerEvents: 'auto',
+        transition: 'background-color 0.3s'
+    }
+};
