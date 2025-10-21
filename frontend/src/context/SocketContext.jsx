@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
-import { API_BASE } from '../services/apiConfig';
+import { API_BASE, getEffectiveApiBase } from '../services/apiConfig';
 
 const SocketContext = createContext(null);
 
@@ -25,13 +25,14 @@ export const SocketProvider = ({ children }) => {
       return;
     }
 
-    // Build Socket.IO URL from API base
+    // Build Socket.IO URL from effective API base
+    const effectiveBase = (typeof getEffectiveApiBase === 'function') ? getEffectiveApiBase() : API_BASE;
     let socketUrl;
     try {
-      const url = new URL(API_BASE);
+      const url = new URL(effectiveBase);
       socketUrl = `${url.protocol === 'https:' ? 'wss:' : 'ws:'}//${url.host}`;
     } catch (error) {
-      console.error('Invalid API URL:', API_BASE);
+      console.error('Invalid API URL:', effectiveBase);
       // Fallback for development
       socketUrl = 'ws://localhost:4000';
     }
@@ -39,7 +40,8 @@ export const SocketProvider = ({ children }) => {
     console.log('🔌 Connecting to Socket.IO:', socketUrl);
 
     const socketConfig = {
-      transports: ['websocket', 'polling'],
+      // Prefer polling first to avoid immediate websocket failures behind proxies
+      transports: ['polling', 'websocket'],
       withCredentials: true,
       reconnection: true,
       reconnectionAttempts: 5,
@@ -62,13 +64,14 @@ export const SocketProvider = ({ children }) => {
       };
 
       const onDisconnect = (reason) => {
-        console.log('❌ Socket.IO disconnected:', reason);
+        // Some hosts/proxies may close websocket/polling early; log at debug level
+        console.debug('❌ Socket.IO disconnected:', reason);
         setConnected(false);
       };
 
       const onConnectError = (error) => {
-        console.warn('⚠️ Socket.IO connection error:', error.message);
-        setConnectionError(error.message);
+        console.warn('⚠️ Socket.IO connection error:', error?.message || error);
+        setConnectionError(error?.message || String(error));
         setConnected(false);
       };
 

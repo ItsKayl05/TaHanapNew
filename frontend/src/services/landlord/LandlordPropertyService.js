@@ -72,8 +72,8 @@ export async function fetchMyProperties(signal) {
     return data;
   } catch (err) {
     if (err.name === 'AbortError' || err.name === 'CanceledError') {
-      // Silently return empty list on abort — the component treats this as a normal cleanup.
-      console.info('fetchMyProperties aborted:', err.message);
+      // Treat abort as cleanup. Keep it quiet (debug/info) to avoid noisy toasts.
+      console.debug('fetchMyProperties aborted:', err.message || err.name);
       return [];
     }
     if (err.message.includes('Failed to fetch')) {

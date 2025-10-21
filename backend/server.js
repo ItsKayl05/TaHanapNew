@@ -115,14 +115,42 @@ app.use((req, res, next) => {
   next();
 });
 
-// Body parsing middleware
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-app.use(bodyParser.json());
+// Body parsing middleware - increased limits for large uploads
+// Important: skip body parsers on multipart/form-data requests so multer can consume the stream.
+const jsonParser = express.json({ limit: '200mb' });
+const urlencodedParser = express.urlencoded({ extended: true, limit: '200mb' });
+const bpJson = bodyParser.json({ limit: '200mb' });
+
+app.use((req, res, next) => {
+  const ct = (req.headers['content-type'] || '').toLowerCase();
+  if (ct.includes('multipart/form-data')) {
+    // Skip JSON/urlencoded parsers for multipart requests — multer will handle them
+    return next();
+  }
+  return jsonParser(req, res, next);
+});
+
+app.use((req, res, next) => {
+  const ct = (req.headers['content-type'] || '').toLowerCase();
+  if (ct.includes('multipart/form-data')) {
+    return next();
+  }
+  return urlencodedParser(req, res, next);
+});
+
+// BodyParser (same rule)
+app.use((req, res, next) => {
+  const ct = (req.headers['content-type'] || '').toLowerCase();
+  if (ct.includes('multipart/form-data')) return next();
+  return bpJson(req, res, next);
+});
 
 // Create HTTP server
 import http from 'http';
 const server = http.createServer(app);
+
+// Increase server timeouts for uploads (set after server creation)
+server.setTimeout(10 * 60 * 1000); // 10 minutes
 
 // Configure Socket.IO with simplified CORS
 const io = new SocketIOServer(server, {

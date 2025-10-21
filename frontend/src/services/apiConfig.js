@@ -26,10 +26,48 @@ if (typeof window !== 'undefined') {
   console.log(`[apiConfig] Current Host: ${window.location.host}`);
 }
 
+// Safety: if running on localhost but API_BASE points to a remote host, warn and optionally override
+if (typeof window !== 'undefined') {
+  try {
+    const currentHost = window.location.hostname;
+    const apiHost = new URL(API_BASE).hostname;
+    const allowProdInDev = import.meta.env.VITE_ALLOW_PROD_IN_DEV === 'true';
+    if ((currentHost === 'localhost' || currentHost === '127.0.0.1') && apiHost && apiHost !== 'localhost' && !allowProdInDev) {
+      console.warn(`[apiConfig] Detected running on localhost but API base (${apiHost}) is remote. Overriding API base to http://localhost:4000 for development. Set VITE_ALLOW_PROD_IN_DEV=true to disable this override.`);
+      // Override for safer local development
+      // eslint-disable-next-line no-unused-vars
+      const OVERRIDE = 'http://localhost:4000';
+      // mutate exported constants by reassigning via closure (recreate derived values)
+      // Note: this is a lightweight guard — rebuild will still pick up env variables.
+      // We export a helper for consumers to use the effective base.
+    }
+  } catch (e) {
+    // ignore
+  }
+}
+
+// Helper to get the effective API base at runtime (respecting dev override env)
+const getEffectiveApiBase = () => {
+  if (typeof window === 'undefined') return API_BASE;
+  const currentHost = window.location.hostname;
+  const allowProdInDev = import.meta.env.VITE_ALLOW_PROD_IN_DEV === 'true';
+  try {
+    const apiHost = new URL(API_BASE).hostname;
+    if ((currentHost === 'localhost' || currentHost === '127.0.0.1') && apiHost && apiHost !== 'localhost' && !allowProdInDev) {
+      return 'http://localhost:4000';
+    }
+  } catch (e) {
+    return API_BASE;
+  }
+  return API_BASE;
+};
+
 // Build API URL
 const buildApi = (path = '') => {
+  const base = getEffectiveApiBase();
+  const apiUrl = `${base.replace(/\/$/, '')}/api`;
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-  return `${API_URL}${normalizedPath}`;
+  return `${apiUrl}${normalizedPath}`;
 };
 
 // Build upload URL
@@ -40,8 +78,10 @@ const buildUpload = (rel = '') => {
     return rel;
   }
   
+  const base = getEffectiveApiBase();
+  const uploadsBase = `${base.replace(/\/$/, '')}/uploads`;
   const normalizedRel = rel.startsWith('/') ? rel : `/${rel}`;
-  return `${UPLOADS_BASE}${normalizedRel}`;
+  return `${uploadsBase}${normalizedRel}`;
 };
 
 // Enhanced API request function
@@ -131,7 +171,8 @@ export {
   buildApi, 
   buildUpload,
   apiRequest,
-  normalizePayload 
+  normalizePayload,
+  getEffectiveApiBase
 };
 
 // Default export
@@ -142,5 +183,6 @@ export default {
   buildApi, 
   buildUpload,
   apiRequest,
-  normalizePayload 
+  normalizePayload,
+  getEffectiveApiBase
 };

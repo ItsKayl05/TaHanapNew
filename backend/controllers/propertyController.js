@@ -1,4 +1,10 @@
 import multer from "multer";
+import path from 'path';
+import fs from 'fs';
+import os from 'os';
+import { promisify } from 'util';
+const readFileAsync = promisify(fs.readFile);
+const unlinkAsync = promisify(fs.unlink);
 import mongoose from 'mongoose';
 import Property, { PROPERTY_TYPES } from "../models/Property.js";
 import User from "../models/User.js";
@@ -6,8 +12,8 @@ import { uploadBuffer, extractPublicId } from '../utils/cloudinary.js';
 
 const MAX_IMAGES = 8;
 const MAX_PANORAMAS = 5;
-const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // Reduced to 5MB
-const MAX_VIDEO_SIZE = 25 * 1024 * 1024; // Reduced to 25MB
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_VIDEO_SIZE = 50 * 1024 * 1024; // 50MB
 
 // Configuration
 const config = {
@@ -22,14 +28,15 @@ const config = {
   allowedStatus: ['approved', 'pending', 'rejected', 'archived']
 };
 
-// FIXED: Enhanced Multer configuration
+// Improved Multer configuration
 const memoryUpload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: Math.max(config.limits.videoSize, config.limits.imageSize),
-    fieldSize: 50 * 1024 * 1024, // 50MB for fields
-    parts: 100, // Increased parts limit
-    files: 20 // Maximum number of files
+    // Allow larger per-file size to be safer in dev; server-side Cloudinary uploads still enforce limits
+    fileSize: Math.max(config.limits.videoSize, config.limits.imageSize, 100 * 1024 * 1024), // at least 100MB per file
+    fieldSize: 200 * 1024 * 1024, // 200MB for fields (total form fields size)
+    parts: 400, // Allow more parts
+    files: 50 // Maximum number of files
   },
   fileFilter: (req, file, cb) => {
     console.log(`📁 Processing file: ${file.fieldname} - ${file.originalname} - ${file.mimetype}`);
@@ -37,21 +44,25 @@ const memoryUpload = multer({
     // Handle image fields
     if (['images', 'panorama360Images', 'panorama360'].includes(file.fieldname)) {
       if (!file.mimetype.startsWith('image/')) {
+        console.error(`❌ Invalid image type: ${file.mimetype}`);
         return cb(new Error(`Only image files allowed in ${file.fieldname} field`));
       }
+      console.log(`✅ Valid image: ${file.originalname}`);
       return cb(null, true);
     }
     
     // Handle video field
     if (file.fieldname === 'video') {
       if (!config.allowedVideoTypes.includes(file.mimetype)) {
+        console.error(`❌ Invalid video type: ${file.mimetype}`);
         return cb(new Error('Invalid video format. Allowed: mp4, webm, ogg'));
       }
+      console.log(`✅ Valid video: ${file.originalname}`);
       return cb(null, true);
     }
     
     console.warn('⚠️ Unexpected field received:', file.fieldname);
-    // FIX: Instead of rejecting, ignore unexpected fields
+    // Instead of rejecting, accept unexpected fields but don't process them as files
     return cb(null, false);
   }
 }).fields([
@@ -62,6 +73,45 @@ const memoryUpload = multer({
 ]);
 
 export const uploadMemory = memoryUpload;
+
+// Disk-based uploader for large update requests (avoids storing very large buffers in memory)
+const tmpDir = path.join(process.cwd(), 'uploads', 'tmp');
+if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+
+const diskStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, tmpDir),
+  filename: (req, file, cb) => cb(null, `${Date.now()}-${Math.random().toString(36).slice(2,9)}-${file.originalname}`)
+});
+
+const diskUpload = multer({
+  storage: diskStorage,
+  limits: {
+    // Set per-file size limit to 100MB to match expectations (video up to 50MB, images up to 10MB)
+    fileSize: 100 * 1024 * 1024,
+    fieldSize: 300 * 1024 * 1024,
+    parts: 500,
+    files: 60
+  },
+  fileFilter: (req, file, cb) => {
+    // reuse same logic as memory fileFilter
+    if (['images', 'panorama360Images', 'panorama360'].includes(file.fieldname)) {
+      if (!file.mimetype.startsWith('image/')) return cb(new Error(`Only image files allowed in ${file.fieldname} field`));
+      return cb(null, true);
+    }
+    if (file.fieldname === 'video') {
+      if (!config.allowedVideoTypes.includes(file.mimetype)) return cb(new Error('Invalid video format. Allowed: mp4, webm, ogg'));
+      return cb(null, true);
+    }
+    return cb(null, false);
+  }
+}).fields([
+  { name: 'images', maxCount: config.limits.images },
+  { name: 'video', maxCount: 1 },
+  { name: 'panorama360Images', maxCount: config.limits.panoramas },
+  { name: 'panorama360', maxCount: config.limits.panoramas }
+]);
+
+export const uploadDisk = diskUpload;
 
 // Utility Functions
 const parseNumber = (value) => {
@@ -84,12 +134,14 @@ const normalizeList = (value) => {
   if (!value && value !== 0) return [];
   if (Array.isArray(value)) return value.map(s => String(s).trim()).filter(Boolean);
   if (typeof value === 'string') {
+    // Handle both comma-separated and JSON array strings
     try {
       const parsed = JSON.parse(value);
       if (Array.isArray(parsed)) {
         return parsed.map(s => String(s).trim()).filter(Boolean);
       }
     } catch {
+      // If not JSON, treat as comma-separated
       return value.split(',').map(s => s.trim()).filter(Boolean);
     }
   }
@@ -109,6 +161,7 @@ const deleteCloudinaryAssets = async (urls) => {
 
         const resourceType = url.includes('/video/') ? 'video' : 'image';
         await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
+        console.log(`✅ Deleted Cloudinary asset: ${publicId}`);
       } catch (innerErr) {
         console.error('[Cloudinary Delete] Error processing URL:', url, innerErr);
       }
@@ -125,22 +178,35 @@ const uploadToCloudinary = async (files, folder, resourceType = 'image') => {
     
     for (const file of files) {
       try {
-        const result = await uploadBuffer(file.buffer, { 
+        // Support both memory-uploaded files (buffer) and disk-uploaded files (path)
+        let buffer = file.buffer;
+        if (!buffer && file.path) {
+          buffer = await readFileAsync(file.path);
+        }
+        if (!buffer) throw new Error('File buffer unavailable for upload');
+        console.log(`☁️ Uploading ${resourceType}: ${file.originalname || file.filename}`);
+        const result = await uploadBuffer(buffer, { 
           folder: `tahanap/properties/${folder}`,
           resource_type: resourceType
         });
         if (result.secure_url) {
           urls.push(result.secure_url);
+          console.log(`✅ Uploaded ${resourceType}: ${result.secure_url}`);
+          console.log(`   ↳ Original filename: ${file.originalname || file.filename} -> ${result.secure_url}`);
+        }
+        // If file was stored on disk, remove temp file after successful upload
+        if (file.path) {
+          try { await unlinkAsync(file.path); } catch (e) { console.warn('Failed to remove tmp file', file.path, e); }
         }
       } catch (error) {
-        console.error(`Cloudinary ${resourceType} upload failed:`, error);
+        console.error(`❌ Cloudinary ${resourceType} upload failed:`, error);
         throw error;
       }
     }
     
     return resourceType === 'image' ? urls : urls[0] || '';
   } catch (error) {
-    console.error('Error in uploadToCloudinary:', error);
+    console.error('❌ Error in uploadToCloudinary:', error);
     throw error;
   }
 };
@@ -194,7 +260,7 @@ const validateFileUploads = (files) => {
     }
   }
 
-  // FIXED: Validate panorama images - combine both field names
+  // Validate panorama images - combine both field names
   const panoramaFiles = [
     ...(files?.panorama360Images || []),
     ...(files?.panorama360 || [])
@@ -542,7 +608,7 @@ const validateUpdates = (updates) => {
   return errors;
 };
 
-// NEW: Enhanced Multer error handler
+// Enhanced Multer error handler
 const handleMulterError = (err) => {
   console.error('❌ Multer Error Details:', {
     name: err.name,
@@ -552,7 +618,7 @@ const handleMulterError = (err) => {
   });
 
   if (err.code === 'LIMIT_FILE_SIZE') {
-    return 'File size exceeds the allowed limit (Images/Panorama: 5MB, Video: 25MB)';
+    return 'File size exceeds the allowed limit (Images/Panorama: 10MB, Video: 50MB)';
   }
   if (err.code === 'LIMIT_PART_COUNT') {
     return 'Too many form parts. Please reduce the number of files or fields.';
@@ -581,22 +647,44 @@ export const addProperty = async (req, res) => {
     panorama360Images: []
   };
 
-  // Log if client aborts the request during upload
+  // Enhanced error handling for client disconnections
+  let requestAborted = false;
   req.on('aborted', () => {
-    console.warn('[Upload] Client aborted request while uploading property');
+    requestAborted = true;
+    console.warn('❌ [Upload] Client aborted request while uploading property');
   });
 
+  console.log('🏁 Starting property upload process...');
+
   uploadMemory(req, res, async (err) => {
+    if (requestAborted) {
+      console.log('⚠️ Request was aborted by client');
+      // Cleanup any uploaded files
+      const filesToDelete = [
+        ...uploadedFiles.images,
+        ...(uploadedFiles.video ? [uploadedFiles.video] : []),
+        ...uploadedFiles.panorama360Images
+      ].filter(Boolean);
+      
+      if (filesToDelete.length > 0) {
+        await deleteCloudinaryAssets(filesToDelete);
+      }
+      return res.status(499).json({ error: 'Client closed request' });
+    }
+
     if (err) {
-      let errorMsg = handleMulterError(err);
-      console.error('[Multer] AddProperty upload error:', err);
+      const errorMsg = handleMulterError(err);
+      console.error('❌ [Multer] AddProperty upload error:', err);
       return res.status(400).json({ error: errorMsg });
     }
 
     try {
+      console.log('📋 Validating property data...');
+      
       // Validate property data
       const validationErrors = validatePropertyData(req.body);
       if (validationErrors.length > 0) {
+        console.log('❌ Property validation errors:', validationErrors);
         return res.status(400).json({
           error: 'Please fix the following errors',
           details: validationErrors
@@ -606,6 +694,7 @@ export const addProperty = async (req, res) => {
       // Validate file uploads
       const fileErrors = validateFileUploads(req.files);
       if (fileErrors.length > 0) {
+        console.log('❌ File validation errors:', fileErrors);
         return res.status(400).json({
           error: 'File validation failed',
           details: fileErrors
@@ -613,6 +702,7 @@ export const addProperty = async (req, res) => {
       }
 
       const landlord = req.user.id;
+      console.log(`👤 Landlord ID: ${landlord}`);
 
       // Landlord verification check
       if (process.env.DISABLE_VERIFICATION !== 'true' && req.user.role === 'landlord') {
@@ -626,21 +716,25 @@ export const addProperty = async (req, res) => {
 
       // Upload images
       if (req.files?.images && req.files.images.length > 0) {
+        console.log(`📸 Uploading ${req.files.images.length} images...`);
         uploadedFiles.images = await uploadToCloudinary(req.files.images, 'images', 'image');
       }
 
       // Upload video
       if (req.files?.video && req.files.video.length > 0) {
+        console.log('🎥 Uploading video...');
         uploadedFiles.video = await uploadToCloudinary(req.files.video, 'videos', 'video');
       }
 
-      // FIXED: Upload panorama images - combine both field names
+      // Upload panorama images - combine both field names
       const panoramaFiles = [
         ...(req.files?.panorama360Images || []),
         ...(req.files?.panorama360 || [])
       ];
       if (panoramaFiles.length > 0) {
         try {
+          console.log(`🔄 Uploading ${panoramaFiles.length} panorama images...`);
+          
           // Validate each panorama file
           for (const panoramaFile of panoramaFiles) {
             if (panoramaFile.size > config.limits.imageSize) {
@@ -659,15 +753,16 @@ export const addProperty = async (req, res) => {
           // Upload all panorama images
           uploadedFiles.panorama360Images = await uploadToCloudinary(panoramaFiles, 'panorama', 'image');
         } catch (error) {
+          console.error('❌ Panorama upload error:', error);
           // Cleanup any uploaded files on error
-          if (uploadedFiles.images.length > 0) {
-            await deleteCloudinaryAssets(uploadedFiles.images);
-          }
-          if (uploadedFiles.video) {
-            await deleteCloudinaryAssets([uploadedFiles.video]);
-          }
-          if (uploadedFiles.panorama360Images.length > 0) {
-            await deleteCloudinaryAssets(uploadedFiles.panorama360Images);
+          const filesToDelete = [
+            ...uploadedFiles.images,
+            ...(uploadedFiles.video ? [uploadedFiles.video] : []),
+            ...uploadedFiles.panorama360Images
+          ].filter(Boolean);
+          
+          if (filesToDelete.length > 0) {
+            await deleteCloudinaryAssets(filesToDelete);
           }
           return res.status(400).json({ error: error.message });
         }
@@ -675,16 +770,19 @@ export const addProperty = async (req, res) => {
 
       // Validate image count
       if (uploadedFiles.images.length > config.limits.images) {
+        console.error(`❌ Image count exceeded: ${uploadedFiles.images.length} > ${config.limits.images}`);
         await deleteCloudinaryAssets(uploadedFiles.images);
         return res.status(400).json({ error: `Maximum of ${config.limits.images} images exceeded` });
       }
 
       // Build property data
+      console.log('🏗️ Building property data...');
       const propertyData = buildPropertyData(req.body, req.files, landlord);
       propertyData.images = uploadedFiles.images;
       propertyData.video = uploadedFiles.video;
       propertyData.panorama360Images = uploadedFiles.panorama360Images;
 
+      console.log('💾 Creating property in database...');
       // Create and save property
       const newProperty = new Property(propertyData);
       await newProperty.save();
@@ -694,14 +792,14 @@ export const addProperty = async (req, res) => {
       
       const responseProperty = formatPropertyResponse(newProperty);
       
-      console.log('Property created successfully:', responseProperty._id);
+      console.log('✅ Property created successfully:', responseProperty._id);
       res.status(201).json({ 
         message: "Property added successfully!", 
         property: responseProperty 
       });
 
     } catch (error) {
-      console.error("Add Property Error:", error);
+      console.error("❌ Add Property Error:", error);
       
       // Clean up uploaded files on error
       const filesToDelete = [
@@ -712,9 +810,10 @@ export const addProperty = async (req, res) => {
 
       if (filesToDelete.length > 0) {
         try {
+          console.log('🧹 Cleaning up uploaded files due to error...');
           await deleteCloudinaryAssets(filesToDelete);
         } catch (cleanupError) {
-          console.error("Error cleaning up files:", cleanupError);
+          console.error("❌ Error cleaning up files:", cleanupError);
         }
       }
 
@@ -740,7 +839,7 @@ export const getAllProperties = async (req, res) => {
     
     res.status(200).json(filtered.map(property => formatPropertyResponse(property)));
   } catch (error) {
-    console.error('Get Properties Error:', error);
+    console.error('❌ Get Properties Error:', error);
     res.status(500).json({ error: 'Error fetching properties', details: error.message });
   }
 };
@@ -750,7 +849,7 @@ export const getPropertiesByLandlord = async (req, res) => {
     const properties = await Property.find({ landlord: req.user.id }).populate('landlord', 'fullName username profilePic landlordVerified contactNumber');
     res.status(200).json(properties.map(property => formatPropertyResponse(property)));
   } catch (error) {
-    console.error('Get Landlord Properties Error:', error);
+    console.error('❌ Get Landlord Properties Error:', error);
     res.status(500).json({ error: 'Error fetching your properties' });
   }
 };
@@ -761,344 +860,480 @@ export const getProperty = async (req, res) => {
     if (!property) return res.status(404).json({ error: 'Property not found' });
     res.status(200).json(formatPropertyResponse(property));
   } catch (error) {
-    console.error('Get Property Error:', error);
+    console.error('❌ Get Property Error:', error);
     res.status(500).json({ error: 'Error retrieving property' });
   }
 };
 
 export const updateProperty = async (req, res) => {
-  uploadMemory(req, res, async (err) => {
-    if (err) {
-      const errorMsg = handleMulterError(err);
-      console.error("❌ Multer upload error:", err);
-      return res.status(400).json({ error: errorMsg });
+  console.log('🔄 Starting property update process...');
+
+  // Track uploaded files for cleanup in case of errors
+  let uploadedFiles = {
+    images: [],
+    video: '',
+    panorama360Images: []
+  };
+
+  try {
+    console.log('📥 Request headers:', req.headers);
+    let requestAborted = false;
+    req.on('aborted', () => {
+      requestAborted = true;
+      console.warn('❌ [UpdateProperty] Client aborted request while uploading');
+    });
+
+    if (!req.files) {
+      console.log('⚠️ No files found on req.files — continuing without uploads');
     }
 
-    try {
-      console.log('🔍 Starting property update process for ID:', req.params.id);
-      
-      // 1. Validate ObjectId
-      if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-        return res.status(400).json({ error: "Invalid property ID format" });
-      }
+    console.log('🔍 Starting property update process for ID:', req.params.id);
+    
+    // 1. Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: "Invalid property ID format" });
+    }
 
-      // 2. Find property and check ownership
-      const property = await Property.findById(req.params.id);
-      if (!property) {
-        return res.status(404).json({ error: "Property not found" });
-      }
+    // 2. Find property and check ownership
+    const property = await Property.findById(req.params.id);
+    if (!property) {
+      return res.status(404).json({ error: "Property not found" });
+    }
 
-      if (property.landlord.toString() !== req.user.id) {
-        return res.status(403).json({ error: "Unauthorized" });
-      }
+    if (property.landlord.toString() !== req.user.id) {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
 
-      // 3. Enhanced data validation with detailed logging
-      console.log('📦 Request body analysis:');
-      Object.keys(req.body).forEach(key => {
-        console.log(`   ${key}:`, req.body[key], `(type: ${typeof req.body[key]})`);
+    // 3. Enhanced data validation with detailed logging
+    console.log('📦 Request body analysis:');
+    Object.keys(req.body).forEach(key => {
+      console.log(`   ${key}:`, req.body[key], `(type: ${typeof req.body[key]})`);
+    });
+
+    // 4. Validate required fields before processing
+    const requiredFields = ['listingType', 'propertyType', 'address', 'barangay', 'price'];
+    const missingFields = requiredFields.filter(field => {
+      const value = req.body[field];
+      return !value || value.toString().trim() === '';
+    });
+
+    if (missingFields.length > 0) {
+      console.log('❌ Missing required fields:', missingFields);
+      return res.status(400).json({
+        error: 'Missing required fields',
+        details: missingFields.map(field => `${field} is required`)
       });
+    }
 
-      // 4. Validate required fields before processing
-      const requiredFields = ['listingType', 'propertyType', 'address', 'barangay', 'price'];
-      const missingFields = requiredFields.filter(field => {
-        const value = req.body[field];
-        return !value || value.toString().trim() === '';
-      });
-
-      if (missingFields.length > 0) {
-        console.log('❌ Missing required fields:', missingFields);
-        return res.status(400).json({
-          error: 'Missing required fields',
-          details: missingFields.map(field => `${field} is required`)
-        });
-      }
-
-      // 5. Validate numeric fields with better error messages
-      const numericFields = ['price', 'areaSqm', 'floorArea', 'lotArea', 'numberOfFloors', 'numberOfRooms', 'occupancy'];
-      const numericErrors = [];
-      
-      numericFields.forEach(field => {
-        if (req.body[field] !== undefined && req.body[field] !== null && req.body[field] !== '') {
-          const parsed = parseNumber(req.body[field]);
-          if (parsed === null || isNaN(parsed) || parsed < 0) {
-            numericErrors.push(`${field} must be a valid positive number`);
-          }
-        }
-      });
-
-      if (numericErrors.length > 0) {
-        console.log('❌ Numeric field errors:', numericErrors);
-        return res.status(400).json({
-          error: 'Invalid number format',
-          details: numericErrors
-        });
-      }
-
-      // 6. Validate property type and listing type
-      if (req.body.propertyType && !PROPERTY_TYPES.includes(req.body.propertyType)) {
-        return res.status(400).json({
-          error: 'Invalid property type',
-          details: [`Property type must be one of: ${PROPERTY_TYPES.join(', ')}`]
-        });
-      }
-
-      if (req.body.listingType && !['For Rent', 'For Sale'].includes(req.body.listingType)) {
-        return res.status(400).json({
-          error: 'Invalid listing type',
-          details: ['Listing type must be either "For Rent" or "For Sale"']
-        });
-      }
-
-      // 7. Build update data with enhanced validation
-      const { updates: updateData, errors: buildErrors } = buildUpdateData(req.body, property);
-      
-      console.log('📝 Update data prepared:', {
-        ...updateData,
-        images: updateData.images ? `Array(${updateData.images.length})` : 'undefined',
-        panorama360Images: updateData.panorama360Images ? `Array(${updateData.panorama360Images.length})` : 'undefined'
-      });
-
-      if (buildErrors.length > 0) {
-        console.log('❌ Build update data errors:', buildErrors);
-        return res.status(400).json({
-          error: 'Invalid data format',
-          details: buildErrors
-        });
-      }
-
-      // 8. Validate updates with property model schema
-      const validationErrors = validateUpdates(updateData);
-      if (validationErrors.length > 0) {
-        console.log('❌ Update validation errors:', validationErrors);
-        return res.status(400).json({
-          error: 'Validation failed',
-          details: validationErrors
-        });
-      }
-
-      // 9. Handle file uploads with better error handling
-      let updatedImages = [...property.images];
-      let updatedVideo = property.video;
-      let updatedPanoramaImages = [...(property.panorama360Images || [])];
-
-      console.log('📁 Current files - Images:', updatedImages.length, 'Video:', !!updatedVideo, 'Panoramas:', updatedPanoramaImages.length);
-
-      // Handle deleted images
-      if (req.body.deletedImages) {
-        try {
-          let deletedImagesArray = Array.isArray(req.body.deletedImages) 
-            ? req.body.deletedImages 
-            : JSON.parse(req.body.deletedImages);
-
-          console.log('🗑️ Deleting images:', deletedImagesArray);
-
-          const imagesToDelete = updatedImages.filter(img => 
-            deletedImagesArray.some(deleted => img.includes(deleted))
-          );
-
-          if (imagesToDelete.length > 0) {
-            await deleteCloudinaryAssets(imagesToDelete);
-          }
-
-          updatedImages = updatedImages.filter(img => 
-            !deletedImagesArray.some(deleted => img.includes(deleted))
-          );
-        } catch (error) {
-          console.error('❌ Error processing deleted images:', error);
-          return res.status(400).json({
-            error: 'Invalid deleted images format',
-            details: ['Please provide valid image URLs to delete']
-          });
+    // 5. Validate numeric fields with better error messages
+    const numericFields = ['price', 'areaSqm', 'floorArea', 'lotArea', 'numberOfFloors', 'numberOfRooms', 'occupancy'];
+    const numericErrors = [];
+    
+    numericFields.forEach(field => {
+      if (req.body[field] !== undefined && req.body[field] !== null && req.body[field] !== '') {
+        const parsed = parseNumber(req.body[field]);
+        if (parsed === null || isNaN(parsed) || parsed < 0) {
+          numericErrors.push(`${field} must be a valid positive number`);
         }
       }
+    });
 
-      // Handle new images
-      if (req.files?.images && req.files.images.length > 0) {
-        try {
-          console.log('📸 Uploading new images:', req.files.images.length);
-          const newImages = await uploadToCloudinary(req.files.images, 'images', 'image');
-          updatedImages = [...updatedImages, ...newImages];
-          
-          if (updatedImages.length > config.limits.images) {
-            const overflow = updatedImages.length - config.limits.images;
-            const imagesToDelete = updatedImages.slice(-overflow);
-            await deleteCloudinaryAssets(imagesToDelete);
-            updatedImages = updatedImages.slice(0, config.limits.images);
-          }
-        } catch (error) {
-          console.error('❌ Image upload failed:', error);
-          return res.status(400).json({
-            error: 'Image upload failed',
-            details: [error.message]
-          });
+    if (numericErrors.length > 0) {
+      console.log('❌ Numeric field errors:', numericErrors);
+      return res.status(400).json({
+        error: 'Invalid number format',
+        details: numericErrors
+      });
+    }
+
+    // 6. Validate property type and listing type
+    if (req.body.propertyType && !PROPERTY_TYPES.includes(req.body.propertyType)) {
+      return res.status(400).json({
+        error: 'Invalid property type',
+        details: [`Property type must be one of: ${PROPERTY_TYPES.join(', ')}`]
+      });
+    }
+
+    if (req.body.listingType && !['For Rent', 'For Sale'].includes(req.body.listingType)) {
+      return res.status(400).json({
+        error: 'Invalid listing type',
+        details: ['Listing type must be either "For Rent" or "For Sale"']
+      });
+    }
+
+    // 7. Build update data with enhanced validation
+    const { updates: updateData, errors: buildErrors } = buildUpdateData(req.body, property);
+    
+    console.log('📝 Update data prepared:', {
+      ...updateData,
+      images: updateData.images ? `Array(${updateData.images.length})` : 'undefined',
+      panorama360Images: updateData.panorama360Images ? `Array(${updateData.panorama360Images.length})` : 'undefined'
+    });
+
+    if (buildErrors.length > 0) {
+      console.log('❌ Build update data errors:', buildErrors);
+      return res.status(400).json({
+        error: 'Invalid data format',
+        details: buildErrors
+      });
+    }
+
+    // ✅ CRITICAL FIX: Preserve the landlord field
+    updateData.landlord = property.landlord;
+    console.log('🔐 Preserved landlord field:', updateData.landlord);
+
+    // 8. Validate updates with property model schema
+    const validationErrors = validateUpdates(updateData);
+    if (validationErrors.length > 0) {
+      console.log('❌ Update validation errors:', validationErrors);
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: validationErrors
+      });
+    }
+
+    // 9. Handle file uploads with better error handling
+    let updatedImages = [...property.images];
+    let updatedVideo = property.video;
+    let updatedPanoramaImages = [...(property.panorama360Images || [])];
+
+    console.log('📁 Current files - Images:', updatedImages.length, 'Video:', !!updatedVideo, 'Panoramas:', updatedPanoramaImages.length);
+
+    // Handle deleted images
+    if (req.body.deletedImages) {
+      try {
+        let deletedImagesArray = Array.isArray(req.body.deletedImages) 
+          ? req.body.deletedImages 
+          : JSON.parse(req.body.deletedImages);
+
+        console.log('🗑️ Deleting images:', deletedImagesArray);
+
+        const imagesToDelete = updatedImages.filter(img => 
+          deletedImagesArray.some(deleted => img.includes(deleted))
+        );
+
+        if (imagesToDelete.length > 0) {
+          await deleteCloudinaryAssets(imagesToDelete);
         }
+
+        updatedImages = updatedImages.filter(img => 
+          !deletedImagesArray.some(deleted => img.includes(deleted))
+        );
+      } catch (error) {
+        console.error('❌ Error processing deleted images:', error);
+        return res.status(400).json({
+          error: 'Invalid deleted images format',
+          details: ['Please provide valid image URLs to delete']
+        });
       }
+    }
 
-      // Handle video
-      if (req.files?.video && req.files.video.length > 0) {
-        try {
-          console.log('🎥 Uploading new video');
-          if (updatedVideo) {
-            await deleteCloudinaryAssets([updatedVideo]);
-          }
-          updatedVideo = await uploadToCloudinary(req.files.video, 'videos', 'video');
-        } catch (error) {
-          console.error('❌ Video upload failed:', error);
-          return res.status(400).json({
-            error: 'Video upload failed',
-            details: [error.message]
-          });
+    // Handle new images
+    if (req.files?.images && req.files.images.length > 0) {
+      try {
+        console.log('📸 Uploading new images:', req.files.images.length);
+        const newImages = await uploadToCloudinary(req.files.images, 'images', 'image');
+        uploadedFiles.images = newImages;
+        updatedImages = [...updatedImages, ...newImages];
+        
+        if (updatedImages.length > config.limits.images) {
+          const overflow = updatedImages.length - config.limits.images;
+          const imagesToDelete = updatedImages.slice(-overflow);
+          await deleteCloudinaryAssets(imagesToDelete);
+          updatedImages = updatedImages.slice(0, config.limits.images);
         }
-      } else if (req.body.removeVideo === 'true') {
+      } catch (error) {
+        console.error('❌ Image upload failed:', error);
+        // Cleanup uploaded files on error
+        const filesToDelete = [
+          ...uploadedFiles.images,
+          ...(uploadedFiles.video ? [uploadedFiles.video] : []),
+          ...uploadedFiles.panorama360Images
+        ].filter(Boolean);
+        
+        if (filesToDelete.length > 0) {
+          await deleteCloudinaryAssets(filesToDelete);
+        }
+        return res.status(400).json({
+          error: 'Image upload failed',
+          details: [error.message]
+        });
+      }
+    }
+
+    // Handle video
+    if (req.files?.video && req.files.video.length > 0) {
+      try {
+        console.log('🎥 Uploading new video');
         if (updatedVideo) {
           await deleteCloudinaryAssets([updatedVideo]);
         }
-        updatedVideo = '';
-      }
-
-      // Handle panorama images
-      const panoramaFiles = [
-        ...(req.files?.panorama360Images || []),
-        ...(req.files?.panorama360 || [])
-      ];
-      
-      if (panoramaFiles.length > 0) {
-        try {
-          console.log('📸 Uploading new panoramas:', panoramaFiles.length);
-          const newPanoramaImages = await uploadToCloudinary(panoramaFiles, 'panorama', 'image');
-          updatedPanoramaImages = [...updatedPanoramaImages, ...newPanoramaImages];
-          
-          if (updatedPanoramaImages.length > config.limits.panoramas) {
-            const overflow = updatedPanoramaImages.length - config.limits.panoramas;
-            const panoramasToDelete = updatedPanoramaImages.slice(-overflow);
-            await deleteCloudinaryAssets(panoramasToDelete);
-            updatedPanoramaImages = updatedPanoramaImages.slice(0, config.limits.panoramas);
-          }
-        } catch (error) {
-          console.error('❌ Panorama upload failed:', error);
-          return res.status(400).json({
-            error: 'Panorama image upload failed',
-            details: [error.message]
-          });
+        const newVideo = await uploadToCloudinary(req.files.video, 'videos', 'video');
+        uploadedFiles.video = newVideo;
+        updatedVideo = newVideo;
+      } catch (error) {
+        console.error('❌ Video upload failed:', error);
+        // Cleanup uploaded files on error
+        const filesToDelete = [
+          ...uploadedFiles.images,
+          ...(uploadedFiles.video ? [uploadedFiles.video] : []),
+          ...uploadedFiles.panorama360Images
+        ].filter(Boolean);
+        
+        if (filesToDelete.length > 0) {
+          await deleteCloudinaryAssets(filesToDelete);
         }
+        return res.status(400).json({
+          error: 'Video upload failed',
+          details: [error.message]
+        });
       }
+    } else if (req.body.removeVideo === 'true') {
+      if (updatedVideo) {
+        await deleteCloudinaryAssets([updatedVideo]);
+      }
+      updatedVideo = '';
+    }
 
-      // Handle deleted panoramas
-      if (req.body.deletedPanoramaImages) {
-        try {
-          let deletedPanoramasArray = Array.isArray(req.body.deletedPanoramaImages)
-            ? req.body.deletedPanoramaImages
-            : JSON.parse(req.body.deletedPanoramaImages);
+    // Handle panorama images - combine both field names (same as addProperty)
+    const panoramaFiles = [
+      ...(req.files?.panorama360Images || []),
+      ...(req.files?.panorama360 || [])
+    ];
+    
+    if (panoramaFiles.length > 0) {
+      try {
+        console.log(`🔄 Uploading ${panoramaFiles.length} panorama images...`);
+        
+        // Validate each panorama file (same validation as addProperty)
+        for (const panoramaFile of panoramaFiles) {
+          if (panoramaFile.size > config.limits.imageSize) {
+            throw new Error(`360° Panorama image "${panoramaFile.originalname}" exceeds ${config.limits.imageSize / 1024 / 1024}MB size limit`);
+          }
+          if (!panoramaFile.mimetype.startsWith('image/')) {
+            throw new Error(`360° Panorama "${panoramaFile.originalname}" must be an image file (JPG, PNG, or WebP)`);
+          }
+        }
 
-          console.log('🗑️ Deleting panoramas:', deletedPanoramasArray);
+        // Check if total panorama images don't exceed limit
+        const totalPanoramasAfterUpload = updatedPanoramaImages.length + panoramaFiles.length;
+        if (totalPanoramasAfterUpload > config.limits.panoramas) {
+          throw new Error(`Maximum of ${config.limits.panoramas} panoramic images allowed. You currently have ${updatedPanoramaImages.length} and trying to add ${panoramaFiles.length}`);
+        }
 
+        // Upload all panorama images
+        const newPanoramaImages = await uploadToCloudinary(panoramaFiles, 'panorama', 'image');
+        uploadedFiles.panorama360Images = newPanoramaImages;
+        updatedPanoramaImages = [...updatedPanoramaImages, ...newPanoramaImages];
+        
+      } catch (error) {
+        console.error('❌ Panorama upload error:', error);
+        // Cleanup any uploaded files on error
+        const filesToDelete = [
+          ...uploadedFiles.images,
+          ...(uploadedFiles.video ? [uploadedFiles.video] : []),
+          ...uploadedFiles.panorama360Images
+        ].filter(Boolean);
+        
+        if (filesToDelete.length > 0) {
+          await deleteCloudinaryAssets(filesToDelete);
+        }
+        return res.status(400).json({ 
+          error: 'Panorama image upload failed',
+          details: [error.message]
+        });
+      }
+    }
+
+    // ✅ FIXED: Handle deleted panoramas with better validation
+    if (req.body.deletedPanoramaImages) {
+      try {
+        console.log('🗑️ Processing deleted panoramas:', req.body.deletedPanoramaImages);
+        
+        let deletedPanoramasArray;
+        
+        // Handle different input formats
+        if (Array.isArray(req.body.deletedPanoramaImages)) {
+          deletedPanoramasArray = req.body.deletedPanoramaImages;
+        } else if (typeof req.body.deletedPanoramaImages === 'string') {
+          // Try to parse as JSON, if it fails treat as single URL
+          try {
+            deletedPanoramasArray = JSON.parse(req.body.deletedPanoramaImages);
+            // Ensure it's an array after parsing
+            if (!Array.isArray(deletedPanoramasArray)) {
+              deletedPanoramasArray = [deletedPanoramasArray];
+            }
+          } catch (parseError) {
+            // If it's not valid JSON, treat as single URL string
+            deletedPanoramasArray = [req.body.deletedPanoramaImages];
+          }
+        } else {
+          throw new Error('Invalid format for deleted panoramas');
+        }
+
+        // Validate that we have actual URLs to delete
+        const validPanoramasToDelete = deletedPanoramasArray.filter(url => 
+          url && typeof url === 'string' && url.trim() !== ''
+        );
+
+        if (validPanoramasToDelete.length === 0) {
+          console.log('⚠️ No valid panorama URLs provided for deletion');
+        } else {
+          console.log('🗑️ Deleting panoramas:', validPanoramasToDelete);
+
+          // Find panorama images that match the URLs to delete
           const panoramasToDelete = updatedPanoramaImages.filter(img => 
-            deletedPanoramasArray.some(deleted => img.includes(deleted))
+            validPanoramasToDelete.some(deleted => 
+              img && deleted && (img.includes(deleted) || deleted.includes(img))
+            )
           );
+
+          console.log('🔍 Found panoramas to delete:', panoramasToDelete);
 
           if (panoramasToDelete.length > 0) {
             await deleteCloudinaryAssets(panoramasToDelete);
           }
 
+          // Remove deleted panoramas from the array
           updatedPanoramaImages = updatedPanoramaImages.filter(img => 
-            !deletedPanoramasArray.some(deleted => img.includes(deleted))
+            !validPanoramasToDelete.some(deleted => 
+              img && deleted && (img.includes(deleted) || deleted.includes(img))
+            )
           );
-        } catch (error) {
-          console.error('❌ Error processing deleted panoramas:', error);
-          return res.status(400).json({
-            error: 'Invalid deleted panoramas format',
-            details: ['Please provide valid panorama URLs to delete']
-          });
         }
+
+      } catch (error) {
+        console.error('❌ Error processing deleted panoramas:', error);
+        // Instead of returning error, just log and continue (don't fail the whole update)
+        console.log('⚠️ Continuing update without deleting panoramas due to processing error');
+        // Don't return error here - just continue with the update
       }
+    }
 
-      // 10. Final update data preparation
-      updateData.images = updatedImages;
-      updateData.video = updatedVideo;
-      updateData.panorama360Images = updatedPanoramaImages;
-      updateData.updatedAt = new Date();
+    // 10. Final update data preparation
+    updateData.images = updatedImages;
+    updateData.video = updatedVideo;
+    updateData.panorama360Images = updatedPanoramaImages;
+    updateData.updatedAt = new Date();
 
-      console.log('✅ Final update data ready:', {
-        fields: Object.keys(updateData),
-        images: updateData.images.length,
-        panoramas: updateData.panorama360Images.length,
-        hasVideo: !!updateData.video
-      });
+    // ✅ CRITICAL FIX: Preserve immutable fields
+    updateData.landlord = property.landlord;
+    updateData.createdAt = property.createdAt;
 
-      // 11. Test the update data against the schema before saving
-      try {
-        const testProperty = new Property(updateData);
-        await testProperty.validate();
-      } catch (validationError) {
-        console.error('❌ Schema validation failed:', validationError);
-        const errorDetails = Object.values(validationError.errors).map(err => err.message);
-        return res.status(400).json({
-          error: 'Data validation failed',
-          details: errorDetails
-        });
-      }
+    console.log('✅ Final update data ready:', {
+      fields: Object.keys(updateData),
+      images: updateData.images.length,
+      panoramas: updateData.panorama360Images.length,
+      hasVideo: !!updateData.video,
+      hasLandlord: !!updateData.landlord
+    });
 
-      // 12. Perform the actual update
-      console.log('💾 Saving to database...');
-      const updatedProperty = await Property.findByIdAndUpdate(
-        req.params.id, 
-        { $set: updateData },
-        { 
-          new: true, 
-          runValidators: true 
-        }
-      ).populate('landlord', 'fullName username profilePic address contactNumber landlordVerified');
-
-      if (!updatedProperty) {
-        console.error('❌ Property not found after update');
-        return res.status(404).json({ error: "Property not found after update" });
-      }
-
-      console.log('🎉 Property updated successfully:', updatedProperty._id);
-      console.log('📊 Final state - Images:', updatedProperty.images.length, 'Panoramas:', updatedProperty.panorama360Images.length);
+    // 11. Test the update data against the schema before saving
+    try {
+      const testProperty = new Property(updateData);
+      await testProperty.validate();
+    } catch (validationError) {
+      console.error('❌ Schema validation failed:', validationError);
+      // Cleanup uploaded files on validation error
+      const filesToDelete = [
+        ...uploadedFiles.images,
+        ...(uploadedFiles.video ? [uploadedFiles.video] : []),
+        ...uploadedFiles.panorama360Images
+      ].filter(Boolean);
       
-      return res.json({
-        success: true,
-        message: 'Property updated successfully',
-        property: formatPropertyResponse(updatedProperty)
-      });
-
-    } catch (error) {
-      console.error("❌ UpdateProperty critical error:", error);
-      
-      // Detailed error analysis
-      console.error('🔍 Error analysis:', {
-        name: error.name,
-        message: error.message,
-        stack: error.stack
-      });
-
-      // Handle specific error types
-      if (error.name === 'ValidationError') {
-        const validationErrors = Object.values(error.errors).map(err => ({
-          field: err.path,
-          message: err.message
-        }));
-        return res.status(400).json({
-          error: 'Database validation failed',
-          details: validationErrors
-        });
+      if (filesToDelete.length > 0) {
+        await deleteCloudinaryAssets(filesToDelete);
       }
       
-      if (error.name === 'CastError') {
-        return res.status(400).json({
-          error: 'Invalid data type',
-          details: [`Field '${error.path}' must be ${error.kind}`]
-        });
-      }
-
-      // Generic error response
-      res.status(500).json({ 
-        error: 'Internal server error while updating property',
-        details: process.env.NODE_ENV === 'development' ? error.message : 'Please try again later'
+      const errorDetails = Object.values(validationError.errors).map(err => err.message);
+      return res.status(400).json({
+        error: 'Data validation failed',
+        details: errorDetails
       });
     }
-  });
+
+    // 12. Perform the actual update
+    console.log('💾 Saving to database...');
+    const updatedProperty = await Property.findByIdAndUpdate(
+      req.params.id, 
+      { $set: updateData },
+      { 
+        new: true, 
+        runValidators: true 
+      }
+    ).populate('landlord', 'fullName username profilePic address contactNumber landlordVerified');
+
+    if (!updatedProperty) {
+      console.error('❌ Property not found after update');
+      // Cleanup uploaded files if property not found
+      const filesToDelete = [
+        ...uploadedFiles.images,
+        ...(uploadedFiles.video ? [uploadedFiles.video] : []),
+        ...uploadedFiles.panorama360Images
+      ].filter(Boolean);
+      
+      if (filesToDelete.length > 0) {
+        await deleteCloudinaryAssets(filesToDelete);
+      }
+      return res.status(404).json({ error: "Property not found after update" });
+    }
+
+    console.log('🎉 Property updated successfully:', updatedProperty._id);
+    console.log('📊 Final state - Images:', updatedProperty.images.length, 'Panoramas:', updatedProperty.panorama360Images.length);
+    
+    return res.json({
+      success: true,
+      message: 'Property updated successfully',
+      property: formatPropertyResponse(updatedProperty)
+    });
+
+  } catch (error) {
+    console.error("❌ UpdateProperty critical error:", error);
+    
+    // Cleanup any uploaded files on critical error
+    const filesToDelete = [
+      ...uploadedFiles.images,
+      ...(uploadedFiles.video ? [uploadedFiles.video] : []),
+      ...uploadedFiles.panorama360Images
+    ].filter(Boolean);
+    
+    if (filesToDelete.length > 0) {
+      console.log('🧹 Cleaning up uploaded files due to critical error...');
+      await deleteCloudinaryAssets(filesToDelete);
+    }
+
+    // Detailed error analysis
+    console.error('🔍 Error analysis:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
+
+    // Handle specific error types
+    if (error.name === 'ValidationError') {
+      const validationErrors = Object.values(error.errors).map(err => ({
+        field: err.path,
+        message: err.message
+      }));
+      return res.status(400).json({
+        error: 'Database validation failed',
+        details: validationErrors
+      });
+    }
+    
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        error: 'Invalid data type',
+        details: [`Field '${error.path}' must be ${error.kind}`]
+      });
+    }
+
+    // Generic error response
+    res.status(500).json({ 
+      error: 'Internal server error while updating property',
+      details: process.env.NODE_ENV === 'development' ? error.message : 'Please try again later'
+    });
+  }
 };
 
 export const setPropertyStatus = async (req, res) => {
@@ -1144,7 +1379,7 @@ export const deleteProperty = async (req, res) => {
     res.status(200).json({ message: "Property deleted successfully" });
 
   } catch (error) {
-    console.error("Delete Property Error:", error);
+    console.error("❌ Delete Property Error:", error);
     res.status(500).json({ error: "Error deleting property" });
   }
 };
@@ -1169,7 +1404,7 @@ export const setPropertyAvailability = async (req, res) => {
       property: formatPropertyResponse(updated) 
     });
   } catch (error) {
-    console.error('setPropertyAvailability error', error);
+    console.error('❌ setPropertyAvailability error', error);
     res.status(500).json({ error: error.message });
   }
 };
