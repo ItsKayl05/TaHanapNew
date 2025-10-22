@@ -40,7 +40,7 @@ const memoryUpload = multer({
   },
   fileFilter: (req, file, cb) => {
     console.log(`📁 Processing file: ${file.fieldname} - ${file.originalname} - ${file.mimetype}`);
-    
+
     // Handle image fields
     if (['images', 'panorama360Images', 'panorama360'].includes(file.fieldname)) {
       if (!file.mimetype.startsWith('image/')) {
@@ -50,7 +50,7 @@ const memoryUpload = multer({
       console.log(`✅ Valid image: ${file.originalname}`);
       return cb(null, true);
     }
-    
+
     // Handle video field
     if (file.fieldname === 'video') {
       if (!config.allowedVideoTypes.includes(file.mimetype)) {
@@ -60,7 +60,7 @@ const memoryUpload = multer({
       console.log(`✅ Valid video: ${file.originalname}`);
       return cb(null, true);
     }
-    
+
     console.warn('⚠️ Unexpected field received:', file.fieldname);
     // Instead of rejecting, accept unexpected fields but don't process them as files
     return cb(null, false);
@@ -80,7 +80,7 @@ if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
 
 const diskStorage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, tmpDir),
-  filename: (req, file, cb) => cb(null, `${Date.now()}-${Math.random().toString(36).slice(2,9)}-${file.originalname}`)
+  filename: (req, file, cb) => cb(null, `${Date.now()}-${Math.random().toString(36).slice(2, 9)}-${file.originalname}`)
 });
 
 const diskUpload = multer({
@@ -116,16 +116,16 @@ export const uploadDisk = diskUpload;
 // Utility Functions
 const parseNumber = (value) => {
   if (value === null || value === undefined || value === '') return null;
-  
+
   if (Array.isArray(value)) {
     const firstValue = value.find(item => item !== null && item !== undefined && item !== '');
     if (!firstValue) return null;
     value = firstValue;
   }
-  
+
   const stringValue = String(value).replace(/,/g, '').trim();
   if (stringValue === '') return null;
-  
+
   const num = parseFloat(stringValue);
   return isNaN(num) ? null : num;
 };
@@ -151,11 +151,11 @@ const normalizeList = (value) => {
 const deleteCloudinaryAssets = async (urls) => {
   try {
     const { default: cloudinary } = await import('../utils/cloudinary.js');
-    
+
     for (const url of urls) {
       try {
         if (!url || !url.startsWith('http')) continue;
-        
+
         const publicId = extractPublicId(url);
         if (!publicId) continue;
 
@@ -175,7 +175,7 @@ const uploadToCloudinary = async (files, folder, resourceType = 'image') => {
   try {
     const { default: cloudinary } = await import('../utils/cloudinary.js');
     const urls = [];
-    
+
     for (const file of files) {
       try {
         // Support both memory-uploaded files (buffer) and disk-uploaded files (path)
@@ -185,7 +185,7 @@ const uploadToCloudinary = async (files, folder, resourceType = 'image') => {
         }
         if (!buffer) throw new Error('File buffer unavailable for upload');
         console.log(`☁️ Uploading ${resourceType}: ${file.originalname || file.filename}`);
-        const result = await uploadBuffer(buffer, { 
+        const result = await uploadBuffer(buffer, {
           folder: `tahanap/properties/${folder}`,
           resource_type: resourceType
         });
@@ -203,7 +203,7 @@ const uploadToCloudinary = async (files, folder, resourceType = 'image') => {
         throw error;
       }
     }
-    
+
     return resourceType === 'image' ? urls : urls[0] || '';
   } catch (error) {
     console.error('❌ Error in uploadToCloudinary:', error);
@@ -265,12 +265,12 @@ const validateFileUploads = (files) => {
     ...(files?.panorama360Images || []),
     ...(files?.panorama360 || [])
   ];
-  
+
   if (panoramaFiles.length > 0) {
     if (panoramaFiles.length > config.limits.panoramas) {
       errors.push(`Maximum of ${config.limits.panoramas} panoramic images allowed`);
     }
-    
+
     for (const panoramaFile of panoramaFiles) {
       if (panoramaFile.size > config.limits.imageSize) {
         errors.push(`360° Panorama image "${panoramaFile.originalname}" exceeds ${config.limits.imageSize / 1024 / 1024}MB limit`);
@@ -398,7 +398,7 @@ const validatePropertyData = (data, isUpdate = false) => {
 
   for (const [field, validation] of Object.entries(validations)) {
     const value = validation.value;
-    
+
     if (validation.required && (!value || value.toString().trim() === '')) {
       errors.push(validation.message);
       continue;
@@ -469,8 +469,8 @@ const buildPropertyData = (reqBody, files, landlordId) => {
     latitude: latitude ? parseFloat(latitude) : null,
     longitude: longitude ? parseFloat(longitude) : null,
     status: 'approved',
-    availabilityStatus: (availabilityStatus && config.allowedAvailability.includes(availabilityStatus)) 
-      ? availabilityStatus 
+    availabilityStatus: (availabilityStatus && config.allowedAvailability.includes(availabilityStatus))
+      ? availabilityStatus
       : 'Available'
   };
 
@@ -592,7 +592,7 @@ const validateUpdates = (updates) => {
   if (updates.listingType && !['For Rent', 'For Sale'].includes(updates.listingType)) {
     errors.push('Listing type must be either "For Rent" or "For Sale"');
   }
-  
+
   if (updates.propertyType && !PROPERTY_TYPES.includes(updates.propertyType)) {
     errors.push('Invalid property type selected');
   }
@@ -600,7 +600,7 @@ const validateUpdates = (updates) => {
   // Validate required fields
   const requiredFields = ['listingType', 'propertyType', 'address', 'barangay', 'price'];
   const missingFields = requiredFields.filter(field => !updates[field] || updates[field].toString().trim() === '');
-  
+
   if (missingFields.length > 0) {
     errors.push(...missingFields.map(field => `${field} is required`));
   }
@@ -665,7 +665,7 @@ export const addProperty = async (req, res) => {
         ...(uploadedFiles.video ? [uploadedFiles.video] : []),
         ...uploadedFiles.panorama360Images
       ].filter(Boolean);
-      
+
       if (filesToDelete.length > 0) {
         await deleteCloudinaryAssets(filesToDelete);
       }
@@ -680,7 +680,7 @@ export const addProperty = async (req, res) => {
 
     try {
       console.log('📋 Validating property data...');
-      
+
       // Validate property data
       const validationErrors = validatePropertyData(req.body);
       if (validationErrors.length > 0) {
@@ -708,8 +708,8 @@ export const addProperty = async (req, res) => {
       if (process.env.DISABLE_VERIFICATION !== 'true' && req.user.role === 'landlord') {
         const landlordUser = await User.findById(landlord).select('landlordVerified');
         if (!landlordUser || !landlordUser.landlordVerified) {
-          return res.status(403).json({ 
-            error: 'Landlord not verified. Please upload required IDs and wait for admin approval.' 
+          return res.status(403).json({
+            error: 'Landlord not verified. Please upload required IDs and wait for admin approval.'
           });
         }
       }
@@ -731,21 +731,79 @@ export const addProperty = async (req, res) => {
         ...(req.files?.panorama360Images || []),
         ...(req.files?.panorama360 || [])
       ];
+      // If client provided a paymentSessionId during creation, verify it and use it to allow additional panoramas
+      let creationSessionPaid = false;
+      const { paymentSessionId } = req.body || {};
+      if (paymentSessionId) {
+        try {
+          const PaymentSession = (await import('../models/PaymentSession.js')).default;
+          const sess = await PaymentSession.findOne({ sessionId: paymentSessionId });
+          if (sess && sess.paid) {
+            creationSessionPaid = true;
+            console.log('✅ Creation payment session verified as paid:', paymentSessionId);
+          } else {
+            console.log('⚠️ Creation payment session not paid or not found:', paymentSessionId);
+          }
+        } catch (e) {
+          console.warn('Could not verify payment session during property creation', e);
+        }
+      }
+
       if (panoramaFiles.length > 0) {
         try {
           console.log(`🔄 Uploading ${panoramaFiles.length} panorama images...`);
 
-          // Monetization: allow first pano free; require payment for 2nd and beyond
-          if (panoramaFiles.length > 1) {
-            // Trying to upload more than 1 pano during creation -> require payment
+          // ✅ IMPROVED PAYMENT LOGIC - Accept frontend payment status
+          const { paymentSessionId, paidForPano: frontendPaid } = req.body || {};
+          let creationSessionPaid = false;
+
+          // Check payment session
+          if (paymentSessionId) {
+            try {
+              const PaymentSession = (await import('../models/PaymentSession.js')).default;
+              const sess = await PaymentSession.findOne({ sessionId: paymentSessionId });
+              if (sess && sess.paid) {
+                creationSessionPaid = true;
+                console.log('✅ Payment session verified:', paymentSessionId);
+              } else {
+                console.log('⚠️ Payment session not paid or not found:', paymentSessionId);
+              }
+            } catch (e) {
+              console.warn('Payment session check failed:', e);
+            }
+          }
+
+          // ✅ ACCEPT FRONTEND PAYMENT STATUS TOO
+          const isPaid = creationSessionPaid || frontendPaid === 'true' || frontendPaid === true;
+
+          console.log('🔍 ENHANCED Payment Check:', {
+            filesCount: panoramaFiles.length,
+            creationSessionPaid,
+            frontendPaid,
+            isPaid
+          });
+
+          // ✅ UPDATED PAYMENT REQUIREMENT LOGIC
+          // First panorama free, second+ requires payment
+          const requiresPayment = panoramaFiles.length > 1 && !isPaid;
+
+          if (requiresPayment) {
+            console.log('💰 Payment required for panoramas');
             return res.status(402).json({
-              error: 'Payment required to upload more panoramas during property creation',
+              error: 'Payment required to upload panoramic images',
               code: 'PANO_PAYMENT_REQUIRED',
-              amount_centavos: 4900,
-              message: 'Pay ₱49 one-time to unlock up to 5 panoramic uploads for this property.'
+              amount_centavos: 10900,
+              message: 'Pay ₱109 one-time to unlock up to 5 panoramic uploads for this property.'
             });
           }
-          
+
+          // ✅ Allow first panorama for free
+          if (panoramaFiles.length === 1) {
+            console.log('🎉 First panorama free - proceeding with upload');
+          } else if (isPaid) {
+            console.log('✅ Paid user - proceeding with panorama upload');
+          }
+
           // Validate each panorama file
           for (const panoramaFile of panoramaFiles) {
             if (panoramaFile.size > config.limits.imageSize) {
@@ -763,10 +821,7 @@ export const addProperty = async (req, res) => {
 
           // Upload all panorama images
           uploadedFiles.panorama360Images = await uploadToCloudinary(panoramaFiles, 'panorama', 'image');
-          // Set panoCount for the new property
-          if (uploadedFiles.panorama360Images && uploadedFiles.panorama360Images.length > 0) {
-            // We'll attach panoCount to propertyData later when building the property
-          }
+
         } catch (error) {
           console.error('❌ Panorama upload error:', error);
           // Cleanup any uploaded files on error
@@ -775,7 +830,7 @@ export const addProperty = async (req, res) => {
             ...(uploadedFiles.video ? [uploadedFiles.video] : []),
             ...uploadedFiles.panorama360Images
           ].filter(Boolean);
-          
+
           if (filesToDelete.length > 0) {
             await deleteCloudinaryAssets(filesToDelete);
           }
@@ -804,21 +859,21 @@ export const addProperty = async (req, res) => {
       // Create and save property
       const newProperty = new Property(propertyData);
       await newProperty.save();
-      
+
       // Populate landlord info for response
       await newProperty.populate('landlord', 'fullName username profilePic address contactNumber role landlordVerified');
-      
+
       const responseProperty = formatPropertyResponse(newProperty);
-      
+
       console.log('✅ Property created successfully:', responseProperty._id);
-      res.status(201).json({ 
-        message: "Property added successfully!", 
-        property: responseProperty 
+      res.status(201).json({
+        message: "Property added successfully!",
+        property: responseProperty
       });
 
     } catch (error) {
       console.error("❌ Add Property Error:", error);
-      
+
       // Clean up uploaded files on error
       const filesToDelete = [
         ...uploadedFiles.images,
@@ -835,8 +890,8 @@ export const addProperty = async (req, res) => {
         }
       }
 
-      return res.status(500).json({ 
-        error: 'Server error while adding property', 
+      return res.status(500).json({
+        error: 'Server error while adding property',
         detail: error?.message || 'Internal server error'
       });
     }
@@ -846,15 +901,15 @@ export const addProperty = async (req, res) => {
 export const getAllProperties = async (req, res) => {
   try {
     const { propertyType } = req.query;
-    
+
     const query = { status: 'approved' };
     if (propertyType && ["For Rent", "For Sale"].includes(propertyType)) {
       query.listingType = propertyType;
     }
-    
+
     const properties = await Property.find(query).populate('landlord', 'fullName username profilePic address contactNumber role landlordVerified');
     const filtered = properties.filter(property => property.landlord !== null);
-    
+
     res.status(200).json(filtered.map(property => formatPropertyResponse(property)));
   } catch (error) {
     console.error('❌ Get Properties Error:', error);
@@ -906,7 +961,7 @@ export const updateProperty = async (req, res) => {
     }
 
     console.log('🔍 Starting property update process for ID:', req.params.id);
-    
+
     // 1. Validate ObjectId
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({ error: "Invalid property ID format" });
@@ -946,7 +1001,7 @@ export const updateProperty = async (req, res) => {
     // 5. Validate numeric fields with better error messages
     const numericFields = ['price', 'areaSqm', 'floorArea', 'lotArea', 'numberOfFloors', 'numberOfRooms', 'occupancy'];
     const numericErrors = [];
-    
+
     numericFields.forEach(field => {
       if (req.body[field] !== undefined && req.body[field] !== null && req.body[field] !== '') {
         const parsed = parseNumber(req.body[field]);
@@ -981,7 +1036,7 @@ export const updateProperty = async (req, res) => {
 
     // 7. Build update data with enhanced validation
     const { updates: updateData, errors: buildErrors } = buildUpdateData(req.body, property);
-    
+
     console.log('📝 Update data prepared:', {
       ...updateData,
       images: updateData.images ? `Array(${updateData.images.length})` : 'undefined',
@@ -1017,16 +1072,26 @@ export const updateProperty = async (req, res) => {
 
     console.log('📁 Current files - Images:', updatedImages.length, 'Video:', !!updatedVideo, 'Panoramas:', updatedPanoramaImages.length);
 
+    // Extra debug logging to help track pano append vs overwrite issues
+    try {
+      console.log('🔄 UPDATE PROPERTY DEBUG:', {
+        propertyId: property?._id?.toString() || req.params?.id,
+        existingPanos: (property.panorama360Images || []).length,
+        newFiles: req.files ? Object.keys(req.files) : 'none',
+        newPanoCount: (req.files?.panorama360Images?.length || req.files?.panorama360?.length || req.files?.panoPhotos?.length || 0)
+      });
+    } catch (e) { console.warn('Could not print update debug log:', e); }
+
     // Handle deleted images
     if (req.body.deletedImages) {
       try {
-        let deletedImagesArray = Array.isArray(req.body.deletedImages) 
-          ? req.body.deletedImages 
+        let deletedImagesArray = Array.isArray(req.body.deletedImages)
+          ? req.body.deletedImages
           : JSON.parse(req.body.deletedImages);
 
         console.log('🗑️ Deleting images:', deletedImagesArray);
 
-        const imagesToDelete = updatedImages.filter(img => 
+        const imagesToDelete = updatedImages.filter(img =>
           deletedImagesArray.some(deleted => img.includes(deleted))
         );
 
@@ -1034,7 +1099,7 @@ export const updateProperty = async (req, res) => {
           await deleteCloudinaryAssets(imagesToDelete);
         }
 
-        updatedImages = updatedImages.filter(img => 
+        updatedImages = updatedImages.filter(img =>
           !deletedImagesArray.some(deleted => img.includes(deleted))
         );
       } catch (error) {
@@ -1053,7 +1118,7 @@ export const updateProperty = async (req, res) => {
         const newImages = await uploadToCloudinary(req.files.images, 'images', 'image');
         uploadedFiles.images = newImages;
         updatedImages = [...updatedImages, ...newImages];
-        
+
         if (updatedImages.length > config.limits.images) {
           const overflow = updatedImages.length - config.limits.images;
           const imagesToDelete = updatedImages.slice(-overflow);
@@ -1068,7 +1133,7 @@ export const updateProperty = async (req, res) => {
           ...(uploadedFiles.video ? [uploadedFiles.video] : []),
           ...uploadedFiles.panorama360Images
         ].filter(Boolean);
-        
+
         if (filesToDelete.length > 0) {
           await deleteCloudinaryAssets(filesToDelete);
         }
@@ -1097,7 +1162,7 @@ export const updateProperty = async (req, res) => {
           ...(uploadedFiles.video ? [uploadedFiles.video] : []),
           ...uploadedFiles.panorama360Images
         ].filter(Boolean);
-        
+
         if (filesToDelete.length > 0) {
           await deleteCloudinaryAssets(filesToDelete);
         }
@@ -1116,15 +1181,31 @@ export const updateProperty = async (req, res) => {
     // Handle panorama images - combine both field names (same as addProperty)
     const panoramaFiles = [
       ...(req.files?.panorama360Images || []),
-      ...(req.files?.panorama360 || [])
+      ...(req.files?.panorama360 || []),
+      // Legacy or alternate field name support - do not overwrite existing arrays
+      ...(req.files?.panoPhotos || [])
     ];
-    
+
     if (panoramaFiles.length > 0) {
       try {
         console.log(`🔄 Uploading ${panoramaFiles.length} panorama images...`);
 
         // Monetization check: allow first pano free; require payment for 2nd unless property.paidForPano
         const existingPanoCount = updatedPanoramaImages.length || 0; // current stored panoramas
+        // Allow using a payment session during update to mark the property as paid for this operation
+        const { paymentSessionId } = req.body || {};
+        if (paymentSessionId && !property.paidForPano) {
+          try {
+            const PaymentSession = (await import('../models/PaymentSession.js')).default;
+            const sess = await PaymentSession.findOne({ sessionId: paymentSessionId });
+            if (sess && sess.paid) {
+              property.paidForPano = true;
+              console.log('✅ Update payment session verified and property marked paid for pano upload');
+            }
+          } catch (e) {
+            console.warn('Could not verify payment session during property update', e);
+          }
+        }
         const willHave = existingPanoCount + panoramaFiles.length;
 
         // If after upload we exceed the paid/unpaid rules, block and indicate payment required
@@ -1135,8 +1216,8 @@ export const updateProperty = async (req, res) => {
             return res.status(402).json({
               error: 'Payment required to upload more panoramas',
               code: 'PANO_PAYMENT_REQUIRED',
-              amount_centavos: 4900,
-              message: 'Pay ₱49 one-time to unlock up to 5 panoramic uploads for this property.'
+              amount_centavos: 10900,
+              message: 'Pay ₱109 one-time to unlock up to 5 panoramic uploads for this property.'
             });
           }
           // if existingPanoCount === 0 and adding more than 1 file, require payment because second pano triggers payment
@@ -1144,8 +1225,8 @@ export const updateProperty = async (req, res) => {
             return res.status(402).json({
               error: 'Payment required to upload more panoramas',
               code: 'PANO_PAYMENT_REQUIRED',
-              amount_centavos: 4900,
-              message: 'Pay ₱49 one-time to unlock up to 5 panoramic uploads for this property.'
+              amount_centavos: 10900,
+              message: 'Pay ₱109 one-time to unlock up to 5 panoramic uploads for this property.'
             });
           }
         }
@@ -1154,7 +1235,7 @@ export const updateProperty = async (req, res) => {
         if (willHave > config.limits.panoramas) {
           return res.status(400).json({ error: `Upload limit reached. Maximum of ${config.limits.panoramas} panoramic images allowed.` });
         }
-        
+
         // Validate each panorama file (same validation as addProperty)
         for (const panoramaFile of panoramaFiles) {
           if (panoramaFile.size > config.limits.imageSize) {
@@ -1180,13 +1261,11 @@ export const updateProperty = async (req, res) => {
         try {
           const added = Array.isArray(newPanoramaImages) ? newPanoramaImages.length : (newPanoramaImages ? 1 : 0);
           if (added > 0) {
-            property.panoCount = (property.panoCount || 0) + added;
-            // if property was unpaid but now has >1 panoramas, keep paidForPano false until webhook sets it
-            await property.save();
-            console.log(`🔢 Updated property panoCount to ${property.panoCount}`);
+            // panoCount is a virtual (derived from panorama360Images.length). No need to persist a separate field.
+            console.log(`🔢 Panoramas added: ${added}. New total (derived): ${updatedPanoramaImages.length}`);
           }
         } catch (e) { console.warn('Could not update property panoCount:', e); }
-        
+
       } catch (error) {
         console.error('❌ Panorama upload error:', error);
         // Cleanup any uploaded files on error
@@ -1195,11 +1274,11 @@ export const updateProperty = async (req, res) => {
           ...(uploadedFiles.video ? [uploadedFiles.video] : []),
           ...uploadedFiles.panorama360Images
         ].filter(Boolean);
-        
+
         if (filesToDelete.length > 0) {
           await deleteCloudinaryAssets(filesToDelete);
         }
-        return res.status(400).json({ 
+        return res.status(400).json({
           error: 'Panorama image upload failed',
           details: [error.message]
         });
@@ -1210,9 +1289,9 @@ export const updateProperty = async (req, res) => {
     if (req.body.deletedPanoramaImages) {
       try {
         console.log('🗑️ Processing deleted panoramas:', req.body.deletedPanoramaImages);
-        
+
         let deletedPanoramasArray;
-        
+
         // Handle different input formats
         if (Array.isArray(req.body.deletedPanoramaImages)) {
           deletedPanoramasArray = req.body.deletedPanoramaImages;
@@ -1233,7 +1312,7 @@ export const updateProperty = async (req, res) => {
         }
 
         // Validate that we have actual URLs to delete
-        const validPanoramasToDelete = deletedPanoramasArray.filter(url => 
+        const validPanoramasToDelete = deletedPanoramasArray.filter(url =>
           url && typeof url === 'string' && url.trim() !== ''
         );
 
@@ -1243,8 +1322,8 @@ export const updateProperty = async (req, res) => {
           console.log('🗑️ Deleting panoramas:', validPanoramasToDelete);
 
           // Find panorama images that match the URLs to delete
-          const panoramasToDelete = updatedPanoramaImages.filter(img => 
-            validPanoramasToDelete.some(deleted => 
+          const panoramasToDelete = updatedPanoramaImages.filter(img =>
+            validPanoramasToDelete.some(deleted =>
               img && deleted && (img.includes(deleted) || deleted.includes(img))
             )
           );
@@ -1256,8 +1335,8 @@ export const updateProperty = async (req, res) => {
           }
 
           // Remove deleted panoramas from the array
-          updatedPanoramaImages = updatedPanoramaImages.filter(img => 
-            !validPanoramasToDelete.some(deleted => 
+          updatedPanoramaImages = updatedPanoramaImages.filter(img =>
+            !validPanoramasToDelete.some(deleted =>
               img && deleted && (img.includes(deleted) || deleted.includes(img))
             )
           );
@@ -1265,9 +1344,8 @@ export const updateProperty = async (req, res) => {
           // Decrement panoCount on the property and persist
           try {
             const removed = panoramasToDelete.length;
-            property.panoCount = Math.max(0, (property.panoCount || 0) - removed);
-            await property.save();
-            console.log(`🔢 Decremented property panoCount to ${property.panoCount}`);
+            // panoCount is virtual; it will reflect updatedPanoramaImages.length after update.
+            console.log(`🔢 Panoramas removed: ${removed}. New total (derived): ${updatedPanoramaImages.length}`);
           } catch (e) {
             console.warn('Could not update property panoCount after deletions:', e);
           }
@@ -1311,11 +1389,11 @@ export const updateProperty = async (req, res) => {
         ...(uploadedFiles.video ? [uploadedFiles.video] : []),
         ...uploadedFiles.panorama360Images
       ].filter(Boolean);
-      
+
       if (filesToDelete.length > 0) {
         await deleteCloudinaryAssets(filesToDelete);
       }
-      
+
       const errorDetails = Object.values(validationError.errors).map(err => err.message);
       return res.status(400).json({
         error: 'Data validation failed',
@@ -1326,11 +1404,11 @@ export const updateProperty = async (req, res) => {
     // 12. Perform the actual update
     console.log('💾 Saving to database...');
     const updatedProperty = await Property.findByIdAndUpdate(
-      req.params.id, 
+      req.params.id,
       { $set: updateData },
-      { 
-        new: true, 
-        runValidators: true 
+      {
+        new: true,
+        runValidators: true
       }
     ).populate('landlord', 'fullName username profilePic address contactNumber landlordVerified');
 
@@ -1342,7 +1420,7 @@ export const updateProperty = async (req, res) => {
         ...(uploadedFiles.video ? [uploadedFiles.video] : []),
         ...uploadedFiles.panorama360Images
       ].filter(Boolean);
-      
+
       if (filesToDelete.length > 0) {
         await deleteCloudinaryAssets(filesToDelete);
       }
@@ -1351,7 +1429,7 @@ export const updateProperty = async (req, res) => {
 
     console.log('🎉 Property updated successfully:', updatedProperty._id);
     console.log('📊 Final state - Images:', updatedProperty.images.length, 'Panoramas:', updatedProperty.panorama360Images.length);
-    
+
     return res.json({
       success: true,
       message: 'Property updated successfully',
@@ -1360,14 +1438,14 @@ export const updateProperty = async (req, res) => {
 
   } catch (error) {
     console.error("❌ UpdateProperty critical error:", error);
-    
+
     // Cleanup any uploaded files on critical error
     const filesToDelete = [
       ...uploadedFiles.images,
       ...(uploadedFiles.video ? [uploadedFiles.video] : []),
       ...uploadedFiles.panorama360Images
     ].filter(Boolean);
-    
+
     if (filesToDelete.length > 0) {
       console.log('🧹 Cleaning up uploaded files due to critical error...');
       await deleteCloudinaryAssets(filesToDelete);
@@ -1391,7 +1469,7 @@ export const updateProperty = async (req, res) => {
         details: validationErrors
       });
     }
-    
+
     if (error.name === 'CastError') {
       return res.status(400).json({
         error: 'Invalid data type',
@@ -1400,7 +1478,7 @@ export const updateProperty = async (req, res) => {
     }
 
     // Generic error response
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Internal server error while updating property',
       details: process.env.NODE_ENV === 'development' ? error.message : 'Please try again later'
     });
@@ -1412,16 +1490,16 @@ export const setPropertyStatus = async (req, res) => {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
     const { id } = req.params;
     const { status } = req.body;
-    
+
     if (!config.allowedStatus.includes(status)) {
       return res.status(400).json({ error: 'Invalid status' });
     }
-    
+
     const property = await Property.findByIdAndUpdate(id, { status }, { new: true });
     if (!property) return res.status(404).json({ error: 'Property not found' });
-    
-    res.json({ 
-      message: 'Status updated', 
+
+    res.json({
+      message: 'Status updated',
       property: formatPropertyResponse(property)
     });
   } catch (error) {
@@ -1446,7 +1524,7 @@ export const deleteProperty = async (req, res) => {
 
     await deleteCloudinaryAssets(assetsToDelete);
     await property.deleteOne();
-    
+
     res.status(200).json({ message: "Property deleted successfully" });
 
   } catch (error) {
@@ -1459,7 +1537,7 @@ export const setPropertyAvailability = async (req, res) => {
   try {
     const property = await Property.findById(req.params.id);
     if (!property) return res.status(404).json({ error: 'Property not found' });
-    
+
     if (property.landlord.toString() !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Unauthorized' });
     }
@@ -1470,9 +1548,9 @@ export const setPropertyAvailability = async (req, res) => {
     }
 
     const updated = await Property.findByIdAndUpdate(req.params.id, updates, { new: true });
-    res.json({ 
-      message: 'Availability updated', 
-      property: formatPropertyResponse(updated) 
+    res.json({
+      message: 'Availability updated',
+      property: formatPropertyResponse(updated)
     });
   } catch (error) {
     console.error('❌ setPropertyAvailability error', error);

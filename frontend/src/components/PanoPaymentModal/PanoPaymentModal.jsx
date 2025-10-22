@@ -1,11 +1,104 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './PanoPaymentModal.css';
 import { buildApi } from '../../services/apiConfig';
 
-export default function PanoPaymentModal({ open, onClose, propertyId }) {
+export default function PanoPaymentModal({ open, onClose, propertyId, paymentSessionId: propPaymentSessionId, onPaymentSuccess, onPaymentError }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [opened, setOpened] = useState(false);
+  const pollRef = useRef(null);
+  const pollStartRef = useRef(null);
+  const [paymentSessionId, setPaymentSessionId] = useState(propPaymentSessionId || null);
+
+  // Poll eligibility when checkout opened to detect when payment completes
+  useEffect(() => {
+    const POLL_INTERVAL = 3000; // 3s
+    const TIMEOUT = 1000 * 60 * 2; // 2 minutes
+
+  // If modal hasn't opened, skip polling
+  if (!opened) return;
+
+  // Determine polling mode:
+  // - property mode: poll property pano-eligibility when propertyId is present
+  // - session mode: poll /payments/verify-session when paymentSessionId exists (supports new-property flow)
+  const usePropertyMode = !!propertyId;
+  const useSessionMode = !usePropertyMode && !!paymentSessionId;
+  if (!usePropertyMode && !useSessionMode) return; // nothing to poll
+
+    pollStartRef.current = Date.now();
+
+    const poll = async () => {
+      try {
+        const token = localStorage.getItem('user_token');
+
+        if (usePropertyMode) {
+          const res = await fetch(buildApi(`/properties/${propertyId}/pano-eligibility`), {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (!res.ok) return; // skip until ok
+          const data = await res.json();
+          if (data?.paidForPano) {
+            onPaymentSuccess?.();
+            clearInterval(pollRef.current);
+            pollRef.current = null;
+            return;
+          }
+        } else if (useSessionMode) {
+          // poll session verification endpoint
+          const res = await fetch(buildApi('/payments/verify-session'), {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({ paymentSessionId })
+          });
+          if (!res.ok) return;
+          const data = await res.json();
+          if (data?.paid) {
+            // Mark persisted status and notify parent
+            try { localStorage.setItem('pano_payment_status','true'); } catch(e){}
+            onPaymentSuccess?.();
+            clearInterval(pollRef.current);
+            pollRef.current = null;
+            return;
+          }
+        }
+
+        // timeout check
+        if (Date.now() - pollStartRef.current > TIMEOUT) {
+          onPaymentError?.('Payment polling timed out');
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+        }
+      } catch (e) {
+        console.warn('Polling error', e);
+      }
+    };
+
+    // start polling immediately and then interval
+    poll();
+    pollRef.current = setInterval(poll, POLL_INTERVAL);
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = null;
+    };
+  }, [opened]);
+
+  // Manual verification for flows where propertyId is null (new property creation)
+  const handleManualVerify = () => {
+    // Immediate workaround: notify parent that payment is considered successful so pending files can be processed
+    console.log('Manual payment verification invoked for null propertyId');
+    try {
+      localStorage.setItem('pano_payment_status', 'true');
+      if (paymentSessionId) localStorage.setItem('pano_payment_session', paymentSessionId);
+    } catch (e) {
+      console.warn('Could not persist payment status', e);
+    }
+    onPaymentSuccess?.();
+    onClose?.();
+  };
 
   if (!open) return null;
 
@@ -22,13 +115,24 @@ export default function PanoPaymentModal({ open, onClose, propertyId }) {
       console.log('Property ID:', propertyId);
       console.log('Token exists:', !!token);
 
+      // If propertyId is null (new property flow), generate a payment session id so we can track payment independent of property
+      let sessionToSend = paymentSessionId;
+      if (!propertyId && !sessionToSend) {
+        sessionToSend = `pano_${Date.now()}_${Math.random().toString(36).substr(2,9)}`;
+        setPaymentSessionId(sessionToSend);
+        try { localStorage.setItem('pano_payment_session', sessionToSend); } catch(e) { console.warn('persist session failed', e); }
+      }
+
+      const payload = { propertyId };
+      if (sessionToSend) payload.paymentSessionId = sessionToSend;
+
       const res = await fetch(url, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json', 
           Authorization: `Bearer ${token}` 
         },
-        body: JSON.stringify({ propertyId })
+        body: JSON.stringify(payload)
       });
 
       console.log('Response status:', res.status);
@@ -61,6 +165,7 @@ export default function PanoPaymentModal({ open, onClose, propertyId }) {
         } catch (e) {
           window.location.assign(checkoutUrl);
         }
+        // don't call success yet; user will complete payment in new tab and webhook will set paid flag
         return;
       }
 
@@ -82,6 +187,18 @@ export default function PanoPaymentModal({ open, onClose, propertyId }) {
     } finally { 
       setLoading(false); 
     }
+  };
+
+  // Enhanced close handler which notifies parent about payment cancellation/deferral
+  const handleClose = () => {
+    console.log('Payment modal closed');
+    // If the payment page was opened, user might have deferred or cancelled
+    if (opened) {
+      onPaymentError?.('Payment cancelled or deferred');
+    } else {
+      onPaymentError?.('Payment deferred');
+    }
+    onClose?.();
   };
 
   return (
@@ -143,13 +260,26 @@ export default function PanoPaymentModal({ open, onClose, propertyId }) {
         {opened && (
           <div className="pano-payment-success">
             <strong>Payment page opened!</strong> Complete your payment in the new tab, then return here to upload your panoramic photos.
+            { !propertyId && (
+              <div className="manual-verify-note">
+                <p>If you're adding panoramas for a new property, the server cannot yet poll for eligibility. After completing payment, click "I've Paid — Verify" to continue.</p>
+              </div>
+            )}
           </div>
         )}
 
         <div className="pano-payment-actions">
-          <button className="btn outline" onClick={onClose} disabled={loading}>
+          <button className="btn outline" onClick={handleClose} disabled={loading}>
             {opened ? 'Close' : 'Maybe Later'}
           </button>
+
+          {/* If propertyId is null and payment page was opened, show manual verify button */}
+          {opened && !propertyId && (
+            <button className="btn primary" onClick={handleManualVerify} disabled={loading}>
+              I've Paid — Verify
+            </button>
+          )}
+
           {!opened && (
             <button className="btn primary" onClick={handleProceed} disabled={loading}>
               {loading ? (

@@ -325,18 +325,30 @@ function EditProperty() {
     };
 
     const [showPanoPayment, setShowPanoPayment] = useState(false);
+    const [pendingPanoramaFiles, setPendingPanoramaFiles] = useState([]);
+    const [paidForPano, setPaidForPano] = useState(() => {
+        try { return localStorage.getItem('pano_payment_status') === 'true'; } catch(e) { return false; }
+    });
+    const [paymentSessionId, setPaymentSessionId] = useState(() => { try { return localStorage.getItem('pano_payment_session') || null; } catch(e){ return null; } });
 
     const handlePanoramaChange = (e) => {
         const files = Array.from(e.target.files || []);
         if (!files.length) return;
-        // Check pano monetization rules
-        const propertyMock = { panoCount: panoramaImages.length + newPanoramaImages.length, paidForPano: false };
-        // If EditProperty has loaded property metadata, use that
-        // Here we can infer paidForPano from original data if available in formData or videoPreview etc.
-        // For safety, assume unpaid unless property has explicit flag in window.__PROPERTY_DATA__ (optional)
-        const helperResult = handlePanoUploadLogic({ panoCount: panoramaImages.length + (newPanoramaImages?.length || 0), paidForPano: formData.paidForPano });
+    // Filter basic valid files first (image & size) to determine total count
+    const filteredForCount = files.filter(file => file.type && file.type.startsWith('image/') && file.size <= 10*1024*1024);
+    const totalCountIfAdded = panoramaImages.length + (newPanoramaImages?.length || 0) + filteredForCount.length;
+    // Check pano monetization rules BEFORE processing files
+    const helperResult = handlePanoUploadLogic({ panoCount: totalCountIfAdded, paidForPano: formData.paidForPano });
         if (!helperResult.allowed) {
             if (helperResult.message === 'Show payment modal') {
+                // Store files in pending state and open payment modal
+                setPendingPanoramaFiles(files);
+                // ensure session exists
+                if (!paymentSessionId) {
+                    const sid = `pano_${Date.now()}_${Math.random().toString(36).substr(2,9)}`;
+                    setPaymentSessionId(sid);
+                    try { localStorage.setItem('pano_payment_session', sid); } catch(e){}
+                }
                 setShowPanoPayment(true);
                 return;
             }
@@ -349,10 +361,31 @@ function EditProperty() {
             toast.error(`Maximum ${MAX_PANORAMAS} panoramas allowed`); 
             return; 
         }
-        
+
         const validFiles = files.filter(f => f.type.startsWith('image/') && f.size <= 10 * 1024 * 1024);
         setNewPanoramaImages(prev => [...prev, ...validFiles]);
         setPanoramaPreviews(prev => [...prev, ...validFiles.map(f => URL.createObjectURL(f))]);
+    };
+
+    const handlePanoPaymentSuccess = () => {
+        if (!pendingPanoramaFiles || pendingPanoramaFiles.length === 0) {
+            setShowPanoPayment(false);
+            return;
+        }
+        // Process pending files into newPanoramaImages and previews
+        const validFiles = pendingPanoramaFiles.filter(f => f.type.startsWith('image/') && f.size <= 10 * 1024 * 1024);
+        try { localStorage.setItem('pano_payment_status','true'); } catch(e){}
+        setPaidForPano(true);
+        setNewPanoramaImages(prev => [...prev, ...validFiles]);
+        setPanoramaPreviews(prev => [...prev, ...validFiles.map(f => URL.createObjectURL(f))]);
+        setPendingPanoramaFiles([]);
+        setShowPanoPayment(false);
+    };
+
+    const handlePanoPaymentCancel = () => {
+        // Clear pending files without processing
+        setPendingPanoramaFiles([]);
+        setShowPanoPayment(false);
     };
 
     const handleVideoChange = (e) => {
@@ -620,7 +653,13 @@ function EditProperty() {
         <div className="dashboard-container landlord-dashboard">
             <Sidebar activeItem="my-properties" />
             <div className="landlord-main edit-property-main">
-                <PanoPaymentModal open={showPanoPayment} onClose={() => setShowPanoPayment(false)} propertyId={propertyId} />
+                                <PanoPaymentModal 
+                                    open={showPanoPayment} 
+                                    onClose={() => handlePanoPaymentCancel()} 
+                                    onPaymentSuccess={() => handlePanoPaymentSuccess()} 
+                                    onPaymentError={() => handlePanoPaymentCancel()} 
+                                    propertyId={propertyId} 
+                                />
                 {loading ? (
                     <div className="ll-card skeleton-card">
                         <div className="skeleton line w-50" />
