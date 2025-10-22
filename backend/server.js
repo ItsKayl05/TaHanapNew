@@ -10,6 +10,7 @@ import messageRoutes from './routes/messageRoutes.js';
 import applicationRoutes from './routes/applicationRoutes.js';
 import adminRoutes from "./routes/adminRoutes.js";
 import favoriteRoutes from './routes/favoriteRoutes.js';
+import paymentRoutes from './routes/paymentRoutes.js';
 import fs from 'fs';
 import multer from 'multer';
 import path from 'path';
@@ -241,6 +242,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/properties", propertyRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/favorites", favoriteRoutes);
+app.use('/api/payments', paymentRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/applications", applicationRoutes);
 

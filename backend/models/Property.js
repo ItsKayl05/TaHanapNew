@@ -144,6 +144,12 @@ const propertySchema = new mongoose.Schema({
       message: 'Maximum of 5 panoramic images allowed'
     }
   },
+  // Monetization for panoramic uploads
+  paidForPano: {
+    type: Boolean,
+    default: false
+  },
+  // panoCount is a virtual derived from panorama360Images length
   status: {
     type: String,
     enum: ['approved', 'pending', 'rejected', 'archived'],
@@ -201,6 +207,11 @@ propertySchema.virtual('formattedPrice').get(function() {
     currency: 'PHP',
     minimumFractionDigits: 2
   }).format(this.price);
+});
+
+// Virtual for panoCount (derived from panorama360Images)
+propertySchema.virtual('panoCount').get(function() {
+  return (this.panorama360Images && Array.isArray(this.panorama360Images)) ? this.panorama360Images.length : 0;
 });
 
 // Virtual for full address

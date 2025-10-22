@@ -8,6 +8,8 @@ import Sidebar from '../Sidebar/Sidebar';
 import '../landlord-theme.css';
 import './AddProperties.css';
 import PhotoDomeViewer from '../../../components/PhotoDomeViewer';
+import PanoPaymentModal from '../../../components/PanoPaymentModal/PanoPaymentModal';
+import { handlePanoUploadLogic } from '../../../utils/panoUploadHelper';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -45,10 +47,24 @@ const AddProperties = () => {
   // Multiple panoramas
   const [panoramas, setPanoramas] = useState([]);
   const [panoramaPreviews, setPanoramaPreviews] = useState([]);
+  const [showPanoPayment, setShowPanoPayment] = useState(false);
 
   const handlePanoramaChange = (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
+
+    // Check pano monetization / limits using shared helper
+    const currentCount = panoramas.length;
+    const helperResult = handlePanoUploadLogic({ panoCount: currentCount, paidForPano: false });
+    if (!helperResult.allowed) {
+      if (helperResult.message === 'Show payment modal') {
+        setShowPanoPayment(true);
+        return;
+      }
+      toast.error(helperResult.message || 'Cannot upload panoramic images');
+      return;
+    }
+
     const validFiles = files.filter(file => {
       const validType = file.type.startsWith('image/');
       const sizeOk = file.size <= 10*1024*1024;
@@ -1033,6 +1049,9 @@ const AddProperties = () => {
             </div>
           </div>
         </form>
+        {showPanoPayment && (
+          <PanoPaymentModal open={showPanoPayment} onClose={() => setShowPanoPayment(false)} propertyId={null} />
+        )}
       </div>
     </div>
   );

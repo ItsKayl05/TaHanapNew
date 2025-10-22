@@ -3,6 +3,7 @@ import {
     addProperty,
     getAllProperties,
     getProperty,
+    checkPanoEligibility,
     updateProperty,
     deleteProperty,
     getPropertiesByLandlord,
@@ -19,6 +20,9 @@ router.post("/add", protect, addProperty); // Add a new property (protected)
 router.get("/", getAllProperties); // Get all properties
 router.get("/my-properties", protect, getPropertiesByLandlord); // Get properties of logged-in landlord
 router.get("/:id", getProperty); // Get a single property by ID
+
+// Pano upload eligibility check (protected)
+router.get('/:propertyId/pano-eligibility', protect, checkPanoEligibility);
 
 // Use disk-based uploader for updates to handle larger multi-part requests safely
 router.put("/:id", protect, uploadDisk, updateProperty); // Update a property (protected)

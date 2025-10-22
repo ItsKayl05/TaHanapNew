@@ -6,6 +6,8 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import Sidebar from "../../Sidebar/Sidebar";
 import PhotoDomeViewer from '../../../../components/PhotoDomeViewer';
+import PanoPaymentModal from '../../../../components/PanoPaymentModal/PanoPaymentModal';
+import { handlePanoUploadLogic } from '../../../../utils/panoUploadHelper';
 import { buildApi, buildUpload } from '../../../../services/apiConfig';
 import { saveFiles, loadFiles, clearFormPersistence } from '../../../../utils/formPersistence';
 
@@ -214,7 +216,9 @@ function EditProperty() {
                     floorArea: data.floorArea ? String(data.floorArea) : '',
                     lotArea: data.lotArea ? String(data.lotArea) : '',
                     numberOfFloors: data.numberOfFloors ? String(data.numberOfFloors) : '',
-                    availabilityStatus: data.availabilityStatus || 'Available'
+                    availabilityStatus: data.availabilityStatus || 'Available',
+                    paidForPano: !!data.paidForPano,
+                    panoCount: data.panoCount || 0
                 });
 
                 setImages(data.images || []);
@@ -320,10 +324,26 @@ function EditProperty() {
         saveFiles(FORM_KEY, 'images', [...newImages, ...accepted]).catch(() => {});
     };
 
+    const [showPanoPayment, setShowPanoPayment] = useState(false);
+
     const handlePanoramaChange = (e) => {
         const files = Array.from(e.target.files || []);
         if (!files.length) return;
-        
+        // Check pano monetization rules
+        const propertyMock = { panoCount: panoramaImages.length + newPanoramaImages.length, paidForPano: false };
+        // If EditProperty has loaded property metadata, use that
+        // Here we can infer paidForPano from original data if available in formData or videoPreview etc.
+        // For safety, assume unpaid unless property has explicit flag in window.__PROPERTY_DATA__ (optional)
+        const helperResult = handlePanoUploadLogic({ panoCount: panoramaImages.length + (newPanoramaImages?.length || 0), paidForPano: formData.paidForPano });
+        if (!helperResult.allowed) {
+            if (helperResult.message === 'Show payment modal') {
+                setShowPanoPayment(true);
+                return;
+            }
+            toast.error(helperResult.message || 'Cannot upload panoramic images');
+            return;
+        }
+
         const total = panoramaImages.length + newPanoramaImages.length;
         if (total + files.length > MAX_PANORAMAS) { 
             toast.error(`Maximum ${MAX_PANORAMAS} panoramas allowed`); 
@@ -600,6 +620,7 @@ function EditProperty() {
         <div className="dashboard-container landlord-dashboard">
             <Sidebar activeItem="my-properties" />
             <div className="landlord-main edit-property-main">
+                <PanoPaymentModal open={showPanoPayment} onClose={() => setShowPanoPayment(false)} propertyId={propertyId} />
                 {loading ? (
                     <div className="ll-card skeleton-card">
                         <div className="skeleton line w-50" />

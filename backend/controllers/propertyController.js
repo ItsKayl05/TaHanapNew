@@ -734,6 +734,17 @@ export const addProperty = async (req, res) => {
       if (panoramaFiles.length > 0) {
         try {
           console.log(`🔄 Uploading ${panoramaFiles.length} panorama images...`);
+
+          // Monetization: allow first pano free; require payment for 2nd and beyond
+          if (panoramaFiles.length > 1) {
+            // Trying to upload more than 1 pano during creation -> require payment
+            return res.status(402).json({
+              error: 'Payment required to upload more panoramas during property creation',
+              code: 'PANO_PAYMENT_REQUIRED',
+              amount_centavos: 4900,
+              message: 'Pay ₱49 one-time to unlock up to 5 panoramic uploads for this property.'
+            });
+          }
           
           // Validate each panorama file
           for (const panoramaFile of panoramaFiles) {
@@ -752,6 +763,10 @@ export const addProperty = async (req, res) => {
 
           // Upload all panorama images
           uploadedFiles.panorama360Images = await uploadToCloudinary(panoramaFiles, 'panorama', 'image');
+          // Set panoCount for the new property
+          if (uploadedFiles.panorama360Images && uploadedFiles.panorama360Images.length > 0) {
+            // We'll attach panoCount to propertyData later when building the property
+          }
         } catch (error) {
           console.error('❌ Panorama upload error:', error);
           // Cleanup any uploaded files on error
@@ -781,6 +796,9 @@ export const addProperty = async (req, res) => {
       propertyData.images = uploadedFiles.images;
       propertyData.video = uploadedFiles.video;
       propertyData.panorama360Images = uploadedFiles.panorama360Images;
+      if (uploadedFiles.panorama360Images && uploadedFiles.panorama360Images.length > 0) {
+        propertyData.panoCount = uploadedFiles.panorama360Images.length;
+      }
 
       console.log('💾 Creating property in database...');
       // Create and save property
@@ -1104,6 +1122,38 @@ export const updateProperty = async (req, res) => {
     if (panoramaFiles.length > 0) {
       try {
         console.log(`🔄 Uploading ${panoramaFiles.length} panorama images...`);
+
+        // Monetization check: allow first pano free; require payment for 2nd unless property.paidForPano
+        const existingPanoCount = updatedPanoramaImages.length || 0; // current stored panoramas
+        const willHave = existingPanoCount + panoramaFiles.length;
+
+        // If after upload we exceed the paid/unpaid rules, block and indicate payment required
+        if (!property.paidForPano) {
+          // free first pano
+          if (existingPanoCount >= 1) {
+            // already have at least 1 and not paid — require payment
+            return res.status(402).json({
+              error: 'Payment required to upload more panoramas',
+              code: 'PANO_PAYMENT_REQUIRED',
+              amount_centavos: 4900,
+              message: 'Pay ₱49 one-time to unlock up to 5 panoramic uploads for this property.'
+            });
+          }
+          // if existingPanoCount === 0 and adding more than 1 file, require payment because second pano triggers payment
+          if (existingPanoCount === 0 && willHave > 1) {
+            return res.status(402).json({
+              error: 'Payment required to upload more panoramas',
+              code: 'PANO_PAYMENT_REQUIRED',
+              amount_centavos: 4900,
+              message: 'Pay ₱49 one-time to unlock up to 5 panoramic uploads for this property.'
+            });
+          }
+        }
+
+        // If property already paid, ensure we don't exceed 5
+        if (willHave > config.limits.panoramas) {
+          return res.status(400).json({ error: `Upload limit reached. Maximum of ${config.limits.panoramas} panoramic images allowed.` });
+        }
         
         // Validate each panorama file (same validation as addProperty)
         for (const panoramaFile of panoramaFiles) {
@@ -1125,6 +1175,17 @@ export const updateProperty = async (req, res) => {
         const newPanoramaImages = await uploadToCloudinary(panoramaFiles, 'panorama', 'image');
         uploadedFiles.panorama360Images = newPanoramaImages;
         updatedPanoramaImages = [...updatedPanoramaImages, ...newPanoramaImages];
+
+        // Update panoCount on property (increment by number of newly uploaded panoramas)
+        try {
+          const added = Array.isArray(newPanoramaImages) ? newPanoramaImages.length : (newPanoramaImages ? 1 : 0);
+          if (added > 0) {
+            property.panoCount = (property.panoCount || 0) + added;
+            // if property was unpaid but now has >1 panoramas, keep paidForPano false until webhook sets it
+            await property.save();
+            console.log(`🔢 Updated property panoCount to ${property.panoCount}`);
+          }
+        } catch (e) { console.warn('Could not update property panoCount:', e); }
         
       } catch (error) {
         console.error('❌ Panorama upload error:', error);
@@ -1200,6 +1261,16 @@ export const updateProperty = async (req, res) => {
               img && deleted && (img.includes(deleted) || deleted.includes(img))
             )
           );
+
+          // Decrement panoCount on the property and persist
+          try {
+            const removed = panoramasToDelete.length;
+            property.panoCount = Math.max(0, (property.panoCount || 0) - removed);
+            await property.save();
+            console.log(`🔢 Decremented property panoCount to ${property.panoCount}`);
+          } catch (e) {
+            console.warn('Could not update property panoCount after deletions:', e);
+          }
         }
 
       } catch (error) {
@@ -1406,5 +1477,50 @@ export const setPropertyAvailability = async (req, res) => {
   } catch (error) {
     console.error('❌ setPropertyAvailability error', error);
     res.status(500).json({ error: error.message });
+  }
+};
+
+// New: Check pano upload eligibility for a property
+export const checkPanoEligibility = async (req, res) => {
+  try {
+    const { propertyId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(propertyId)) {
+      return res.status(400).json({ error: 'Invalid property ID' });
+    }
+
+    const property = await Property.findById(propertyId);
+    if (!property) return res.status(404).json({ error: 'Property not found' });
+
+    // Re-implement the pano upload logic used on frontend
+    const panoCount = property.panorama360Images ? property.panorama360Images.length : 0;
+    const paidForPano = !!property.paidForPano;
+
+    let allowed = true;
+    let message = 'Allowed';
+
+    if (panoCount < 1) {
+      allowed = true;
+      message = 'Free upload';
+    } else if (panoCount >= 1 && !paidForPano) {
+      allowed = false;
+      message = 'Show payment modal';
+    } else if (panoCount >= MAX_PANORAMAS) {
+      allowed = false;
+      message = 'Upload limit reached';
+    } else {
+      allowed = true;
+      message = 'Allowed (paid)';
+    }
+
+    res.json({
+      allowed,
+      message,
+      panoCount,
+      paidForPano,
+      maxPanos: MAX_PANORAMAS
+    });
+  } catch (error) {
+    console.error('❌ checkPanoEligibility error:', error);
+    res.status(500).json({ error: 'Server error checking eligibility' });
   }
 };
