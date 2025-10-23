@@ -194,6 +194,13 @@
   box-shadow: 0 4px 12px rgba(99,102,241,0.3);
 }
 
+/* Ensure the view property button is clickable even if overlays exist */
+.view-property-btn {
+  pointer-events: auto !important;
+  position: relative;
+  z-index: 3;
+}
+
 .no-apps {
   color: #9ca3af;
   font-style: italic;
