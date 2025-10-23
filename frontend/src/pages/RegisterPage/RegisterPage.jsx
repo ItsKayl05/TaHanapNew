@@ -295,7 +295,7 @@ const RegisterPage = () => {
                             Password must be at least {MIN_PASSWORD_LENGTH} characters long.
                         </div>
                     ) : (
-                        <div className="field-hint small">Minimum {MIN_PASSWORD_LENGTH} characters. Use letters, numbers, and symbols for a stronger password.</div>
+                        <div className="password-hint small">Password must be at least {MIN_PASSWORD_LENGTH} characters long. Use letters, numbers, and symbols for a stronger password.</div>
                     )}
                 </div>
 

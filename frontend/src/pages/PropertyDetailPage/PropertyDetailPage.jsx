@@ -219,9 +219,10 @@ const PropertyDetailPage = () => {
     const availabilityRaw = String(property.availabilityStatus || '').toLowerCase();
     const isAvailable = !(/not[\s-]*available/.test(availabilityRaw));
 
-    // Determine if it's For Rent or For Sale (accept either propertyType or listingType, be case-insensitive and tolerant)
-    const listingKindRaw = (property.propertyType || property.listingType || '').toString();
-    const listingKind = listingKindRaw.trim().toLowerCase();
+    // Determine if it's For Rent or For Sale (prefer listingType, fall back to propertyType)
+    // Be case-insensitive and tolerant of underscores/hyphens (e.g. 'for_rent')
+    const listingKindRaw = (property.listingType || property.propertyType || '').toString();
+    const listingKind = listingKindRaw.trim().toLowerCase().replace(/[_-]+/g, ' ');
     const isForRent = listingKind.includes('rent') && !listingKind.includes('sale');
     const isForSale = listingKind.includes('sale') && !listingKind.includes('rent');
 
@@ -653,47 +654,51 @@ const PropertyDetailPage = () => {
                     )}
 
                     <div className="detail-actions">
-                        {/* Apply button: visible for all viewers when For Rent (click requires tenant login) */}
-                        {isForRent && (
-                            <button
-                                className="apply-btn"
-                                disabled={applying || !isAvailable}
-                                onClick={async () => {
-                                    if (!isAvailable) {
-                                        toast.error('This property is no longer available');
-                                        return;
-                                    }
-                                    setApplying(true);
-                                    try {
-                                        const token = localStorage.getItem('user_token');
-                                        if (!token) {
-                                            // Not logged in -> prompt login
-                                            navigate('/login');
-                                            setApplying(false);
+                        {/* Apply button: visible for FOR_RENT and FOR_SALE */}
+                            {(isForRent || isForSale) && (
+                                <button
+                                    className="apply-btn"
+                                    disabled={applying || !isAvailable}
+                                    onClick={async () => {
+                                        if (!isAvailable) {
+                                            toast.error('This property is no longer available');
                                             return;
                                         }
-                                        const role = localStorage.getItem('user_role');
+                                        setApplying(true);
+                                        try {
+                                            const token = localStorage.getItem('user_token');
+                                            if (!token) {
+                                                // Not logged in -> prompt login
+                                                navigate('/login');
+                                                setApplying(false);
+                                                return;
+                                            }
+                                            const role = localStorage.getItem('user_role');
                                         if (role !== 'tenant') {
-                                            toast.error('Only tenants can apply for rentals');
+                                            toast.error('Only property seekers can apply.');
+                                                setApplying(false);
+                                                return;
+                                            }
+                                            // Pass canonical listingType values used by backend
+                                            const listingTypeValue = (property.listingType || property.propertyType || '').toString();
+                                            // Map frontend-friendly strings to backend enum if needed
+                                            const normalized = listingTypeValue.toLowerCase().includes('rent') ? 'FOR_RENT' : (listingTypeValue.toLowerCase().includes('sale') ? 'FOR_SALE' : undefined);
+                                            const res = await createApplication(property._id || property.id || id, '', { listingType: normalized });
+                                            toast.success(res.message || 'Application sent');
                                             setApplying(false);
-                                            return;
+                                        } catch (err) {
+                                            if (err.response && err.response.data && err.response.data.error) {
+                                                toast.error(err.response.data.error);
+                                            } else {
+                                                toast.error('Failed to submit application');
+                                            }
+                                            setApplying(false);
                                         }
-                                        const res = await createApplication(property._id || property.id || id, '');
-                                        toast.success(res.message || 'Application sent');
-                                        setApplying(false);
-                                    } catch (err) {
-                                        if (err.response && err.response.data && err.response.data.error) {
-                                            toast.error(err.response.data.error);
-                                        } else {
-                                            toast.error('Failed to submit application');
-                                        }
-                                        setApplying(false);
-                                    }
-                                }}
-                            >
-                                {applying ? 'Applying...' : (isAvailable ? 'Apply for Rental' : 'Not Available')}
-                            </button>
-                        )}
+                                    }}
+                                >
+                                    {applying ? 'Applying...' : (isAvailable ? 'Apply' : 'Not Available')}
+                                </button>
+                            )}
                         
                         <button
                             className="contact-btn"

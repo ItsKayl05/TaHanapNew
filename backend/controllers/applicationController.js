@@ -6,7 +6,7 @@ import User from '../models/User.js';
 export const createApplication = async (req, res) => {
   try {
     const tenantId = req.user.id;
-    const { propertyId, message } = req.body;
+  const { propertyId, message, listingType } = req.body;
     if (!propertyId) return res.status(400).json({ error: 'propertyId required' });
 
     const property = await Property.findById(propertyId).populate('landlord');
@@ -27,11 +27,17 @@ export const createApplication = async (req, res) => {
     if (!tenant.fullName || !tenant.fullName.trim()) return res.status(400).json({ error: 'Tenant full name is required' });
     if (!tenant.contactNumber || !tenant.contactNumber.trim()) return res.status(400).json({ error: 'Tenant contact number is required' });
 
+    // Accept optional listingType for tracking application type (FOR_RENT/FOR_SALE)
+    if (listingType && !['FOR_RENT','FOR_SALE'].includes(listingType)) {
+      return res.status(400).json({ error: 'Invalid listingType' });
+    }
+
     const app = new Application({
       property: propertyId,
       tenant: tenantId,
       landlord: property.landlord._id,
-      message: message || ''
+      message: message || '',
+      listingType: listingType || undefined
     });
     await app.save();
 

@@ -1,9 +1,10 @@
 import axios from 'axios';
 import { buildApi } from '../../services/apiConfig';
 
-export const createApplication = async (propertyId, message='') => {
+export const createApplication = async (propertyId, message='', options = {}) => {
   const token = localStorage.getItem('user_token');
-  const res = await axios.post(buildApi('/applications'), { propertyId, message }, { headers: { Authorization: `Bearer ${token}` } });
+  const payload = { propertyId, message, listingType: options.listingType };
+  const res = await axios.post(buildApi('/applications'), payload, { headers: { Authorization: `Bearer ${token}` } });
   return res.data;
 };
 

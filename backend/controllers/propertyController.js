@@ -216,7 +216,8 @@ const formatPropertyResponse = (property) => ({
   images: property.images || [],
   video: property.video || '',
   panorama360Images: property.panorama360Images || [],
-  listingType: property.listingType || 'For Sale',
+  // Default to 'For Rent' when listingType is missing to match frontend expectations
+  listingType: property.listingType || 'For Rent',
   propertyType: property.propertyType,
   floorArea: property.floorArea,
   lotArea: property.lotArea,
