@@ -216,6 +216,8 @@ const formatPropertyResponse = (property) => ({
   images: property.images || [],
   video: property.video || '',
   panorama360Images: property.panorama360Images || [],
+  // New: return captions aligned with panorama360Images (if present)
+  panorama360Captions: property.panorama360Captions || [],
   // Default to 'For Rent' when listingType is missing to match frontend expectations
   listingType: property.listingType || 'For Rent',
   propertyType: property.propertyType,
@@ -475,10 +477,11 @@ const buildPropertyData = (reqBody, files, landlordId) => {
       : 'Available'
   };
 
-  // Handle property condition based on listing type
-  if (actualListingType === 'For Sale' && propertyCondition && propertyCondition.trim() !== '') {
-    propertyData.propertyCondition = propertyCondition;
-  } else if (actualListingType === 'For Rent') {
+  // Handle property condition: accept the provided value regardless of listing type.
+  // Previously propertyCondition was cleared for 'For Rent' — keep any provided value.
+  if (propertyCondition && propertyCondition.trim() !== '') {
+    propertyData.propertyCondition = propertyCondition.trim();
+  } else {
     propertyData.propertyCondition = '';
   }
 
@@ -536,12 +539,14 @@ const buildUpdateData = (reqBody, existingProperty) => {
     updates.longitude = lng !== null ? lng : null;
   }
 
-  // Handle property condition based on listing type
+  // Handle property condition for updates: do not force-clear for 'For Rent'.
+  // If the client provided propertyCondition, normalize it; otherwise preserve existing or set empty string.
   const listingType = updates.listingType || existingProperty.listingType;
-  if (listingType === 'For Rent') {
-    updates.propertyCondition = '';
-  } else if (listingType === 'For Sale' && (!updates.propertyCondition || updates.propertyCondition.trim() === '')) {
-    updates.propertyCondition = existingProperty.propertyCondition || 'Brand New';
+  if (updates.propertyCondition !== undefined) {
+    updates.propertyCondition = String(updates.propertyCondition).trim();
+  } else {
+    // preserve existing propertyCondition if present, otherwise ensure it's at least an empty string
+    updates.propertyCondition = existingProperty.propertyCondition || '';
   }
 
   return { updates, errors };
@@ -852,8 +857,25 @@ export const addProperty = async (req, res) => {
       propertyData.images = uploadedFiles.images;
       propertyData.video = uploadedFiles.video;
       propertyData.panorama360Images = uploadedFiles.panorama360Images;
-      if (uploadedFiles.panorama360Images && uploadedFiles.panorama360Images.length > 0) {
-        propertyData.panoCount = uploadedFiles.panorama360Images.length;
+      // Persist captions sent from frontend (order-based, joined by '|||')
+      try {
+        const rawCaptions = req.body.panoramaCaptions;
+        let captionsArr = [];
+        if (rawCaptions !== undefined && rawCaptions !== null) {
+          if (Array.isArray(rawCaptions)) captionsArr = rawCaptions;
+          else captionsArr = String(rawCaptions).split('|||');
+        }
+        // Align captions to uploaded panorama URLs (pad with empty strings if fewer captions)
+        if (Array.isArray(propertyData.panorama360Images) && propertyData.panorama360Images.length > 0) {
+          const aligned = propertyData.panorama360Images.map((_, idx) => String(captionsArr[idx] || '').trim());
+          propertyData.panorama360Captions = aligned;
+          propertyData.panoCount = propertyData.panorama360Images.length;
+        } else {
+          propertyData.panorama360Captions = [];
+        }
+      } catch (e) {
+        console.warn('Could not parse panorama captions:', e);
+        propertyData.panorama360Captions = [];
       }
 
       console.log('💾 Creating property in database...');
@@ -1069,7 +1091,9 @@ export const updateProperty = async (req, res) => {
     // 9. Handle file uploads with better error handling
     let updatedImages = [...property.images];
     let updatedVideo = property.video;
-    let updatedPanoramaImages = [...(property.panorama360Images || [])];
+  let updatedPanoramaImages = [...(property.panorama360Images || [])];
+  // Maintain captions aligned with panorama images (if present)
+  let updatedPanoramaCaptions = Array.isArray(property.panorama360Captions) ? [...property.panorama360Captions] : [];
 
     console.log('📁 Current files - Images:', updatedImages.length, 'Video:', !!updatedVideo, 'Panoramas:', updatedPanoramaImages.length);
 
@@ -1256,7 +1280,8 @@ export const updateProperty = async (req, res) => {
         // Upload all panorama images
         const newPanoramaImages = await uploadToCloudinary(panoramaFiles, 'panorama', 'image');
         uploadedFiles.panorama360Images = newPanoramaImages;
-        updatedPanoramaImages = [...updatedPanoramaImages, ...newPanoramaImages];
+  updatedPanoramaImages = [...updatedPanoramaImages, ...newPanoramaImages];
+  // We'll assign captions for newly uploaded panoramas later (after deletions) by consuming any captions sent in req.body.panoramaCaptions
 
         // Update panoCount on property (increment by number of newly uploaded panoramas)
         try {
@@ -1335,12 +1360,19 @@ export const updateProperty = async (req, res) => {
             await deleteCloudinaryAssets(panoramasToDelete);
           }
 
-          // Remove deleted panoramas from the array
-          updatedPanoramaImages = updatedPanoramaImages.filter(img =>
-            !validPanoramasToDelete.some(deleted =>
-              img && deleted && (img.includes(deleted) || deleted.includes(img))
-            )
-          );
+            // Remove deleted panoramas from the array and keep captions aligned
+            const deleteSet = new Set(validPanoramasToDelete.map(d => String(d)));
+
+            const filteredPairs = updatedPanoramaImages
+              .map((url, idx) => ({ url, caption: updatedPanoramaCaptions[idx] || '' }))
+              .filter(pair => {
+                // Keep if not in delete set (try substring match as before)
+                const shouldDelete = Array.from(deleteSet).some(deleted => (pair.url && pair.url.includes(deleted)) || (deleted && deleted.includes(pair.url)));
+                return !shouldDelete;
+              });
+
+            updatedPanoramaImages = filteredPairs.map(p => p.url);
+            updatedPanoramaCaptions = filteredPairs.map(p => p.caption);
 
           // Decrement panoCount on the property and persist
           try {
@@ -1364,6 +1396,37 @@ export const updateProperty = async (req, res) => {
     updateData.images = updatedImages;
     updateData.video = updatedVideo;
     updateData.panorama360Images = updatedPanoramaImages;
+    // Reconcile captions: keep existing captions for retained URLs, and consume any new captions sent in req.body.panoramaCaptions for newly uploaded images
+    try {
+      const rawNewCaptions = req.body.panoramaCaptions;
+      let newCaptionsArr = [];
+      if (rawNewCaptions !== undefined && rawNewCaptions !== null) {
+        if (Array.isArray(rawNewCaptions)) newCaptionsArr = rawNewCaptions;
+        else newCaptionsArr = String(rawNewCaptions).split('|||');
+      }
+
+      // Build map of existing captions from original property
+      const existingMap = {};
+      if (Array.isArray(property.panorama360Images) && Array.isArray(property.panorama360Captions)) {
+        for (let i = 0; i < property.panorama360Images.length; i++) {
+          const url = property.panorama360Images[i];
+          existingMap[url] = property.panorama360Captions[i] || '';
+        }
+      }
+
+      let newIndex = 0;
+      const finalCaptions = updatedPanoramaImages.map(url => {
+        if (existingMap[url]) return existingMap[url];
+        const c = newCaptionsArr[newIndex] || '';
+        newIndex += 1;
+        return String(c || '').trim();
+      });
+
+      updateData.panorama360Captions = finalCaptions;
+    } catch (e) {
+      console.warn('Could not reconcile panorama captions during update:', e);
+      updateData.panorama360Captions = updatedPanoramaCaptions || [];
+    }
     updateData.updatedAt = new Date();
 
     // ✅ CRITICAL FIX: Preserve immutable fields

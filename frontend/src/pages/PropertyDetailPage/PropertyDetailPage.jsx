@@ -282,6 +282,23 @@ const PropertyDetailPage = () => {
                                             toast.error(`Failed to load 360° view ${currentPanoramaIndex + 1}`);
                                         }}
                                     />
+                                    {/* Caption display */}
+                                    <div className="panorama-caption-display" style={{
+                                        position: 'absolute',
+                                        bottom: '50px',
+                                        left: '50%',
+                                        transform: 'translateX(-50%)',
+                                        background: 'rgba(0,0,0,0.6)',
+                                        color: '#fff',
+                                        padding: '6px 12px',
+                                        borderRadius: 8,
+                                        fontSize: '0.95rem',
+                                        pointerEvents: 'none',
+                                        opacity: property.panorama360Captions && property.panorama360Captions[currentPanoramaIndex] ? 1 : 0,
+                                        transition: 'opacity 0.3s ease'
+                                    }}>
+                                        {property.panorama360Captions && property.panorama360Captions[currentPanoramaIndex] || 'No caption provided'}
+                                    </div>
                                     
                                     {/* Navigation buttons */}
                                     {property.panorama360Images.length > 1 && (
@@ -451,7 +468,7 @@ const PropertyDetailPage = () => {
                         )}
 
                         {/* For Sale Specific Features */}
-                        {isForSale && property.propertyCondition && (
+                        {property.propertyCondition && (
                             <div className="feature">
                                 <FaInfoCircle className="feature-icon" />
                                 <span>{property.propertyCondition}</span>
@@ -536,7 +553,7 @@ const PropertyDetailPage = () => {
                         )}
 
                         {/* For Sale Specific Details */}
-                        {isForSale && property.propertyCondition && (
+                        {property.propertyCondition && (
                             <div className="detail-item">
                                 <FaInfoCircle className="detail-icon" />
                                 <div>

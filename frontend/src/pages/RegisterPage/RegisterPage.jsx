@@ -292,10 +292,10 @@ const RegisterPage = () => {
                     {/* Inline hint / error for minimum password length */}
                     {formData.password && formData.password.length < MIN_PASSWORD_LENGTH ? (
                         <div className="field-error small" style={{color:'var(--danger)', marginTop:6}}>
-                            Password must be at least {MIN_PASSWORD_LENGTH} characters long.
+                            Password must be at least {MIN_PASSWORD_LENGTH} characters long and include an uppercase letter, a number, and a special character.
                         </div>
                     ) : (
-                        <div className="password-hint small">Password must be at least {MIN_PASSWORD_LENGTH} characters long. Use letters, numbers, and symbols for a stronger password.</div>
+                        <div className="field-hint small">Minimum {MIN_PASSWORD_LENGTH} characters. Use letters, numbers, and symbols for a stronger password.</div>
                     )}
                 </div>
 

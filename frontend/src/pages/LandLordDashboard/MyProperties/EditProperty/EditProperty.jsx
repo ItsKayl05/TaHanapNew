@@ -105,7 +105,9 @@ function EditProperty() {
     const [deletedImages, setDeletedImages] = useState([]);
 
     const [panoramaImages, setPanoramaImages] = useState([]);
+    const [panoramaCaptions, setPanoramaCaptions] = useState([]); // captions for existing panoramas
     const [newPanoramaImages, setNewPanoramaImages] = useState([]);
+    const [newPanoramaCaptions, setNewPanoramaCaptions] = useState([]); // captions for newly added panoramas
     const [deletedPanoramaImages, setDeletedPanoramaImages] = useState([]);
     const [panoramaPreviews, setPanoramaPreviews] = useState([]);
 
@@ -228,6 +230,11 @@ function EditProperty() {
                     ? data.panorama360Images.map(u => u.startsWith('http') ? u : buildUpload(u)) 
                     : [];
                 setPanoramaImages(panoramaUrls);
+                // load captions if provided by backend and align to panoramaUrls
+                const rawCaptions = Array.isArray(data.panorama360Captions) ? data.panorama360Captions.map(c => c || '') : [];
+                // pad or trim to match panoramaUrls length
+                const aligned = panoramaUrls.map((_, idx) => rawCaptions[idx] || '');
+                setPanoramaCaptions(aligned);
 
                 // Handle video
                 if (data.video) {
@@ -365,6 +372,8 @@ function EditProperty() {
         const validFiles = files.filter(f => f.type.startsWith('image/') && f.size <= 10 * 1024 * 1024);
         setNewPanoramaImages(prev => [...prev, ...validFiles]);
         setPanoramaPreviews(prev => [...prev, ...validFiles.map(f => URL.createObjectURL(f))]);
+        // initialize captions for new panoramas
+        setNewPanoramaCaptions(prev => [...prev, ...validFiles.map(() => '')]);
     };
 
     const handlePanoPaymentSuccess = () => {
@@ -378,6 +387,8 @@ function EditProperty() {
         setPaidForPano(true);
         setNewPanoramaImages(prev => [...prev, ...validFiles]);
         setPanoramaPreviews(prev => [...prev, ...validFiles.map(f => URL.createObjectURL(f))]);
+        // initialize captions for newly added pending panoramas
+        setNewPanoramaCaptions(prev => [...prev, ...validFiles.map(() => '')]);
         setPendingPanoramaFiles([]);
         setShowPanoPayment(false);
     };
@@ -425,6 +436,7 @@ function EditProperty() {
         const url = panoramaImages[index];
         setDeletedPanoramaImages(prev => [...prev, url]);
         setPanoramaImages(prev => prev.filter((_, i) => i !== index));
+        setPanoramaCaptions(prev => prev.filter((_, i) => i !== index));
     };
 
     const handleRemoveNewPanorama = (index) => {
@@ -433,10 +445,27 @@ function EditProperty() {
         }
         setNewPanoramaImages(prev => prev.filter((_, i) => i !== index));
         setPanoramaPreviews(prev => prev.filter((_, i) => i !== index));
+        setNewPanoramaCaptions(prev => prev.filter((_, i) => i !== index));
     };
 
     const handleExpandPanorama = (url) => {
         setExpandedPanorama(url);
+    };
+
+    const handleExistingCaptionChange = (index, value) => {
+        setPanoramaCaptions(prev => {
+            const copy = Array.isArray(prev) ? [...prev] : [];
+            copy[index] = value;
+            return copy;
+        });
+    };
+
+    const handleNewCaptionChange = (index, value) => {
+        setNewPanoramaCaptions(prev => {
+            const copy = Array.isArray(prev) ? [...prev] : [];
+            copy[index] = value;
+            return copy;
+        });
     };
 
     const parseLocaleNumber = (str) => {
@@ -567,14 +596,23 @@ function EditProperty() {
                 formDataToSend.append('removeVideo', 'true');
             }
 
-            // Handle panorama images
-            newPanoramaImages.forEach(f => formDataToSend.append('panorama360Images', f));
-            deletedPanoramaImages.forEach(url => {
-                const name = (url || '').split('/').pop();
-                if (name) formDataToSend.append('deletedPanoramaImages', name);
-            });
-
-            // Use axios for controlled timeout during large uploads
+                        // Handle panorama images
+                        // Send all captions, both existing and new
+                        const allCaptions = [
+                            // First, captions for existing panoramas that weren't deleted
+                            ...panoramaCaptions.filter((_, idx) => !deletedPanoramaImages.includes(panoramaImages[idx])),
+                            // Then add captions for newly added panoramas
+                            ...newPanoramaCaptions
+                        ];
+                        if (allCaptions.length > 0) {
+                            const captionsToSend = allCaptions.map(c => String(c || '')).join('|||');
+                            formDataToSend.append('panoramaCaptions', captionsToSend);
+                        }
+                        newPanoramaImages.forEach(f => formDataToSend.append('panorama360Images', f));
+                        deletedPanoramaImages.forEach(url => {
+                            const name = (url || '').split('/').pop();
+                            if (name) formDataToSend.append('deletedPanoramaImages', name);
+                        });            // Use axios for controlled timeout during large uploads
             // IMPORTANT: do NOT set 'Content-Type' manually — the browser will add the correct boundary
             const axios = (await import('axios')).default;
             const url = buildApi(`/properties/${propertyId}`);
@@ -1175,6 +1213,17 @@ function EditProperty() {
                                                 mode="MONOSCOPIC"
                                             />
                                         </div>
+                                        <div className="pano-caption-block">
+                                            <input
+                                                type="text"
+                                                className="pano-caption-input"
+                                                placeholder="Describe this view (e.g., Living room, Kitchen)"
+                                                maxLength={50}
+                                                value={panoramaCaptions[index] || ''}
+                                                onChange={(e) => handleExistingCaptionChange(index, e.target.value)}
+                                            />
+                                            <div className="caption-counter">{String((panoramaCaptions[index] || '').length)}/50</div>
+                                        </div>
                                         <div className="panorama-actions">
                                             <div className="panorama-info">
                                                 <i className="fas fa-vr-cardboard"></i>
@@ -1210,6 +1259,17 @@ function EditProperty() {
                                                 imageUrl={preview} 
                                                 mode="MONOSCOPIC"
                                             />
+                                        </div>
+                                        <div className="pano-caption-block">
+                                            <input
+                                                type="text"
+                                                className="pano-caption-input"
+                                                placeholder="Describe this view (e.g., Living room, Kitchen)"
+                                                maxLength={50}
+                                                value={newPanoramaCaptions[index] || ''}
+                                                onChange={(e) => handleNewCaptionChange(index, e.target.value)}
+                                            />
+                                            <div className="caption-counter">{String((newPanoramaCaptions[index] || '').length)}/50</div>
                                         </div>
                                         <div className="panorama-actions">
                                             <div className="panorama-info">

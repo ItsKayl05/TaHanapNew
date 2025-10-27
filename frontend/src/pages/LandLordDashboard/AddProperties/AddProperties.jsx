@@ -18,7 +18,7 @@ const barangayList = [
   'Assumption', 'Bagong Buhay I', 'Bagong Buhay II', 'Bagong Buhay III', 'Ciudad Real', 'Citrus', 'Dulong Bayan', 'Fatima I', 'Fatima II', 'Fatima III', 'Fatima IV', 'Fatima V', 'Francisco Homes – Guijo', 'Francisco Homes – Mulawin', 'Francisco Homes – Narra', 'Francisco Homes – Yakal', 'Gaya-gaya', 'Graceville', 'Gumaok Central', 'Gumaok East', 'Gumaok West', 'Kaybanban', 'Kaypian', 'Lawang Pare', 'Maharlika', 'Minuyan I', 'Minuyan II', 'Minuyan III', 'Minuyan IV', 'Minuyan V', 'Minuyan Proper', 'Muzon East', 'Muzon Proper', 'Muzon South', 'Muzon West', 'Paradise III', 'Poblacion', 'Poblacion 1', 'San Isidro', 'San Manuel', 'San Martin De Porres', 'San Martin I', 'San Martin II', 'San Martin III', 'San Martin IV', 'San Pedro', 'San Rafael I', 'San Rafael II', 'San Rafael III', 'San Rafael IV', 'San Rafael V', 'San Roque', 'Sapang Palay Proper', 'Sta. Cruz I', 'Sta. Cruz II', 'Sta. Cruz III', 'Sta. Cruz IV', 'Sta. Cruz V', 'Sto. Cristo', 'Sto. Nino I', 'Sto. Nino II', 'Tungkong Mangga'
 ];
 
-const PROPERTY_TYPES = ['House', 'House and Lot', 'Apartment', 'Condominium', 'Townhouse', 'Dormitory', 'Bedspace', 'Studio Unit', 'Lot', 'Land', 'Commercial Space', 'Office Space', 'Warehouse', 'Building', 'Bungalow', 'Duplex', 'Triplex', 'Inner Lot', 'Corner Lot'];
+const PROPERTY_TYPES = ['House', 'House and Lot', 'Apartment', 'Condominium', 'Townhouse', 'Dormitory', 'Bedspace', 'Studio Unit', 'Commercial Space', 'Office Space', 'Warehouse', 'Building', 'Bungalow', 'Duplex', 'Triplex', 'Inner Lot', 'Corner Lot'];
 
 const LANDMARKS = [
   "park", "church", "public market", "major highway", "public transport stops",
@@ -57,8 +57,8 @@ const AddProperties = () => {
     }
   }, []);
 
-  // FIX: Single state for panoramas with preview URLs
-  const [panoramas, setPanoramas] = useState([]); // { id, file, previewUrl }
+  // FIX: Single state for panoramas with preview URLs and captions
+  const [panoramas, setPanoramas] = useState([]); // { id, file, previewUrl, caption }
   const [showPanoPayment, setShowPanoPayment] = useState(false);
   // Files that require payment before being processed into main state
   const [pendingPanoramaFiles, setPendingPanoramaFiles] = useState([]);
@@ -144,7 +144,8 @@ const AddProperties = () => {
       .map(f => ({
         id: genId(),
         file: f,
-        previewUrl: URL.createObjectURL(f)
+        previewUrl: URL.createObjectURL(f),
+        caption: '' // initialize caption for each panorama
       }));
 
     if (!newItems.length) {
@@ -157,6 +158,11 @@ const AddProperties = () => {
 
     // reset input to allow re-upload of same file later
     if (e.target) e.target.value = '';
+  };
+
+  // ADDED: Function to handle caption changes for panorama images
+  const handleCaptionChange = (id, newCaption) => {
+    setPanoramas(prev => prev.map(pano => pano.id === id ? { ...pano, caption: newCaption } : pano));
   };
 
 
@@ -175,7 +181,7 @@ const AddProperties = () => {
     const validFiles = pendingPanoramaFiles.filter(f => f.type.startsWith('image/') && f.size <= 10 * 1024 * 1024);
     const newItems = validFiles
       .filter(f => !existingKeys.has(f.name + '|' + f.size))
-      .map(f => ({ id: genId(), file: f, previewUrl: URL.createObjectURL(f) }));
+      .map(f => ({ id: genId(), file: f, previewUrl: URL.createObjectURL(f), caption: '' }));
 
     setPanoramas(prev => [...prev, ...newItems]);
     setPendingPanoramaFiles([]);
@@ -261,7 +267,8 @@ const AddProperties = () => {
     setPropertyData(prev => {
       const next = { ...prev };
       if (lt === 'For Rent') {
-        next.propertyCondition = '';
+        // Allow propertyCondition to be set for For Rent listings as well.
+        // Previously we cleared propertyCondition for 'For Rent' — keep value instead.
         next.marketHighlights = [];
       } else if (lt === 'For Sale') {
         next.occupancy = '';
@@ -665,9 +672,10 @@ const AddProperties = () => {
 
       // Append all fields with proper field names
       Object.entries(propertyData).forEach(([k, v]) => {
-        // Skip fields that shouldn't be sent based on listing type
-        if (listingType === 'For Rent' && (k === 'propertyCondition' || k === 'marketHighlights')) return;
-        if (listingType === 'For Sale' && (k === 'occupancy' || k === 'petFriendly' || k === 'allowedPets' || k === 'rules' || k === 'billsIncluded')) return;
+          // Skip fields that shouldn't be sent based on listing type
+          // Keep propertyCondition for both listing types now; only skip marketHighlights for For Rent
+          if (listingType === 'For Rent' && (k === 'marketHighlights')) return;
+          if (listingType === 'For Sale' && (k === 'occupancy' || k === 'petFriendly' || k === 'allowedPets' || k === 'rules' || k === 'billsIncluded')) return;
 
         if (k === 'images') {
           // images stored as { id, file }
@@ -713,6 +721,13 @@ const AddProperties = () => {
         if (panoramas.length > 5) {
           toast.error('Maximum of 5 panoramic images allowed');
           return;
+        }
+        // Include captions for panoramas as a single field (separated by |||)
+        try {
+          const panoramaCaptions = panoramas.map(p => p.caption || '').join('|||');
+          formData.append('panoramaCaptions', panoramaCaptions);
+        } catch (err) {
+          console.warn('Failed to append panorama captions', err);
         }
         panoramas.forEach(p => formData.append('panorama360Images', p.file));
       }
@@ -845,7 +860,6 @@ const AddProperties = () => {
                   value={propertyData.propertyCondition}
                   onChange={handleInputChange}
                   required={propertyData.listingType === 'For Sale'}
-                  disabled={propertyData.listingType === 'For Rent'}
                 >
                   <option value="">Select Property Condition</option>
                   <option value="Fully Furnished">Fully Furnished</option>
@@ -854,7 +868,7 @@ const AddProperties = () => {
                   <option value="Brand New">Brand New</option>
                   <option value="Pre-owned / Resale">Pre-owned / Resale</option>
                 </select>
-                {propertyData.listingType === 'For Rent' && <div className="field-hint small" style={{ color: '#666' }}>Disabled for For Rent listings</div>}
+                {/* Now enabled for both For Rent and For Sale; still required for For Sale */}
               </div>
 
               <div className="form-group full">
@@ -1157,6 +1171,46 @@ const AddProperties = () => {
                             mode="MONOSCOPIC"
                           />
                         </div>
+
+                        {/* Caption input for each 360 image */}
+                        <div className="panorama-caption-input" style={{ marginTop: '12px', marginBottom: '12px' }}>
+                          <label style={{ 
+                            display: 'block', 
+                            fontSize: '0.85rem', 
+                            fontWeight: '500', 
+                            marginBottom: '6px',
+                            color: '#333'
+                          }}>
+                            Image Caption:
+                          </label>
+                          <input
+                            type="text"
+                            value={p.caption}
+                            onChange={(e) => handleCaptionChange(p.id, e.target.value)}
+                            placeholder="E.g., Living Room, Master Bedroom, Kitchen..."
+                            maxLength={50}
+                            style={{
+                              width: '100%',
+                              padding: '8px 12px',
+                              border: '1px solid #ddd',
+                              borderRadius: '6px',
+                              fontSize: '0.9rem',
+                              backgroundColor: '#fff',
+                              transition: 'border-color 0.2s ease'
+                            }}
+                            onFocus={(e) => e.target.style.borderColor = '#007bff'}
+                            onBlur={(e) => e.target.style.borderColor = '#ddd'}
+                          />
+                          <div style={{ 
+                            fontSize: '0.75rem', 
+                            color: '#666', 
+                            marginTop: '4px',
+                            textAlign: 'right'
+                          }}>
+                            { (p.caption || '').length }/50 characters
+                          </div>
+                        </div>
+
                         <button type="button" className="ll-btn tiny danger remove-panorama" onClick={() => removePanorama(p.id)}>Remove</button>
                       </div>
                     ))}
