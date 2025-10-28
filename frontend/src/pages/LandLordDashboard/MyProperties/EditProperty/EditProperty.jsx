@@ -6,7 +6,7 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import Sidebar from "../../Sidebar/Sidebar";
 import PhotoDomeViewer from '../../../../components/PhotoDomeViewer';
-import PanoPaymentModal from '../../../../components/PanoPaymentModal/PanoPaymentModal';
+// Note: Edit flow should not require pano payment — payment UI is only used in AddProperties
 import { handlePanoUploadLogic } from '../../../../utils/panoUploadHelper';
 import { buildApi, buildUpload } from '../../../../services/apiConfig';
 import { saveFiles, loadFiles, clearFormPersistence } from '../../../../utils/formPersistence';
@@ -124,11 +124,12 @@ function EditProperty() {
 
     const isFieldDisabled = (fieldName) => {
         if (fieldName === 'billsIncluded' || fieldName === 'occupancy' || fieldName === 'petFriendly' || fieldName === 'allowedPets' || fieldName === 'rules') {
-            return isForSale;
-        }
-        if (fieldName === 'propertyCondition' || fieldName === 'marketHighlights') {
-            return isForRent;
-        }
+                return isForSale;
+            }
+            // propertyCondition should be editable for both listing types
+            if (fieldName === 'marketHighlights') {
+                return isForRent;
+            }
         return false;
     };
 
@@ -331,12 +332,7 @@ function EditProperty() {
         saveFiles(FORM_KEY, 'images', [...newImages, ...accepted]).catch(() => {});
     };
 
-    const [showPanoPayment, setShowPanoPayment] = useState(false);
-    const [pendingPanoramaFiles, setPendingPanoramaFiles] = useState([]);
-    const [paidForPano, setPaidForPano] = useState(() => {
-        try { return localStorage.getItem('pano_payment_status') === 'true'; } catch(e) { return false; }
-    });
-    const [paymentSessionId, setPaymentSessionId] = useState(() => { try { return localStorage.getItem('pano_payment_session') || null; } catch(e){ return null; } });
+    // Editing panoramas does not require payment. State used by AddProperties only.
 
     const handlePanoramaChange = (e) => {
         const files = Array.from(e.target.files || []);
@@ -345,59 +341,26 @@ function EditProperty() {
     const filteredForCount = files.filter(file => file.type && file.type.startsWith('image/') && file.size <= 10*1024*1024);
     const totalCountIfAdded = panoramaImages.length + (newPanoramaImages?.length || 0) + filteredForCount.length;
     // Check pano monetization rules BEFORE processing files
-    const helperResult = handlePanoUploadLogic({ panoCount: totalCountIfAdded, paidForPano: formData.paidForPano });
-        if (!helperResult.allowed) {
-            if (helperResult.message === 'Show payment modal') {
-                // Store files in pending state and open payment modal
-                setPendingPanoramaFiles(files);
-                // ensure session exists
-                if (!paymentSessionId) {
-                    const sid = `pano_${Date.now()}_${Math.random().toString(36).substr(2,9)}`;
-                    setPaymentSessionId(sid);
-                    try { localStorage.setItem('pano_payment_session', sid); } catch(e){}
-                }
-                setShowPanoPayment(true);
-                return;
-            }
-            toast.error(helperResult.message || 'Cannot upload panoramic images');
+        // No payment gating on edit — just validate limits and accept files
+        const total = panoramaImages.length + newPanoramaImages.length;
+        if (total + files.length > MAX_PANORAMAS) {
+            toast.error(`Maximum ${MAX_PANORAMAS} panoramas allowed`);
             return;
         }
 
-        const total = panoramaImages.length + newPanoramaImages.length;
-        if (total + files.length > MAX_PANORAMAS) { 
-            toast.error(`Maximum ${MAX_PANORAMAS} panoramas allowed`); 
-            return; 
+        const validFiles = files.filter(f => f.type && f.type.startsWith('image/') && f.size <= 10 * 1024 * 1024);
+        if (validFiles.length === 0) {
+            toast.error('No valid panorama images selected (max 10MB each).');
+            return;
         }
 
-        const validFiles = files.filter(f => f.type.startsWith('image/') && f.size <= 10 * 1024 * 1024);
         setNewPanoramaImages(prev => [...prev, ...validFiles]);
         setPanoramaPreviews(prev => [...prev, ...validFiles.map(f => URL.createObjectURL(f))]);
         // initialize captions for new panoramas
         setNewPanoramaCaptions(prev => [...prev, ...validFiles.map(() => '')]);
     };
 
-    const handlePanoPaymentSuccess = () => {
-        if (!pendingPanoramaFiles || pendingPanoramaFiles.length === 0) {
-            setShowPanoPayment(false);
-            return;
-        }
-        // Process pending files into newPanoramaImages and previews
-        const validFiles = pendingPanoramaFiles.filter(f => f.type.startsWith('image/') && f.size <= 10 * 1024 * 1024);
-        try { localStorage.setItem('pano_payment_status','true'); } catch(e){}
-        setPaidForPano(true);
-        setNewPanoramaImages(prev => [...prev, ...validFiles]);
-        setPanoramaPreviews(prev => [...prev, ...validFiles.map(f => URL.createObjectURL(f))]);
-        // initialize captions for newly added pending panoramas
-        setNewPanoramaCaptions(prev => [...prev, ...validFiles.map(() => '')]);
-        setPendingPanoramaFiles([]);
-        setShowPanoPayment(false);
-    };
-
-    const handlePanoPaymentCancel = () => {
-        // Clear pending files without processing
-        setPendingPanoramaFiles([]);
-        setShowPanoPayment(false);
-    };
+    // Edit flow: payment handlers removed — edits are allowed without requiring payment.
 
     const handleVideoChange = (e) => {
         const file = e.target.files?.[0]; 
@@ -551,6 +514,48 @@ function EditProperty() {
 
             setSubmitting(true);
 
+            const axios = (await import('axios')).default;
+
+            // Step 1: If there are new files, upload them in parallel to the server uploads endpoint.
+            let uploadedResults = { images: [], panoramas: [], video: '' };
+            try {
+                const uploadPromises = [];
+                const uploadForm = new FormData();
+                // Append new images and pano files only
+                newImages.forEach(f => uploadForm.append('images', f));
+                newPanoramaImages.forEach(f => uploadForm.append('panorama360Images', f));
+                if (videoFile) uploadForm.append('video', videoFile);
+
+                if (newImages.length > 0 || newPanoramaImages.length > 0 || videoFile) {
+                    const uploadUrl = buildApi('/properties/uploads');
+                    const uploadResp = await axios.post(uploadUrl, uploadForm, {
+                        headers: { Authorization: `Bearer ${token}` },
+                        timeout: 300000,
+                        validateStatus: () => true,
+                        onUploadProgress: (ev) => {
+                            try {
+                                if (ev.lengthComputable) {
+                                    const percent = Math.round((ev.loaded * 100) / ev.total / 2); // allocate half progress to upload
+                                    setUploadProgress(percent);
+                                }
+                            } catch (e) {}
+                        }
+                    });
+
+                    if (!(uploadResp.status >= 200 && uploadResp.status < 300)) {
+                        console.error('Upload endpoint failed', uploadResp.status, uploadResp.data);
+                        throw new Error(uploadResp.data?.error || 'File upload failed');
+                    }
+                    uploadedResults = uploadResp.data?.uploaded || uploadedResults;
+                }
+            } catch (err) {
+                console.error('Parallel upload failed:', err);
+                toast.error('Failed to upload files. Please try again.');
+                setSubmitting(false);
+                return;
+            }
+
+            // Build form data to send to update endpoint (no raw files), include preuploaded URLs when available
             const formDataToSend = new FormData();
             
             // Append all form fields
@@ -581,12 +586,14 @@ function EditProperty() {
             formDataToSend.append('petFriendly', String(formData.petFriendly));
             formDataToSend.append('parking', String(formData.parking));
 
-            // Handle images
-            newImages.forEach(f => formDataToSend.append('images', f));
+            // Handle images: send deleted image names and include preuploaded image URLs
             deletedImages.forEach(url => {
                 const name = (url || '').split('/').pop();
                 if (name) formDataToSend.append('deletedImages', name);
             });
+            if (Array.isArray(uploadedResults.images) && uploadedResults.images.length > 0) {
+                formDataToSend.append('preuploadedImages', JSON.stringify(uploadedResults.images));
+            }
 
             // Handle video
             if (videoFile) {
@@ -596,26 +603,38 @@ function EditProperty() {
                 formDataToSend.append('removeVideo', 'true');
             }
 
-                        // Handle panorama images
-                        // Send all captions, both existing and new
-                        const allCaptions = [
-                            // First, captions for existing panoramas that weren't deleted
-                            ...panoramaCaptions.filter((_, idx) => !deletedPanoramaImages.includes(panoramaImages[idx])),
-                            // Then add captions for newly added panoramas
-                            ...newPanoramaCaptions
-                        ];
-                        if (allCaptions.length > 0) {
-                            const captionsToSend = allCaptions.map(c => String(c || '')).join('|||');
-                            formDataToSend.append('panoramaCaptions', captionsToSend);
+                        // Handle panorama images: build metadata using uploaded URLs for new panoramas
+                        const existingMeta = panoramaImages
+                            .map((url, idx) => ({ url: String(url || ''), caption: String(panoramaCaptions[idx] || '') }))
+                            .filter(item => !deletedPanoramaImages.includes(item.url));
+
+                        // If we uploaded panoramas, merge URLs into newMeta in the same order they were selected
+                        const newMeta = [];
+                        if (Array.isArray(uploadedResults.panoramas) && uploadedResults.panoramas.length > 0) {
+                            for (let i = 0; i < uploadedResults.panoramas.length; i++) {
+                                const url = uploadedResults.panoramas[i];
+                                const caption = String(newPanoramaCaptions[i] || '');
+                                newMeta.push({ url: String(url || ''), caption });
+                            }
+                        } else {
+                            // Fallback - no uploaded URLs: send placeholders (server may accept them if using file uploads)
+                            newPanoramaImages.forEach((_, idx) => newMeta.push({ url: '', caption: String(newPanoramaCaptions[idx] || '') }));
                         }
-                        newPanoramaImages.forEach(f => formDataToSend.append('panorama360Images', f));
+
+                        const panoramaMeta = [...existingMeta, ...newMeta];
+                        if (panoramaMeta.length > 0) {
+                            formDataToSend.append('panorama360Images', JSON.stringify(panoramaMeta));
+                        }
+
+                        // Send deleted panorama identifiers (names) to allow server-side deletion
                         deletedPanoramaImages.forEach(url => {
                             const name = (url || '').split('/').pop();
                             if (name) formDataToSend.append('deletedPanoramaImages', name);
-                        });            // Use axios for controlled timeout during large uploads
-            // IMPORTANT: do NOT set 'Content-Type' manually — the browser will add the correct boundary
-            const axios = (await import('axios')).default;
-            const url = buildApi(`/properties/${propertyId}`);
+                        });
+
+                        // Use axios for controlled timeout during large uploads
+                        // IMPORTANT: do NOT set 'Content-Type' manually — the browser will add the correct boundary
+                        const url = buildApi(`/properties/${propertyId}`);
             const response = await axios.put(url, formDataToSend, {
                 headers: { Authorization: `Bearer ${token}` },
                 timeout: 120000, // 2 minutes
@@ -691,13 +710,6 @@ function EditProperty() {
         <div className="dashboard-container landlord-dashboard">
             <Sidebar activeItem="my-properties" />
             <div className="landlord-main edit-property-main">
-                                <PanoPaymentModal 
-                                    open={showPanoPayment} 
-                                    onClose={() => handlePanoPaymentCancel()} 
-                                    onPaymentSuccess={() => handlePanoPaymentSuccess()} 
-                                    onPaymentError={() => handlePanoPaymentCancel()} 
-                                    propertyId={propertyId} 
-                                />
                 {loading ? (
                     <div className="ll-card skeleton-card">
                         <div className="skeleton line w-50" />
@@ -878,8 +890,8 @@ function EditProperty() {
                                 </div>
                             </div>
 
-                            {/* Property Condition */}
-                            <div className={`field-group ${isForRent ? 'field-disabled' : ''}`}>
+                            {/* Property Condition - editable for both listing types */}
+                            <div className="field-group">
                                 <label className={isForSale ? 'required' : ''}>Property Condition</label>
                                 <select 
                                     className="ll-field" 
@@ -887,7 +899,6 @@ function EditProperty() {
                                     value={formData.propertyCondition} 
                                     onChange={handleChange} 
                                     required={isForSale}
-                                    disabled={isFieldDisabled('propertyCondition')}
                                 >
                                     <option value="">Select Property Condition</option>
                                     <option value="Fully Furnished">Fully Furnished</option>
@@ -896,7 +907,6 @@ function EditProperty() {
                                     <option value="Brand New">Brand New</option>
                                     <option value="Pre-owned / Resale">Pre-owned / Resale</option>
                                 </select>
-                                {isForRent && <div className="field-hint">Not applicable for rent listings</div>}
                             </div>
 
                             {/* Market Highlights */}
@@ -1197,46 +1207,36 @@ function EditProperty() {
                                 {/* Existing Panoramas */}
                                 {panoramaImages.map((url, index) => (
                                     <div key={`existing-${index}`} className="panorama-card">
-                                        <div className="panorama-preview">
-                                            <div className="panorama-preview-overlay">
-                                                <button 
-                                                    type="button"
-                                                    className="panorama-control-btn expand"
-                                                    title="View Fullscreen"
-                                                    onClick={() => handleExpandPanorama(url)}
-                                                >
-                                                    <i className="fas fa-expand"></i>
-                                                </button>
+                                        <div className="panorama-item">
+                                            <div className="panorama-viewer">
+                                                <PhotoDomeViewer imageUrl={url} mode="MONOSCOPIC" />
                                             </div>
-                                            <PhotoDomeViewer 
-                                                imageUrl={url} 
-                                                mode="MONOSCOPIC"
-                                            />
-                                        </div>
-                                        <div className="pano-caption-block">
+
+                                            <label className="panorama-caption-label">Caption for this 360° image</label>
                                             <input
                                                 type="text"
-                                                className="pano-caption-input"
-                                                placeholder="Describe this view (e.g., Living room, Kitchen)"
+                                                className="panorama-caption-input"
+                                                placeholder="Enter a short caption..."
                                                 maxLength={50}
                                                 value={panoramaCaptions[index] || ''}
                                                 onChange={(e) => handleExistingCaptionChange(index, e.target.value)}
                                             />
                                             <div className="caption-counter">{String((panoramaCaptions[index] || '').length)}/50</div>
-                                        </div>
-                                        <div className="panorama-actions">
-                                            <div className="panorama-info">
-                                                <i className="fas fa-vr-cardboard"></i>
-                                                Room View {index + 1}
+
+                                            <div className="panorama-actions">
+                                                <div className="panorama-info">
+                                                    <i className="fas fa-vr-cardboard"></i>
+                                                    Room View {index + 1}
+                                                </div>
+                                                <button 
+                                                    type="button"
+                                                    className="panorama-remove-btn"
+                                                    title="Remove Image"
+                                                    onClick={() => handleRemovePanorama(index)}
+                                                >
+                                                    <i className="fas fa-times"></i> Remove
+                                                </button>
                                             </div>
-                                            <button 
-                                                type="button"
-                                                className="panorama-remove-btn"
-                                                title="Remove Image"
-                                                onClick={() => handleRemovePanorama(index)}
-                                            >
-                                                <i className="fas fa-times"></i> Remove
-                                            </button>
                                         </div>
                                     </div>
                                 ))}
@@ -1244,46 +1244,36 @@ function EditProperty() {
                                 {/* New Panorama Previews */}
                                 {panoramaPreviews.map((preview, index) => (
                                     <div key={`new-${index}`} className="panorama-card">
-                                        <div className="panorama-preview">
-                                            <div className="panorama-preview-overlay">
-                                                <button 
-                                                    type="button"
-                                                    className="panorama-control-btn expand"
-                                                    title="View Fullscreen"
-                                                    onClick={() => handleExpandPanorama(preview)}
-                                                >
-                                                    <i className="fas fa-expand"></i>
-                                                </button>
+                                        <div className="panorama-item">
+                                            <div className="panorama-viewer">
+                                                <PhotoDomeViewer imageUrl={preview} mode="MONOSCOPIC" />
                                             </div>
-                                            <PhotoDomeViewer 
-                                                imageUrl={preview} 
-                                                mode="MONOSCOPIC"
-                                            />
-                                        </div>
-                                        <div className="pano-caption-block">
+
+                                            <label className="panorama-caption-label">Caption for this 360° image</label>
                                             <input
                                                 type="text"
-                                                className="pano-caption-input"
-                                                placeholder="Describe this view (e.g., Living room, Kitchen)"
+                                                className="panorama-caption-input"
+                                                placeholder="Enter a short caption..."
                                                 maxLength={50}
                                                 value={newPanoramaCaptions[index] || ''}
                                                 onChange={(e) => handleNewCaptionChange(index, e.target.value)}
                                             />
                                             <div className="caption-counter">{String((newPanoramaCaptions[index] || '').length)}/50</div>
-                                        </div>
-                                        <div className="panorama-actions">
-                                            <div className="panorama-info">
-                                                <i className="fas fa-vr-cardboard"></i>
-                                                New Room View
+
+                                            <div className="panorama-actions">
+                                                <div className="panorama-info">
+                                                    <i className="fas fa-vr-cardboard"></i>
+                                                    New Room View
+                                                </div>
+                                                <button 
+                                                    type="button"
+                                                    className="panorama-remove-btn"
+                                                    title="Remove Image"
+                                                    onClick={() => handleRemoveNewPanorama(index)}
+                                                >
+                                                    <i className="fas fa-times"></i> Remove
+                                                </button>
                                             </div>
-                                            <button 
-                                                type="button"
-                                                className="panorama-remove-btn"
-                                                title="Remove Image"
-                                                onClick={() => handleRemoveNewPanorama(index)}
-                                            >
-                                                <i className="fas fa-times"></i> Remove
-                                            </button>
                                         </div>
                                     </div>
                                 ))}

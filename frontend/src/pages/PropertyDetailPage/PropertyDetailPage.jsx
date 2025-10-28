@@ -25,31 +25,45 @@ const PropertyDetailPage = () => {
     const { socket } = useSocket();
 
     // Panorama navigation functions
+    // Use combined panoramaImages (url+caption) when available, otherwise fall back to panorama360Images
+    const getPanoramaCount = () => {
+        return (property?.panoramaImages && property.panoramaImages.length) || (property?.panorama360Images && property.panorama360Images.length) || 0;
+    };
+
     const nextPanorama = () => {
-        if (!property?.panorama360Images?.length) return;
-        setCurrentPanoramaIndex(prev => 
-            prev === property.panorama360Images.length - 1 ? 0 : prev + 1
-        );
+        const count = getPanoramaCount();
+        if (!count) return;
+        setCurrentPanoramaIndex(prev => (prev === count - 1 ? 0 : prev + 1));
     };
 
     const previousPanorama = () => {
-        if (!property?.panorama360Images?.length) return;
-        setCurrentPanoramaIndex(prev => 
-            prev === 0 ? property.panorama360Images.length - 1 : prev - 1
-        );
+        const count = getPanoramaCount();
+        if (!count) return;
+        setCurrentPanoramaIndex(prev => (prev === 0 ? count - 1 : prev - 1));
     };
 
     // Add keyboard navigation for panorama views
     useEffect(() => {
         const handleKeyPress = (e) => {
-            if (!property?.panorama360Images?.length) return;
+            if (!getPanoramaCount()) return;
             if (e.key === 'ArrowLeft') previousPanorama();
             if (e.key === 'ArrowRight') nextPanorama();
         };
 
         window.addEventListener('keydown', handleKeyPress);
         return () => window.removeEventListener('keydown', handleKeyPress);
-    }, [property?.panorama360Images]);
+    }, [property]);
+
+    // Reset panorama index when panorama list changes (keep it in-bounds)
+    useEffect(() => {
+        const count = getPanoramaCount();
+        if (count === 0) {
+            setCurrentPanoramaIndex(0);
+        } else if (currentPanoramaIndex >= count) {
+            setCurrentPanoramaIndex(0);
+        }
+        // only run when property changes
+    }, [property]);
 
     useEffect(() => {
         const fetchProperty = async () => {
@@ -93,6 +107,22 @@ const PropertyDetailPage = () => {
                     console.log('Normalized panorama images:', norm.panorama360Images); // Debug log
                 } else {
                     console.log('No panorama images found or not an array:', norm.panorama360Images);
+                }
+
+                // Normalize panorama captions and build combined panoramaImages array
+                try {
+                    const rawCaps = norm.panorama360Captions && Array.isArray(norm.panorama360Captions) ? norm.panorama360Captions.map(c => c || '') : [];
+                    const urls = Array.isArray(norm.panorama360Images) ? norm.panorama360Images : [];
+                    // Ensure both arrays align in length
+                    const panoramaImages = urls.map((u, i) => ({
+                        url: (typeof u === 'string' && u.startsWith('http')) ? u : buildUpload(u),
+                        caption: String(rawCaps[i] || '').trim()
+                    }));
+                    norm.panoramaImages = panoramaImages;
+                    // Keep backward-compatible fields available
+                    norm.panorama360Captions = rawCaps;
+                } catch (e) {
+                    norm.panoramaImages = norm.panoramaImages || [];
                 }
                 
                 setProperty(norm);
@@ -250,8 +280,8 @@ const PropertyDetailPage = () => {
                 {/* Left Side: Media (Video if exists + Image Slideshow) */}
                 <div className="property-gallery glass-panel">
                     {/* 360° Panoramic Image Viewers with Navigation */}
-                    {property.panorama360Images && property.panorama360Images.length > 0 && (
-                        <div className="panorama-section" style={{marginBottom:'2rem'}}>
+                                    {getPanoramaCount() > 0 && (
+                                        <div className="panorama-section" style={{marginBottom:'2rem'}}>
                             <h3 className="section-title white">360° Panoramic Views</h3>
                             <p className="panorama-hint" style={{color: '#ccc', fontSize: '0.9rem', marginBottom: '1rem'}}>
                                 Drag to explore the 360° view • Use arrows to switch between views
@@ -263,25 +293,28 @@ const PropertyDetailPage = () => {
                                 alignItems: 'center',
                                 position: 'relative'
                             }}>
-                                <div 
-                                    style={{ 
-                                        width: '100%', 
-                                        height: '400px',
-                                        borderRadius: '16px', 
-                                        overflow: 'hidden', 
-                                        boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-                                        position: 'relative'
-                                    }}
-                                >
-                                    <PhotoDomeViewer 
-                                        imageUrl={property.panorama360Images[currentPanoramaIndex]} 
-                                        mode="MONOSCOPIC"
-                                        key={currentPanoramaIndex} // Force re-render on image change
-                                        onError={(error) => {
-                                            console.error(`Failed to load panorama ${currentPanoramaIndex}:`, error);
-                                            toast.error(`Failed to load 360° view ${currentPanoramaIndex + 1}`);
+                                    <div 
+                                        style={{ 
+                                            width: '100%', 
+                                            height: '400px',
+                                            borderRadius: '16px', 
+                                            overflow: 'hidden', 
+                                            boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+                                            position: 'relative'
                                         }}
-                                    />
+                                    >
+                                        <PhotoDomeViewer 
+                                            imageUrl={
+                                                (property.panoramaImages && property.panoramaImages[currentPanoramaIndex] && property.panoramaImages[currentPanoramaIndex].url)
+                                                || property.panorama360Images && property.panorama360Images[currentPanoramaIndex]
+                                            } 
+                                            mode="MONOSCOPIC"
+                                            key={currentPanoramaIndex} // Force re-render on image change
+                                            onError={(error) => {
+                                                console.error(`Failed to load panorama ${currentPanoramaIndex}:`, error);
+                                                toast.error(`Failed to load 360° view ${currentPanoramaIndex + 1}`);
+                                            }}
+                                        />
                                     {/* Caption display */}
                                     <div className="panorama-caption-display" style={{
                                         position: 'absolute',
@@ -294,14 +327,14 @@ const PropertyDetailPage = () => {
                                         borderRadius: 8,
                                         fontSize: '0.95rem',
                                         pointerEvents: 'none',
-                                        opacity: property.panorama360Captions && property.panorama360Captions[currentPanoramaIndex] ? 1 : 0,
+                                        opacity: ((property.panoramaImages && property.panoramaImages[currentPanoramaIndex] && property.panoramaImages[currentPanoramaIndex].caption) || (property.panorama360Captions && property.panorama360Captions[currentPanoramaIndex])) ? 1 : 0,
                                         transition: 'opacity 0.3s ease'
                                     }}>
-                                        {property.panorama360Captions && property.panorama360Captions[currentPanoramaIndex] || 'No caption provided'}
+                                        {(property.panoramaImages && property.panoramaImages[currentPanoramaIndex] && property.panoramaImages[currentPanoramaIndex].caption) || (property.panorama360Captions && property.panorama360Captions[currentPanoramaIndex]) || 'No caption provided'}
                                     </div>
                                     
                                     {/* Navigation buttons */}
-                                    {property.panorama360Images.length > 1 && (
+                                    {getPanoramaCount() > 1 && (
                                         <div className="panorama-navigation" style={{
                                             position: 'absolute',
                                             top: '0',
@@ -344,7 +377,7 @@ const PropertyDetailPage = () => {
                                         borderRadius: '4px',
                                         fontSize: '0.9rem'
                                     }}>
-                                        View {currentPanoramaIndex + 1} of {property.panorama360Images.length}
+                                        View {currentPanoramaIndex + 1} of {getPanoramaCount()}
                                     </div>
                                 </div>
                             </div>
@@ -610,34 +643,32 @@ const PropertyDetailPage = () => {
                             </>
                         )}
 
-                        {/* For Sale Highlights */}
-                        {isForSale && (
-                            <>
-                                {property.propertyCondition && (
-                                    <div className="highlight-item">
-                                        <div className="highlight-header">
-                                            <FaInfoCircle className="highlight-icon" />
-                                            <strong>Property Condition:</strong>
-                                        </div>
-                                        <div className="highlight-content">
-                                            {property.propertyCondition}
-                                        </div>
-                                    </div>
-                                )}
-                                {property.marketHighlights && property.marketHighlights.length > 0 && (
-                                    <div className="highlight-item">
-                                        <div className="highlight-header">
-                                            <FaChartLine className="highlight-icon" />
-                                            <strong>Market Highlights:</strong>
-                                        </div>
-                                        <div className="highlight-tags">
-                                            {(Array.isArray(property.marketHighlights) ? property.marketHighlights : String(property.marketHighlights).split(',').map(s=>s.trim())).map((mh,idx)=> (
-                                                <span key={idx} className="market-highlight-tag">{mh}</span>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </>
+                        {/* Property Condition (show for both Rent and Sale) */}
+                        {property.propertyCondition && (isForSale || isForRent) && (
+                            <div className="highlight-item">
+                                <div className="highlight-header">
+                                    <FaInfoCircle className="highlight-icon" />
+                                    <strong>Property Condition:</strong>
+                                </div>
+                                <div className="highlight-content">
+                                    {property.propertyCondition}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* For Sale Specific Highlights */}
+                        {isForSale && property.marketHighlights && property.marketHighlights.length > 0 && (
+                            <div className="highlight-item">
+                                <div className="highlight-header">
+                                    <FaChartLine className="highlight-icon" />
+                                    <strong>Market Highlights:</strong>
+                                </div>
+                                <div className="highlight-tags">
+                                    {(Array.isArray(property.marketHighlights) ? property.marketHighlights : String(property.marketHighlights).split(',').map(s=>s.trim())).map((mh,idx)=> (
+                                        <span key={idx} className="market-highlight-tag">{mh}</span>
+                                    ))}
+                                </div>
+                            </div>
                         )}
 
                         {/* Common Highlights */}

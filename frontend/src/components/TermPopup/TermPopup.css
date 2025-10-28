@@ -12,41 +12,49 @@
 }
 
 .term-popup {
-    background: white;
+    background: var(--color-surface, #fff);
     padding: 20px;
-    width: 400px;
-    border-radius: 8px;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-    text-align: center;
+    width: 420px;
+    border-radius: 10px;
+    box-shadow: 0 8px 30px rgba(2,6,23,0.12);
+    text-align: left;
 }
 
-.term-popup h2 {
-    margin-bottom: 10px;
-}
-
-.term-popup p {
+.term-popup .terms-text p {
     font-size: 14px;
-    margin-bottom: 8px;
+    margin-bottom: 10px;
+    color: var(--color-text-primary, #111827);
+    line-height: 1.5;
 }
 
-/* Make the title of each number bold */
-.term-popup p strong {
-    font-weight: bold;
-    color: #333; /* Optional: Change color to make it stand out */
+/* Make the title stand out */
+.term-popup .terms-text p strong,
+.term-popup .terms-text p b {
+    font-weight: 700;
+    color: var(--color-text-primary, #111827);
 }
 
-.term-popup button {
-    background: #007bff;
-    color: white;
-    padding: 8px 16px;
+.term-popup .terms-text {
+    padding: 6px 4px;
+}
+
+.term-popup .close-btn {
+    background: var(--color-border-accent, #2563eb);
+    color: #fff;
+    padding: 10px 16px;
     border: none;
-    border-radius: 5px;
+    border-radius: 8px;
     cursor: pointer;
-    margin-top: 10px;
+    font-weight: 600;
 }
 
-.terms-link {
-    color: #007bff;
+.term-popup .close-btn:hover {
+    filter: brightness(0.95);
+    box-shadow: 0 6px 18px rgba(37,99,235,0.12);
+}
+
+.term-popup .terms-link {
+    color: var(--color-border-accent, #2563eb);
     cursor: pointer;
     text-decoration: underline;
 }

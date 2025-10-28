@@ -5,6 +5,7 @@ import {
     getProperty,
     checkPanoEligibility,
     updateProperty,
+    uploadFiles,
     deleteProperty,
     getPropertiesByLandlord,
     setPropertyStatus,
@@ -26,6 +27,8 @@ router.get('/:propertyId/pano-eligibility', protect, checkPanoEligibility);
 
 // Use disk-based uploader for updates to handle larger multi-part requests safely
 router.put("/:id", protect, uploadDisk, updateProperty); // Update a property (protected)
+// Upload helper route: upload files in parallel and return Cloudinary URLs
+router.post('/uploads', protect, uploadMemory, uploadFiles);
 router.delete("/:id", protect, deleteProperty); // Delete a property (protected)
 // Landlord can adjust availability counts or status
 router.put("/:id/availability", protect, setPropertyAvailability);

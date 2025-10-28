@@ -134,8 +134,12 @@ const propertySchema = new mongoose.Schema({
     type: String,
     default: "",
   },
+  // Store panorama images as objects with url + caption
   panorama360Images: {
-    type: [String],
+    type: [{
+      url: { type: String, required: true },
+      caption: { type: String, default: '' }
+    }],
     default: [],
     validate: {
       validator: function(images) {
@@ -176,10 +180,9 @@ const propertySchema = new mongoose.Schema({
 propertySchema.pre('save', function(next) {
   this.updatedAt = Date.now();
   
-  // Handle propertyCondition based on listing type
-  if (this.listingType === 'For Rent') {
-    this.propertyCondition = '';
-  } else if (this.listingType === 'For Sale' && (!this.propertyCondition || this.propertyCondition.trim() === '')) {
+  // Handle propertyCondition: do not forcibly clear for 'For Rent'.
+  // If listing is 'For Sale' and no condition provided, default to 'Brand New'.
+  if (this.listingType === 'For Sale' && (!this.propertyCondition || this.propertyCondition.trim() === '')) {
     this.propertyCondition = 'Brand New';
   }
   

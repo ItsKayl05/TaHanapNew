@@ -959,3 +959,49 @@
         color: #cbd5e1;
     }
 }
+
+/* --- New: Shared panorama caption styling --- */
+.panorama-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 20px;
+    padding: 12px;
+}
+
+.panorama-item .panorama-viewer, .panorama-img {
+    width: 100%;
+    max-width: 420px;
+    height: auto;
+    border-radius: 10px;
+    object-fit: cover;
+    box-shadow: 0px 2px 8px rgba(0,0,0,0.12);
+}
+
+.panorama-caption-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #222;
+}
+
+.panorama-caption-input {
+    width: 100%;
+    max-width: 420px;
+    padding: 10px 12px;
+    font-size: 14px;
+    border-radius: 8px;
+    border: 1.5px solid #d1d1d1;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.panorama-caption-input:focus {
+    border-color: #29871c;
+    box-shadow: 0 0 5px rgba(41, 135, 28, 0.4);
+}
+
+.caption-counter {
+    font-size: 0.75rem;
+    color: #666;
+    text-align: right;
+}

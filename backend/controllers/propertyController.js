@@ -215,9 +215,47 @@ const formatPropertyResponse = (property) => ({
   ...property._doc,
   images: property.images || [],
   video: property.video || '',
-  panorama360Images: property.panorama360Images || [],
-  // New: return captions aligned with panorama360Images (if present)
-  panorama360Captions: property.panorama360Captions || [],
+  // Normalize panorama fields to support both legacy (array of urls + separate captions array)
+  // and new schema (array of objects {url, caption}). Provide both legacy arrays and a combined array for frontend.
+  panorama360Images: (function() {
+    try {
+      if (!property.panorama360Images) return [];
+      if (property.panorama360Images.length === 0) return [];
+      // If stored as strings
+      if (typeof property.panorama360Images[0] === 'string') return property.panorama360Images;
+      // Otherwise assume array of objects
+      return property.panorama360Images.map(p => p && p.url ? p.url : '');
+    } catch (e) { return []; }
+  })(),
+  panorama360Captions: (function() {
+    try {
+      // If captions stored separately
+      if (Array.isArray(property.panorama360Captions) && property.panorama360Captions.length > 0) return property.panorama360Captions;
+      if (!property.panorama360Images) return [];
+      if (property.panorama360Images.length === 0) return [];
+      if (typeof property.panorama360Images[0] === 'string') return [];
+      return property.panorama360Images.map(p => p && p.caption ? p.caption : '');
+    } catch (e) { return []; }
+  })(),
+  // Combined panoramaImages array of objects {url, caption}
+  panoramaImages: (function() {
+    try {
+      const urls = [];
+      const caps = [];
+      if (Array.isArray(property.panorama360Images) && property.panorama360Images.length > 0) {
+        if (typeof property.panorama360Images[0] === 'string') {
+          urls.push(...property.panorama360Images);
+          if (Array.isArray(property.panorama360Captions)) caps.push(...property.panorama360Captions);
+        } else {
+          property.panorama360Images.forEach(p => {
+            urls.push(p.url || '');
+            caps.push(p.caption || '');
+          });
+        }
+      }
+      return urls.map((u, i) => ({ url: u, caption: String(caps[i] || '').trim() }));
+    } catch (e) { return []; }
+  })(),
   // Default to 'For Rent' when listingType is missing to match frontend expectations
   listingType: property.listingType || 'For Rent',
   propertyType: property.propertyType,
@@ -856,25 +894,70 @@ export const addProperty = async (req, res) => {
       const propertyData = buildPropertyData(req.body, req.files, landlord);
       propertyData.images = uploadedFiles.images;
       propertyData.video = uploadedFiles.video;
-      propertyData.panorama360Images = uploadedFiles.panorama360Images;
-      // Persist captions sent from frontend (order-based, joined by '|||')
+
+      // Persist captions / panorama objects sent from frontend. Support two modes:
+      // - Client may send `req.body.panorama360Images` as JSON array of { url, caption } (url may be empty for newly uploaded files)
+      // - Or client may send `panoramaCaptions` as joined string '|||' (legacy)
       try {
+        const rawMeta = req.body.panorama360Images;
         const rawCaptions = req.body.panoramaCaptions;
+
+        let parsedMeta = null;
+        if (rawMeta !== undefined && rawMeta !== null && rawMeta !== '') {
+          try {
+            parsedMeta = typeof rawMeta === 'string' ? JSON.parse(rawMeta) : rawMeta;
+          } catch (parseErr) {
+            console.warn('Could not parse req.body.panorama360Images as JSON, ignoring parsedMeta', parseErr);
+            parsedMeta = null;
+          }
+        }
+
         let captionsArr = [];
-        if (rawCaptions !== undefined && rawCaptions !== null) {
+        if (rawCaptions !== undefined && rawCaptions !== null && rawCaptions !== '') {
           if (Array.isArray(rawCaptions)) captionsArr = rawCaptions;
           else captionsArr = String(rawCaptions).split('|||');
         }
-        // Align captions to uploaded panorama URLs (pad with empty strings if fewer captions)
-        if (Array.isArray(propertyData.panorama360Images) && propertyData.panorama360Images.length > 0) {
-          const aligned = propertyData.panorama360Images.map((_, idx) => String(captionsArr[idx] || '').trim());
-          propertyData.panorama360Captions = aligned;
-          propertyData.panoCount = propertyData.panorama360Images.length;
+
+        // uploadedFiles.panorama360Images contains the newly uploaded URLs (strings)
+        const urls = Array.isArray(uploadedFiles.panorama360Images) ? uploadedFiles.panorama360Images : [];
+
+        // If parsedMeta is provided and contains entries, we will try to merge uploaded URLs into entries with empty url fields.
+        if (parsedMeta && Array.isArray(parsedMeta) && parsedMeta.length > 0) {
+          // Build a working copy
+          const working = parsedMeta.map(item => ({ url: (item && item.url) ? String(item.url) : '', caption: (item && item.caption) ? String(item.caption) : '' }));
+
+          // Fill empty urls in order with uploaded urls
+          let uIndex = 0;
+          for (let i = 0; i < working.length && uIndex < urls.length; i++) {
+            if (!working[i].url || working[i].url.trim() === '') {
+              working[i].url = urls[uIndex++];
+            }
+          }
+
+          // If there are still uploaded urls left (no placeholders), append them with captions from captionsArr if available
+          while (uIndex < urls.length) {
+            const cap = captionsArr.shift() || '';
+            working.push({ url: urls[uIndex++], caption: String(cap || '') });
+          }
+
+          // Final propertyData.panorama360Images is an array of {url, caption}
+          propertyData.panorama360Images = working.map(p => ({ url: String(p.url), caption: String(p.caption || '') }));
+
+        } else if (urls.length > 0) {
+          // No structured meta sent — fall back to using captionsArr aligned by index
+          const aligned = urls.map((u, idx) => ({ url: u, caption: String(captionsArr[idx] || '').trim() }));
+          propertyData.panorama360Images = aligned;
         } else {
-          propertyData.panorama360Captions = [];
+          propertyData.panorama360Images = [];
         }
+
+        // Keep backward-compatible captions array if other code expects it
+        propertyData.panorama360Captions = Array.isArray(propertyData.panorama360Images) ? propertyData.panorama360Images.map(p => p.caption || '') : [];
+        propertyData.panoCount = Array.isArray(propertyData.panorama360Images) ? propertyData.panorama360Images.length : 0;
+
       } catch (e) {
-        console.warn('Could not parse panorama captions:', e);
+        console.warn('Could not parse panorama captions/meta:', e);
+        propertyData.panorama360Images = [];
         propertyData.panorama360Captions = [];
       }
 
@@ -1006,6 +1089,19 @@ export const updateProperty = async (req, res) => {
       console.log(`   ${key}:`, req.body[key], `(type: ${typeof req.body[key]})`);
     });
 
+    // Defensive: parse panorama360Images when sent as JSON string via multipart/form-data
+    if (req.body.panorama360Images && typeof req.body.panorama360Images === 'string') {
+      try {
+        const parsed = JSON.parse(req.body.panorama360Images);
+        if (Array.isArray(parsed)) {
+          req.body.panorama360Images = parsed;
+          console.log('✅ Parsed panorama360Images JSON into array for update');
+        }
+      } catch (parseErr) {
+        console.warn('⚠️ Could not parse req.body.panorama360Images as JSON during update; leaving as-is', parseErr?.message || parseErr);
+      }
+    }
+
     // 4. Validate required fields before processing
     const requiredFields = ['listingType', 'propertyType', 'address', 'barangay', 'price'];
     const missingFields = requiredFields.filter(field => {
@@ -1091,9 +1187,37 @@ export const updateProperty = async (req, res) => {
     // 9. Handle file uploads with better error handling
     let updatedImages = [...property.images];
     let updatedVideo = property.video;
-  let updatedPanoramaImages = [...(property.panorama360Images || [])];
-  // Maintain captions aligned with panorama images (if present)
-  let updatedPanoramaCaptions = Array.isArray(property.panorama360Captions) ? [...property.panorama360Captions] : [];
+
+    // Normalize existing panoramas to an array of URLs and aligned captions.
+    // property.panorama360Images may be stored as legacy [String] or new [{url, caption}].
+    const rawPanoramaField = Array.isArray(property.panorama360Images) ? property.panorama360Images : [];
+    let updatedPanoramaImages = [];
+    let updatedPanoramaCaptions = [];
+
+    if (rawPanoramaField.length > 0) {
+      const legacyCaptions = Array.isArray(property.panorama360Captions) ? property.panorama360Captions : [];
+      // If stored as legacy strings, simply copy and use legacy captions if present
+      if (rawPanoramaField.every(item => typeof item === 'string')) {
+        updatedPanoramaImages = [...rawPanoramaField];
+        updatedPanoramaCaptions = [...legacyCaptions];
+      } else {
+        // Mixed or object-style storage: build aligned arrays preserving order
+        for (let i = 0; i < rawPanoramaField.length; i++) {
+          const item = rawPanoramaField[i];
+          if (typeof item === 'string') {
+            // Legacy string entry
+            updatedPanoramaImages.push(item);
+            updatedPanoramaCaptions.push(legacyCaptions[i] || '');
+          } else if (item && typeof item === 'object') {
+            // New object entry { url, caption }
+            if (item.url) {
+              updatedPanoramaImages.push(item.url);
+              updatedPanoramaCaptions.push(item.caption || '');
+            }
+          }
+        }
+      }
+    }
 
     console.log('📁 Current files - Images:', updatedImages.length, 'Video:', !!updatedVideo, 'Panoramas:', updatedPanoramaImages.length);
 
@@ -1137,6 +1261,19 @@ export const updateProperty = async (req, res) => {
     }
 
     // Handle new images
+    // If client pre-uploaded images and provided URLs, merge them without re-uploading
+    if (req.body.preuploadedImages) {
+      try {
+        const parsed = typeof req.body.preuploadedImages === 'string' ? JSON.parse(req.body.preuploadedImages) : req.body.preuploadedImages;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          console.log('🔁 Merging preuploadedImages into updatedImages:', parsed.length);
+          updatedImages = [...updatedImages, ...parsed.filter(Boolean)];
+        }
+      } catch (e) {
+        console.warn('⚠️ Could not parse preuploadedImages:', e?.message || e);
+      }
+    }
+
     if (req.files?.images && req.files.images.length > 0) {
       try {
         console.log('📸 Uploading new images:', req.files.images.length);
@@ -1169,7 +1306,15 @@ export const updateProperty = async (req, res) => {
       }
     }
 
-    // Handle video
+    // Handle video (or preuploaded video URL)
+    if (req.body.preuploadedVideo) {
+      const v = typeof req.body.preuploadedVideo === 'string' ? req.body.preuploadedVideo : '';
+      if (v) {
+        console.log('🔁 Using preuploaded video URL');
+        updatedVideo = v;
+      }
+    }
+
     if (req.files?.video && req.files.video.length > 0) {
       try {
         console.log('🎥 Uploading new video');
@@ -1211,52 +1356,27 @@ export const updateProperty = async (req, res) => {
       ...(req.files?.panoPhotos || [])
     ];
 
+    // Merge any preuploaded panorama URLs (from frontend parallel upload)
+    if (req.body.preuploadedPanoramas) {
+      try {
+        const parsed = typeof req.body.preuploadedPanoramas === 'string' ? JSON.parse(req.body.preuploadedPanoramas) : req.body.preuploadedPanoramas;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          console.log('🔁 Merging preuploadedPanoramas into updatedPanoramaImages:', parsed.length);
+          updatedPanoramaImages = [...updatedPanoramaImages, ...parsed.filter(Boolean)];
+        }
+      } catch (e) {
+        console.warn('⚠️ Could not parse preuploadedPanoramas:', e?.message || e);
+      }
+    }
+
     if (panoramaFiles.length > 0) {
       try {
         console.log(`🔄 Uploading ${panoramaFiles.length} panorama images...`);
 
-        // Monetization check: allow first pano free; require payment for 2nd unless property.paidForPano
-        const existingPanoCount = updatedPanoramaImages.length || 0; // current stored panoramas
-        // Allow using a payment session during update to mark the property as paid for this operation
-        const { paymentSessionId } = req.body || {};
-        if (paymentSessionId && !property.paidForPano) {
-          try {
-            const PaymentSession = (await import('../models/PaymentSession.js')).default;
-            const sess = await PaymentSession.findOne({ sessionId: paymentSessionId });
-            if (sess && sess.paid) {
-              property.paidForPano = true;
-              console.log('✅ Update payment session verified and property marked paid for pano upload');
-            }
-          } catch (e) {
-            console.warn('Could not verify payment session during property update', e);
-          }
-        }
+        // For edits: do NOT require payment. Only enforce absolute upload limits.
+        const existingPanoCount = updatedPanoramaImages.length || 0;
         const willHave = existingPanoCount + panoramaFiles.length;
 
-        // If after upload we exceed the paid/unpaid rules, block and indicate payment required
-        if (!property.paidForPano) {
-          // free first pano
-          if (existingPanoCount >= 1) {
-            // already have at least 1 and not paid — require payment
-            return res.status(402).json({
-              error: 'Payment required to upload more panoramas',
-              code: 'PANO_PAYMENT_REQUIRED',
-              amount_centavos: 10900,
-              message: 'Pay ₱109 one-time to unlock up to 5 panoramic uploads for this property.'
-            });
-          }
-          // if existingPanoCount === 0 and adding more than 1 file, require payment because second pano triggers payment
-          if (existingPanoCount === 0 && willHave > 1) {
-            return res.status(402).json({
-              error: 'Payment required to upload more panoramas',
-              code: 'PANO_PAYMENT_REQUIRED',
-              amount_centavos: 10900,
-              message: 'Pay ₱109 one-time to unlock up to 5 panoramic uploads for this property.'
-            });
-          }
-        }
-
-        // If property already paid, ensure we don't exceed 5
         if (willHave > config.limits.panoramas) {
           return res.status(400).json({ error: `Upload limit reached. Maximum of ${config.limits.panoramas} panoramic images allowed.` });
         }
@@ -1407,22 +1527,62 @@ export const updateProperty = async (req, res) => {
 
       // Build map of existing captions from original property
       const existingMap = {};
-      if (Array.isArray(property.panorama360Images) && Array.isArray(property.panorama360Captions)) {
-        for (let i = 0; i < property.panorama360Images.length; i++) {
-          const url = property.panorama360Images[i];
-          existingMap[url] = property.panorama360Captions[i] || '';
+      if (Array.isArray(property.panorama360Images) && property.panorama360Images.length > 0) {
+        // Support both legacy array-of-strings + panorama360Captions, and new array-of-objects [{url,caption}]
+        if (typeof property.panorama360Images[0] === 'string') {
+          const caps = Array.isArray(property.panorama360Captions) ? property.panorama360Captions : [];
+          for (let i = 0; i < property.panorama360Images.length; i++) {
+            const url = property.panorama360Images[i];
+            existingMap[url] = caps[i] || '';
+          }
+        } else if (typeof property.panorama360Images[0] === 'object' && property.panorama360Images[0] !== null) {
+          for (let i = 0; i < property.panorama360Images.length; i++) {
+            const obj = property.panorama360Images[i] || {};
+            const url = obj.url || '';
+            const cap = obj.caption || '';
+            if (url) existingMap[url] = cap;
+          }
         }
       }
 
-      let newIndex = 0;
-      const finalCaptions = updatedPanoramaImages.map(url => {
-        if (existingMap[url]) return existingMap[url];
-        const c = newCaptionsArr[newIndex] || '';
-        newIndex += 1;
-        return String(c || '').trim();
-      });
+      // If client sent structured panorama metadata, prefer that for captions
+      const clientMeta = Array.isArray(req.body.panorama360Images) ? req.body.panorama360Images : null;
 
-      updateData.panorama360Captions = finalCaptions;
+      let finalCaptions = [];
+      if (clientMeta && clientMeta.length > 0) {
+        // Build map of client-provided captions for URLs
+        const clientMap = {};
+        const placeholders = [];
+        for (const item of clientMeta) {
+          if (item && item.url) clientMap[String(item.url)] = String(item.caption || '');
+          else placeholders.push(String((item && item.caption) || ''));
+        }
+
+        // Consume placeholders in order for newly uploaded images
+        const placeholderQueue = [...placeholders];
+        finalCaptions = updatedPanoramaImages.map(url => {
+          // exact match from client map
+          if (clientMap[url]) return clientMap[url];
+          // otherwise if there is a placeholder (for newly uploaded files), consume next
+          if (placeholderQueue.length > 0) return placeholderQueue.shift();
+          // fallback to existingMap value (from DB) or empty string
+          return existingMap[url] || '';
+        });
+      } else {
+        // Legacy flow: use panoramaCaptions field split by '|||'
+        let newIndex = 0;
+        finalCaptions = updatedPanoramaImages.map(url => {
+          if (existingMap[url]) return existingMap[url];
+          const c = newCaptionsArr[newIndex] || '';
+          newIndex += 1;
+          return String(c || '').trim();
+        });
+      }
+
+  // Build final panorama objects with url + caption
+  updateData.panorama360Images = updatedPanoramaImages.map((u, idx) => ({ url: u, caption: finalCaptions[idx] || '' }));
+  // Backward-compatible captions array
+  updateData.panorama360Captions = finalCaptions;
     } catch (e) {
       console.warn('Could not reconcile panorama captions during update:', e);
       updateData.panorama360Captions = updatedPanoramaCaptions || [];
@@ -1580,10 +1740,11 @@ export const deleteProperty = async (req, res) => {
       return res.status(403).json({ error: "Unauthorized" });
     }
 
+    const panoramaUrls = (property.panorama360Images || []).map(p => (typeof p === 'string' ? p : (p && p.url ? p.url : ''))).filter(Boolean);
     const assetsToDelete = [
       ...property.images,
       ...(property.video ? [property.video] : []),
-      ...(property.panorama360Images || [])
+      ...panoramaUrls
     ].filter(Boolean);
 
     await deleteCloudinaryAssets(assetsToDelete);
@@ -1664,5 +1825,38 @@ export const checkPanoEligibility = async (req, res) => {
   } catch (error) {
     console.error('❌ checkPanoEligibility error:', error);
     res.status(500).json({ error: 'Server error checking eligibility' });
+  }
+};
+
+// New: uploadFiles endpoint for parallel client-side uploads.
+export const uploadFiles = async (req, res) => {
+  let uploaded = { images: [], panoramas: [], video: '' };
+  try {
+    // Use memory upload middleware before calling this controller (uploadMemory)
+    if (!req.files) return res.status(400).json({ error: 'No files provided' });
+
+    // Upload images if present
+    if (req.files.images && req.files.images.length > 0) {
+      const imgs = await uploadToCloudinary(req.files.images, 'images', 'image');
+      uploaded.images = Array.isArray(imgs) ? imgs : [imgs];
+    }
+
+    // Upload panoramas if present (support both field names)
+    const panoFiles = [ ...(req.files.panorama360Images || []), ...(req.files.panorama360 || []) ];
+    if (panoFiles.length > 0) {
+      const pans = await uploadToCloudinary(panoFiles, 'panorama', 'image');
+      uploaded.panoramas = Array.isArray(pans) ? pans : (pans ? [pans] : []);
+    }
+
+    // Upload video if present
+    if (req.files.video && req.files.video.length > 0) {
+      const vid = await uploadToCloudinary(req.files.video, 'videos', 'video');
+      uploaded.video = vid || '';
+    }
+
+    return res.status(200).json({ success: true, uploaded });
+  } catch (err) {
+    console.error('❌ uploadFiles error:', err);
+    return res.status(500).json({ error: 'Upload failed', details: err.message || String(err) });
   }
 };

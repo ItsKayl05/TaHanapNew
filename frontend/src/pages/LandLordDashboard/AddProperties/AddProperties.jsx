@@ -1163,55 +1163,34 @@ const AddProperties = () => {
                   <div className="panorama-previews-grid">
                     {panoramas.map((p) => (
                       <div key={p.id} className="panorama-card">
-                        <div className="panorama-preview-container">
-                          {/* FIX: Force re-render with key prop and use previewUrl from single state */}
-                          <PhotoDomeViewer
-                            key={p.id}
-                            imageUrl={p.previewUrl}
-                            mode="MONOSCOPIC"
-                          />
-                        </div>
+                        <div className="panorama-item">
+                          <div className="panorama-viewer">
+                            <PhotoDomeViewer
+                              key={p.id}
+                              imageUrl={p.previewUrl}
+                              mode="MONOSCOPIC"
+                            />
+                          </div>
 
-                        {/* Caption input for each 360 image */}
-                        <div className="panorama-caption-input" style={{ marginTop: '12px', marginBottom: '12px' }}>
-                          <label style={{ 
-                            display: 'block', 
-                            fontSize: '0.85rem', 
-                            fontWeight: '500', 
-                            marginBottom: '6px',
-                            color: '#333'
-                          }}>
-                            Image Caption:
-                          </label>
+                          <label className="panorama-caption-label">Caption for this 360° image</label>
                           <input
                             type="text"
+                            className="panorama-caption-input"
+                            placeholder="Enter a short caption..."
                             value={p.caption}
-                            onChange={(e) => handleCaptionChange(p.id, e.target.value)}
-                            placeholder="E.g., Living Room, Master Bedroom, Kitchen..."
                             maxLength={50}
-                            style={{
-                              width: '100%',
-                              padding: '8px 12px',
-                              border: '1px solid #ddd',
-                              borderRadius: '6px',
-                              fontSize: '0.9rem',
-                              backgroundColor: '#fff',
-                              transition: 'border-color 0.2s ease'
-                            }}
-                            onFocus={(e) => e.target.style.borderColor = '#007bff'}
-                            onBlur={(e) => e.target.style.borderColor = '#ddd'}
+                            onChange={(e) => handleCaptionChange(p.id, e.target.value)}
                           />
-                          <div style={{ 
-                            fontSize: '0.75rem', 
-                            color: '#666', 
-                            marginTop: '4px',
-                            textAlign: 'right'
-                          }}>
-                            { (p.caption || '').length }/50 characters
+                          <div className="caption-counter">{(p.caption || '').length}/50</div>
+
+                          <div className="panorama-actions">
+                            <div className="panorama-info">
+                              <i className="fas fa-vr-cardboard"></i>
+                              Room View
+                            </div>
+                            <button type="button" className="ll-btn tiny danger remove-panorama" onClick={() => removePanorama(p.id)}>Remove</button>
                           </div>
                         </div>
-
-                        <button type="button" className="ll-btn tiny danger remove-panorama" onClick={() => removePanorama(p.id)}>Remove</button>
                       </div>
                     ))}
                   </div>
