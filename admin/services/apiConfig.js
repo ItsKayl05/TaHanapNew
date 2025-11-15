@@ -33,6 +33,10 @@ if (!base) {
 }
 
 base = base.replace(/\/$/, '');
+// Helpful debug log in admin builds to know which API base we resolved to
+if (typeof window !== 'undefined' && import.meta.env.MODE === 'development') {
+  console.info('[admin apiConfig] API_BASE resolved to:', base);
+}
 export const API_BASE = base;
 export const API_URL = `${API_BASE}/api`;
 export const UPLOADS_BASE = `${API_BASE}/uploads`;

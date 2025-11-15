@@ -29,13 +29,14 @@ const AdminLogin = () => {
     setError("");
   
     try {
-      console.log('🔐 Admin login attempt:', { username: credentials.username });
+      const loginUrl = buildApi('/auth/admin/login');
+      console.log('🔐 Admin login attempt:', { username: credentials.username, url: loginUrl });
       const response = await axios.post(buildApi('/auth/admin/login'), {
         username: credentials.username,
         password: credentials.password,
       });
   
-      console.log('✅ Admin login response:', response.data);
+      console.log('✅ Admin login response:', { status: response.status, data: response.data, headers: response.headers });
       if (response.data && response.data.role === "admin") {
         login(response.data.token);
         console.log('🎯 Redirecting to admin dashboard');

@@ -139,6 +139,7 @@ export const adminLogin = async (req, res) => {
 
   try {
     const user = await User.findOne({ username });
+    console.log('[adminLogin] Request: username=', username, 'origin=', req.headers.origin || 'none');
     
     if (!user) {
       return res.status(401).json({ msg: 'Invalid credentials' });
@@ -167,6 +168,7 @@ export const adminLogin = async (req, res) => {
       { expiresIn: '7d' }
     );
 
+    console.log('[adminLogin] Success: user=', user._id?.toString(), 'role=', user.role);
     res.status(200).json({ 
       msg: 'Admin login successful', 
       token,
