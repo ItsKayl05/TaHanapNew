@@ -25,6 +25,15 @@ if (!base) {
       }
     } else {
       // Production (or hosted) builds: use the same origin unless user provided VITE_API_BASE_URL
+      // ⚠️ WARNING: If on a hosted domain (like onrender.com), this will use the frontend origin as the API base.
+      // This is likely WRONG for most setups. Make sure VITE_API_BASE_URL is set in your Render environment!
+      if (typeof window !== 'undefined' && window.location.hostname.includes('.')) {
+        console.warn(
+          '[admin apiConfig] ⚠️  VITE_API_BASE_URL not set on hosted domain (' + window.location.hostname + '). ' +
+          'Using window.location.origin as API base, which is likely WRONG. ' +
+          'Please set VITE_API_BASE_URL in your Render environment to your backend URL (e.g., https://api.tahanap.xyz).'
+        );
+      }
       base = window.location.origin.replace(/\/$/, '');
     }
   } else {
@@ -34,8 +43,15 @@ if (!base) {
 
 base = base.replace(/\/$/, '');
 // Helpful debug log in admin builds to know which API base we resolved to
+// Log for all modes so prod issues are visible in Render logs
 if (typeof window !== 'undefined' && import.meta.env.MODE === 'development') {
   console.info('[admin apiConfig] API_BASE resolved to:', base);
+}
+// Also log in production (less verbose) for troubleshooting
+if (typeof window !== 'undefined' && import.meta.env.MODE === 'production') {
+  if (!import.meta.env.VITE_API_BASE_URL) {
+    console.warn('[admin apiConfig] Production mode without VITE_API_BASE_URL. Using:', base);
+  }
 }
 export const API_BASE = base;
 export const API_URL = `${API_BASE}/api`;
