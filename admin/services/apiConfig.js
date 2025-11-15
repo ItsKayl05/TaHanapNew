@@ -1,25 +1,31 @@
-// Simplified admin API config: rely directly on Vite's import.meta.env replacement.
-// Previous dynamic Function approach prevented Vite from statically injecting env vars.
-// This resolves the persistent "No VITE_API_BASE_URL" warning even when .env is present.
+// Admin API config with subdomain support
+// When on localhost dev ports or subdomains, use localhost:4000 for backend API
 
 const raw = (import.meta.env && import.meta.env.VITE_API_BASE_URL) || '';
 let base = (raw || '').trim();
-if(!base) {
+
+if (!base) {
   if (typeof window !== 'undefined') {
-    base = window.location.origin.replace(/\/$/, '');
-    // Fallback dev heuristic
-    const devPorts = ['5173','5174','3000','3001'];
-    if (devPorts.includes(window.location.port)) {
+    const hostname = window.location.hostname;
+    const port = window.location.port;
+    const devPorts = ['5173', '5174', '3000', '3001', '8080'];
+    
+    // If on localhost dev port OR on a subdomain (.local, .test, etc) OR in development
+    if (devPorts.includes(port) || hostname.includes('.') && !hostname.includes('localhost') || import.meta.env.MODE === 'development') {
       base = 'http://localhost:4000';
       if (import.meta.env.MODE === 'development') {
         // eslint-disable-next-line no-console
-        console.info('[admin apiConfig] Using fallback API base http://localhost:4000');
+        console.info('[admin apiConfig] Using backend API at http://localhost:4000');
       }
+    } else {
+      // Production: use same origin
+      base = window.location.origin.replace(/\/$/, '');
     }
   } else {
     base = 'http://localhost:4000';
   }
 }
+
 base = base.replace(/\/$/, '');
 export const API_BASE = base;
 export const API_URL = `${API_BASE}/api`;

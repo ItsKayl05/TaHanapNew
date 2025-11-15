@@ -83,6 +83,9 @@ const LoginPage = () => {
     
             // Save token & role in localStorage
             localStorage.setItem("user_token", data.token);
+            // Decode token to get user info
+            const decoded = JSON.parse(atob(data.token.split('.')[1]));
+            localStorage.setItem("user_id", decoded.id);
             login(data.role);
     
             // Delay navigation slightly to ensure toast renders

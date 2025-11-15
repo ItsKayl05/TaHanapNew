@@ -9,7 +9,9 @@ import {
     deleteProperty,
     getPropertiesByLandlord,
     setPropertyStatus,
-    setPropertyAvailability
+    setPropertyAvailability,
+    addFeedback,
+    getPropertyFeedback
 } from "../controllers/propertyController.js";
 import { protect, roleCheck } from "../middleware/authMiddleware.js";
 import { uploadMemory, uploadDisk } from "../controllers/propertyController.js";
@@ -35,5 +37,9 @@ router.put("/:id/availability", protect, setPropertyAvailability);
 
 // 🔒 Admin moderation: update property status
 router.put("/:id/status", protect, roleCheck('admin'), setPropertyStatus);
+
+// 💬 Feedback routes
+router.post("/:id/feedback", addFeedback); // Add feedback to a property (public)
+router.get("/:id/feedback", getPropertyFeedback); // Get all feedback for a property (public)
 
 export default router;

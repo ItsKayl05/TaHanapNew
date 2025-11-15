@@ -1860,3 +1860,85 @@ export const uploadFiles = async (req, res) => {
     return res.status(500).json({ error: 'Upload failed', details: err.message || String(err) });
   }
 };
+
+// Add feedback to a property
+export const addFeedback = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { message, username } = req.body;
+
+    // Validate property ID
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid property ID' });
+    }
+
+    // Validate message
+    if (!message || message.trim().length === 0) {
+      return res.status(400).json({ error: 'Feedback message is required' });
+    }
+
+    // Validate username
+    if (!username || username.trim().length === 0) {
+      return res.status(400).json({ error: 'Username is required' });
+    }
+
+    // Trim inputs and limit length
+    const trimmedMessage = message.trim().substring(0, 1000);
+    const trimmedUsername = username.trim().substring(0, 50);
+
+    // Find property and add feedback
+    const property = await Property.findByIdAndUpdate(
+      id,
+      {
+        $push: {
+          feedback: {
+            username: trimmedUsername,
+            message: trimmedMessage,
+            createdAt: new Date()
+          }
+        }
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!property) {
+      return res.status(404).json({ error: 'Property not found' });
+    }
+
+    console.log(`✅ Feedback added to property ${id} by ${trimmedUsername}`);
+    res.status(201).json({
+      success: true,
+      message: 'Feedback added successfully',
+      feedback: property.feedback[property.feedback.length - 1] // Return the newly added feedback
+    });
+  } catch (error) {
+    console.error('❌ addFeedback error:', error);
+    res.status(500).json({ error: 'Server error adding feedback' });
+  }
+};
+
+// Get all feedback for a property
+export const getPropertyFeedback = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Validate property ID
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid property ID' });
+    }
+
+    const property = await Property.findById(id).select('feedback');
+    if (!property) {
+      return res.status(404).json({ error: 'Property not found' });
+    }
+
+    res.json({
+      success: true,
+      propertyId: id,
+      feedback: property.feedback || []
+    });
+  } catch (error) {
+    console.error('❌ getPropertyFeedback error:', error);
+    res.status(500).json({ error: 'Server error fetching feedback' });
+  }
+};

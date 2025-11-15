@@ -29,17 +29,25 @@ const AdminLogin = () => {
     setError("");
   
     try {
-    const response = await axios.post(buildApi('/auth/admin/login'), {
-      username: credentials.username,
-      password: credentials.password,
-    });
+      console.log('🔐 Admin login attempt:', { username: credentials.username });
+      const response = await axios.post(buildApi('/auth/admin/login'), {
+        username: credentials.username,
+        password: credentials.password,
+      });
   
+      console.log('✅ Admin login response:', response.data);
       if (response.data && response.data.role === "admin") {
         login(response.data.token);
+        console.log('🎯 Redirecting to admin dashboard');
         navigate("/admin/dashboard", { replace: true });
+      } else {
+        setError("Unexpected response - not admin role");
+        console.error('❌ Response missing admin role:', response.data);
       }
     } catch (err) {
-      setError(err.response?.data?.msg || "Login failed. Please try again.");
+      console.error('❌ Admin login error:', err);
+      const errorMsg = err.response?.data?.msg || err.message || "Login failed. Please try again.";
+      setError(errorMsg);
     } finally {
       setIsLoading(false);
     }

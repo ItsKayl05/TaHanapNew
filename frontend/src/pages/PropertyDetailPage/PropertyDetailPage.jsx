@@ -20,6 +20,10 @@ const PropertyDetailPage = () => {
     const [applying, setApplying] = useState(false);
     const [currentPanoramaIndex, setCurrentPanoramaIndex] = useState(0);
     const [showPanorama, setShowPanorama] = useState(false);
+    const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+    const [feedbackMessage, setFeedbackMessage] = useState('');
+    const [feedbackList, setFeedbackList] = useState([]);
+    const [submittingFeedback, setSubmittingFeedback] = useState(false);
     const { userRole } = useContext(AuthContext);
     const currentUserId = localStorage.getItem('user_id') || null;
     const { socket } = useSocket();
@@ -127,6 +131,17 @@ const PropertyDetailPage = () => {
                 
                 setProperty(norm);
                 setLoading(false);
+                
+                // Load feedback for this property
+                try {
+                    const feedbackResp = await fetch(buildApi(`/properties/${id}/feedback`));
+                    if (feedbackResp.ok) {
+                        const feedbackData = await feedbackResp.json();
+                        setFeedbackList(feedbackData.feedback || []);
+                    }
+                } catch (feedbackError) {
+                    console.error('Error loading feedback:', feedbackError);
+                }
             } catch (error) {
                 toast.error("Error fetching property details");
                 console.error("Error:", error);
@@ -261,6 +276,83 @@ const PropertyDetailPage = () => {
         const num = Number(v);
         if (isNaN(num)) return '';
         return Number.isInteger(num) ? String(num) : String(Math.round(num * 10) / 10);
+    };
+
+    // Handle feedback submission
+    const handleSubmitFeedback = async () => {
+        if (!feedbackMessage.trim()) {
+            toast.error('Please enter your feedback message');
+            return;
+        }
+
+        setSubmittingFeedback(true);
+        try {
+            // Get tenant's username from localStorage
+            let username = localStorage.getItem('user_username');
+            
+            // If username not found, try to fetch from API
+            if (!username) {
+                const token = localStorage.getItem('user_token');
+                if (!token) {
+                    toast.error('Please log in to submit feedback');
+                    setSubmittingFeedback(false);
+                    return;
+                }
+
+                // Fetch user data to get username
+                const userResponse = await fetch(buildApi('/users/me'), {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (userResponse.ok) {
+                    const userData = await userResponse.json();
+                    username = userData.username;
+                    // Save it for future use
+                    if (username) localStorage.setItem('user_username', username);
+                } else {
+                    toast.error('Failed to retrieve username. Please try again.');
+                    setSubmittingFeedback(false);
+                    return;
+                }
+            }
+
+            if (!username) {
+                toast.error('Username not found. Please log in again.');
+                setSubmittingFeedback(false);
+                return;
+            }
+
+            const response = await fetch(buildApi(`/properties/${id}/feedback`), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    message: feedbackMessage.trim(),
+                    username: username
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to submit feedback');
+            }
+
+            const result = await response.json();
+            toast.success('Feedback submitted successfully!');
+            
+            // Add new feedback to the list
+            setFeedbackList(prev => [...prev, result.feedback]);
+            
+            // Clear form
+            setFeedbackMessage('');
+            setShowFeedbackModal(false);
+        } catch (error) {
+            console.error('Error submitting feedback:', error);
+            toast.error(error.message || 'Failed to submit feedback');
+        } finally {
+            setSubmittingFeedback(false);
+        }
     };
 
     return (
@@ -778,7 +870,94 @@ const PropertyDetailPage = () => {
                         >
                             Message Property Owner
                         </button>
+
+                        <button
+                            className="feedback-btn"
+                            onClick={() => setShowFeedbackModal(true)}
+                        >
+                            Leave Feedback
+                        </button>
                     </div>
+
+                    {/* Feedback Section */}
+                    <div className="feedback-section">
+                        <h3 className="feedback-title">💬 What People Say</h3>
+                        
+                        {feedbackList && feedbackList.length > 0 ? (
+                            <div className="feedback-list">
+                                {feedbackList.map((feedback, index) => (
+                                    <div key={index} className="feedback-item">
+                                        <div className="feedback-header">
+                                            <strong className="feedback-name">{feedback.username}</strong>
+                                            <span className="feedback-date">
+                                                {new Date(feedback.createdAt).toLocaleDateString('en-US', {
+                                                    year: 'numeric',
+                                                    month: 'short',
+                                                    day: 'numeric'
+                                                })}
+                                            </span>
+                                        </div>
+                                        <p className="feedback-message">{feedback.message}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="no-feedback">No feedback yet. Be the first to share your thoughts!</p>
+                        )}
+                    </div>
+
+                    {/* Feedback Modal */}
+                    {showFeedbackModal && (
+                        <div className="feedback-modal-overlay" onClick={() => !submittingFeedback && setShowFeedbackModal(false)}>
+                            <div className="feedback-modal" onClick={(e) => e.stopPropagation()}>
+                                <div className="feedback-modal-header">
+                                    <h2>Share Your Feedback</h2>
+                                    <button 
+                                        className="modal-close-btn" 
+                                        onClick={() => !submittingFeedback && setShowFeedbackModal(false)}
+                                        disabled={submittingFeedback}
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+
+                                <div className="feedback-modal-body">
+                                    <div className="form-group">
+                                        <label htmlFor="feedback-message">Your Feedback *</label>
+                                        <textarea
+                                            id="feedback-message"
+                                            placeholder="Share your experience with this property..."
+                                            value={feedbackMessage}
+                                            onChange={(e) => setFeedbackMessage(e.target.value)}
+                                            maxLength={1000}
+                                            rows={6}
+                                            disabled={submittingFeedback}
+                                        />
+                                        <span className="char-count">
+                                            {feedbackMessage.length} / 1000 characters
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="feedback-modal-footer">
+                                    <button
+                                        className="modal-cancel-btn"
+                                        onClick={() => setShowFeedbackModal(false)}
+                                        disabled={submittingFeedback}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        className="modal-submit-btn"
+                                        onClick={handleSubmitFeedback}
+                                        disabled={submittingFeedback || !feedbackMessage.trim()}
+                                    >
+                                        {submittingFeedback ? 'Submitting...' : 'Submit Feedback'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

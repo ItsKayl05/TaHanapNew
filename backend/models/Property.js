@@ -153,6 +153,15 @@ const propertySchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  // Feedback array for property reviews
+  feedback: {
+    type: [{
+      username: { type: String, required: true },
+      message: { type: String, required: true },
+      createdAt: { type: Date, default: Date.now }
+    }],
+    default: []
+  },
   // panoCount is a virtual derived from panorama360Images length
   status: {
     type: String,

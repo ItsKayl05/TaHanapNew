@@ -56,6 +56,8 @@ const AuthProvider = ({ children }) => {
         if (profilePic && !profilePic.startsWith('http')) profilePic = buildUpload(`/profiles/${profilePic}`);
         const normalized = { id: u._id || u.id || '', fullName: u.fullName || u.username || '', username: u.username || '', profilePic };
         setCurrentUser(normalized);
+        // Save username to localStorage for feedback system
+        if (u.username) localStorage.setItem('user_username', u.username);
         try { localStorage.setItem('current_user', JSON.stringify(normalized)); } catch(e){}
       })
       .catch(() => {
