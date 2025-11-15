@@ -92,4 +92,21 @@ router.post('/cloudinary-test', async (req, res) => {
     }
 });
 
+// Debug: check user role by username (protected by DEBUG_TOKEN header)
+router.get('/debug/user/:username', async (req, res) => {
+    const token = req.headers['x-debug-token'];
+    if (!process.env.DEBUG_TOKEN) return res.status(403).json({ message: 'Debug token not configured on server' });
+    if (!token || token !== process.env.DEBUG_TOKEN) return res.status(401).json({ message: 'Unauthorized' });
+
+    try {
+        const username = req.params.username;
+        const user = await User.findOne({ username }).select('username role email createdAt');
+        if (!user) return res.status(404).json({ message: 'User not found' });
+        res.json({ ok: true, user });
+    } catch (err) {
+        console.error('debug user error:', err);
+        res.status(500).json({ ok: false, error: String(err) });
+    }
+});
+
 export default router;

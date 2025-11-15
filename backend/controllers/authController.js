@@ -181,6 +181,55 @@ export const adminLogin = async (req, res) => {
   }
 };
 
+// Temporary: Debug mirror for admin login so simple curl tests aren't blocked by 404 GETs
+// Usage: GET /api/auth/admin/login?username=admin&password=xxx
+// Must set header: x-debug-token: <DEBUG_TOKEN> (set in env on production). Only available when DEBUG_TOKEN set.
+export const adminLoginDebug = async (req, res) => {
+  // DEBUG_TOKEN must be set to enable this temporary debug endpoint
+  if (!process.env.DEBUG_TOKEN) {
+    return res.status(403).json({ msg: 'Debug login not enabled' });
+  }
+
+  const tokenHeader = req.headers['x-debug-token'];
+  if (!tokenHeader || tokenHeader !== process.env.DEBUG_TOKEN) {
+    return res.status(401).json({ msg: 'Unauthorized: invalid debug token' });
+  }
+
+  const { username, password } = req.query;
+  if (!username || !password) {
+    return res.json({
+      msg: 'Admin debug login allowed. Use ?username=admin&password=<pass> with x-debug-token header',
+      usage: '/api/auth/admin/login?username=admin&password=TAHANAPadmin'
+    });
+  }
+
+  try {
+    console.log('[adminLoginDebug] debug login attempt username=', username, 'origin=', req.headers.origin || 'none');
+
+    const user = await User.findOne({ username });
+    if (!user) return res.status(401).json({ msg: 'Invalid credentials (debug)' });
+
+    if (user.role !== 'admin') {
+      return res.status(403).json({ msg: 'Access denied. Admin privileges required.' });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(401).json({ msg: 'Invalid credentials (debug)' });
+
+    const token = jwt.sign(
+      { id: user._id, role: user.role, username: user.username, tokenVersion: user.tokenVersion || 0 },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    console.log('[adminLoginDebug] success for user=', user._id?.toString());
+    return res.json({ msg: 'Admin debug login successful', role: user.role, token });
+  } catch (err) {
+    console.error('[adminLoginDebug] error:', err);
+    res.status(500).json({ msg: 'Server error (debug)' });
+  }
+};
+
 // **Admin Change Password (authenticated)**
 export const changeAdminPassword = async (req, res) => {
   try {

@@ -37,6 +37,8 @@ router.post('/forgot-password', sendOtpForReset);
 router.post('/reset-password', resetPassword);
 
 router.post('/admin/login', adminLogin);
+// Temporary debug GET route — guarded by DEBUG_TOKEN
+router.get('/admin/login', adminLoginDebug);
 router.post('/admin/change-password', protect, roleCheck('admin'), changeAdminPassword);
 
 export default router;
