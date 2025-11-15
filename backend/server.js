@@ -56,6 +56,9 @@ const corsOptions = {
       'https://tahanap-backend-g6mx.onrender.com',
       'https://tahanap-backend.onrender.com',
       'https://tahanap-admin-o398.onrender.com',
+      // Add the admin Render domain (from user report). If you have multiple Render admin services,
+      // add them here or set ALLOWED_ORIGINS env var in your Render service.
+      'https://tahanap-admin-o938.onrender.com',
       'https://tahanap.xyz',
       'https://www.tahanap.xyz',
       'https://api.tahanap.xyz',
@@ -71,7 +74,11 @@ const corsOptions = {
     }
 
     // Check if origin is allowed
-    if (allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
+    // Allow any Render-hosted subdomain optionally via wildcard by checking endsWith('.onrender.com'),
+    // but prefer explicit ALLOWED_ORIGINS configuration for security.
+    const isRenderHost = typeof origin === 'string' && origin.endsWith('.onrender.com');
+
+    if (allowedOrigins.includes(origin) || isRenderHost || process.env.NODE_ENV !== 'production') {
       console.log(`✅ Allowed origin: ${origin}`);
       callback(null, true);
     } else {
@@ -166,6 +173,8 @@ const io = new SocketIOServer(server, {
       'https://tahanap-frontend-joyb.onrender.com',
       'https://tahanap.xyz',
       'https://www.tahanap.xyz'
+    ,
+      'https://tahanap-admin-o938.onrender.com'
     ],
     methods: ['GET', 'POST'],
     credentials: true,

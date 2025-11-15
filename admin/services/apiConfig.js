@@ -10,15 +10,21 @@ if (!base) {
     const port = window.location.port;
     const devPorts = ['5173', '5174', '3000', '3001', '8080'];
     
-    // If on localhost dev port OR on a subdomain (.local, .test, etc) OR in development
-    if (devPorts.includes(port) || hostname.includes('.') && !hostname.includes('localhost') || import.meta.env.MODE === 'development') {
+    // Decide if we should use the local backend during development
+    const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+    const isDevPort = devPorts.includes(port);
+    const isLocalDomain = hostname.endsWith('.local') || hostname.endsWith('.test');
+
+    // Prefer the local backend only for true dev scenarios (localhost, local ports or .local/.test domains)
+    // Avoid treating hosted domains (like onrender.com / netlify.app) as local dev.
+    if (isLocalhost || isDevPort || isLocalDomain || import.meta.env.MODE === 'development') {
       base = 'http://localhost:4000';
       if (import.meta.env.MODE === 'development') {
         // eslint-disable-next-line no-console
         console.info('[admin apiConfig] Using backend API at http://localhost:4000');
       }
     } else {
-      // Production: use same origin
+      // Production (or hosted) builds: use the same origin unless user provided VITE_API_BASE_URL
       base = window.location.origin.replace(/\/$/, '');
     }
   } else {
