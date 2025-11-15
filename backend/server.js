@@ -32,11 +32,14 @@ const __dirname = dirname(__filename);
 // Connect to MongoDB first
 connectDB();
 
-// Enhanced CORS configuration
+// Enhanced CORS configuration - FIXED for admin domain
 const corsOptions = {
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
+    // Allow requests with no origin (like mobile apps, curl requests, or server-side requests)
+    if (!origin) {
+      console.log('ℹ️  No origin header - allowing request');
+      return callback(null, true);
+    }
     
     // Development origins
     const devOrigins = [
@@ -47,17 +50,16 @@ const corsOptions = {
       'http://127.0.0.1:5174',
       'http://127.0.0.1:5176',
       'http://localhost:3000',
-      'http://127.0.0.1:3000'
+      'http://127.0.0.1:3000',
+      'http://localhost:4000'
     ];
     
-    // Production origins
+    // Production origins - UPDATED with exact admin domains
     const prodOrigins = [
       'https://tahanap-frontend-joyb.onrender.com',
       'https://tahanap-backend-g6mx.onrender.com',
       'https://tahanap-backend.onrender.com',
-      'https://tahanap-admin-o398.onrender.com',
-      // Add the admin Render domain (from user report). If you have multiple Render admin services,
-      // add them here or set ALLOWED_ORIGINS env var in your Render service.
+      'https://tahanap-admin-o398.onrender.com', // EXACT admin domain from error
       'https://tahanap-admin-o938.onrender.com',
       'https://tahanap.xyz',
       'https://www.tahanap.xyz',
@@ -70,86 +72,101 @@ const corsOptions = {
     
     // Add environment variable origins if any
     if (process.env.ALLOWED_ORIGINS) {
-      allowedOrigins.push(...process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim()));
+      const envOrigins = process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim());
+      allowedOrigins.push(...envOrigins);
+      console.log('🔧 Added environment origins:', envOrigins);
     }
 
     // Check if origin is allowed
-    // Allow any Render-hosted subdomain optionally via wildcard by checking endsWith('.onrender.com'),
-    // but prefer explicit ALLOWED_ORIGINS configuration for security.
+    const isAllowedOrigin = allowedOrigins.includes(origin);
+    
+    // Allow any Render-hosted subdomain for flexibility
     const isRenderHost = typeof origin === 'string' && origin.endsWith('.onrender.com');
+    
+    // In development, allow all origins for testing
+    const isDevelopment = process.env.NODE_ENV !== 'production';
 
-    if (allowedOrigins.includes(origin) || isRenderHost || process.env.NODE_ENV !== 'production') {
-      console.log(`✅ Allowed origin: ${origin}`);
+    if (isAllowedOrigin || isRenderHost || isDevelopment) {
+      console.log(`✅ Allowed CORS origin: ${origin}`);
       callback(null, true);
     } else {
-      console.log(`🚫 Blocked origin: ${origin}`);
-      callback(new Error('Not allowed by CORS'));
+      console.log(`🚫 Blocked CORS origin: ${origin}`);
+      console.log(`📋 Allowed origins:`, allowedOrigins);
+      callback(new Error(`Not allowed by CORS. Origin: ${origin}`));
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-socket-id'],
-  optionsSuccessStatus: 200
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With', 
+    'x-socket-id',
+    'x-debug-token',
+    'Accept'
+  ],
+  exposedHeaders: [
+    'Authorization',
+    'x-total-count',
+    'x-total-pages'
+  ],
+  optionsSuccessStatus: 200,
+  maxAge: 86400 // 24 hours
 };
 
-// Apply CORS middleware
+// Apply CORS middleware globally
 app.use(cors(corsOptions));
+
+// Handle preflight requests for all routes
 app.options('*', cors(corsOptions));
 
-// Additional CORS headers for all responses
+// Additional CORS headers middleware - ENHANCED
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  const allowedOrigins = [
-    'http://localhost:5173',
-    'http://localhost:5174',
-    'http://localhost:5176',
-    'http://127.0.0.1:5173',
-    'http://127.0.0.1:5174',
-    'http://127.0.0.1:5176'
-  ];
-
-  if (origin && allowedOrigins.includes(origin)) {
+  
+  if (origin) {
     res.header('Access-Control-Allow-Origin', origin);
   }
   
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-socket-id');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-socket-id, x-debug-token');
+  res.header('Access-Control-Expose-Headers', 'Authorization, x-total-count, x-total-pages');
   
+  // Handle preflight requests
   if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
+    console.log('🛬 Preflight request handled for:', req.headers.origin);
+    return res.status(200).end();
   }
   
   next();
 });
 
 // Body parsing middleware - increased limits for large uploads
-// Important: skip body parsers on multipart/form-data requests so multer can consume the stream.
 const jsonParser = express.json({ limit: '200mb' });
 const urlencodedParser = express.urlencoded({ extended: true, limit: '200mb' });
 const bpJson = bodyParser.json({ limit: '200mb' });
 
+// Skip body parsers for multipart requests (handled by multer)
 app.use((req, res, next) => {
-  const ct = (req.headers['content-type'] || '').toLowerCase();
-  if (ct.includes('multipart/form-data')) {
-    // Skip JSON/urlencoded parsers for multipart requests — multer will handle them
+  const contentType = req.headers['content-type'] || '';
+  if (contentType.includes('multipart/form-data')) {
     return next();
   }
   return jsonParser(req, res, next);
 });
 
 app.use((req, res, next) => {
-  const ct = (req.headers['content-type'] || '').toLowerCase();
-  if (ct.includes('multipart/form-data')) {
+  const contentType = req.headers['content-type'] || '';
+  if (contentType.includes('multipart/form-data')) {
     return next();
   }
   return urlencodedParser(req, res, next);
 });
 
-// BodyParser (same rule)
 app.use((req, res, next) => {
-  const ct = (req.headers['content-type'] || '').toLowerCase();
-  if (ct.includes('multipart/form-data')) return next();
+  const contentType = req.headers['content-type'] || '';
+  if (contentType.includes('multipart/form-data')) return next();
   return bpJson(req, res, next);
 });
 
@@ -157,10 +174,10 @@ app.use((req, res, next) => {
 import http from 'http';
 const server = http.createServer(app);
 
-// Increase server timeouts for uploads (set after server creation)
+// Increase server timeouts for uploads
 server.setTimeout(10 * 60 * 1000); // 10 minutes
 
-// Configure Socket.IO with simplified CORS
+// Configure Socket.IO with enhanced CORS
 const io = new SocketIOServer(server, {
   cors: {
     origin: [
@@ -172,11 +189,11 @@ const io = new SocketIOServer(server, {
       'http://127.0.0.1:5176',
       'https://tahanap-frontend-joyb.onrender.com',
       'https://tahanap.xyz',
-      'https://www.tahanap.xyz'
-    ,
+      'https://www.tahanap.xyz',
+      'https://tahanap-admin-o398.onrender.com', // ADDED admin domain
       'https://tahanap-admin-o938.onrender.com'
     ],
-    methods: ['GET', 'POST'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'x-socket-id']
   },
@@ -255,12 +272,16 @@ app.use('/api/payments', paymentRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/applications", applicationRoutes);
 
-// Health check endpoints
+// Enhanced health check endpoints with CORS info
 app.get('/', (req, res) => {
   res.json({
-    message: 'Server is running!',
+    message: 'Tahanap API Server is running!',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development',
+    cors: {
+      enabled: true,
+      origin: req.headers.origin || 'none'
+    }
   });
 });
 
@@ -269,7 +290,9 @@ app.get('/health', (req, res) => {
     status: 'OK',
     server: 'Running',
     database: 'Connected',
-    timestamp: new Date().toISOString()
+    cors: 'Enabled',
+    timestamp: new Date().toISOString(),
+    origin: req.headers.origin || 'none'
   });
 });
 
@@ -280,11 +303,27 @@ app.get('/socket-health', (req, res) => {
   });
 });
 
-// Test endpoint for CORS
+// Enhanced CORS test endpoint
 app.get('/api/test-cors', (req, res) => {
   res.json({
-    message: 'CORS is working!',
+    message: 'CORS is working correctly!',
     origin: req.headers.origin,
+    method: req.method,
+    timestamp: new Date().toISOString(),
+    cors: {
+      allowed: true,
+      credentials: true
+    }
+  });
+});
+
+// Specific admin CORS test endpoint
+app.get('/api/admin/test-cors', (req, res) => {
+  console.log('🔧 Admin CORS test request from:', req.headers.origin);
+  res.json({
+    message: 'Admin CORS test successful!',
+    origin: req.headers.origin,
+    admin: true,
     timestamp: new Date().toISOString()
   });
 });
@@ -347,24 +386,39 @@ app.put('/api/users/update-profile', protect, upload.single('profilePic'), async
   }
 });
 
-// Error handling middleware
+// Enhanced error handling middleware
 app.use((err, req, res, next) => {
-  console.error('Error:', err.stack);
+  console.error('🚨 Server Error:', err.stack);
 
-  if (err.message === 'Not allowed by CORS') {
+  // CORS specific errors
+  if (err.message === 'Not allowed by CORS' || err.message.includes('CORS')) {
     return res.status(403).json({
       message: 'CORS Error: Origin not allowed',
+      origin: req.headers.origin,
       allowedOrigins: [
-        'http://localhost:5173',
-        'http://localhost:5174',
-        'http://localhost:5176'
-      ]
+        'https://tahanap-admin-o398.onrender.com',
+        'https://tahanap-admin-o938.onrender.com',
+        'https://tahanap-frontend-joyb.onrender.com',
+        'https://tahanap.xyz',
+        'http://localhost:5173'
+      ],
+      timestamp: new Date().toISOString()
     });
   }
 
+  // Multer file size errors
+  if (err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(413).json({
+      message: 'File too large',
+      maxSize: '5MB'
+    });
+  }
+
+  // General server errors
   res.status(500).json({
-    message: 'Something went wrong!',
-    error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    message: 'Internal server error',
+    error: process.env.NODE_ENV === 'development' ? err.message : undefined,
+    timestamp: new Date().toISOString()
   });
 });
 
@@ -372,17 +426,40 @@ app.use((err, req, res, next) => {
 app.use('*', (req, res) => {
   res.status(404).json({
     message: 'Route not found',
-    path: req.originalUrl
+    path: req.originalUrl,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Graceful shutdown handling
+process.on('SIGTERM', () => {
+  console.log('🛑 SIGTERM received, shutting down gracefully');
+  server.close(() => {
+    console.log('✅ HTTP server closed');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('🛑 SIGINT received, shutting down gracefully');
+  server.close(() => {
+    console.log('✅ HTTP server closed');
+    process.exit(0);
   });
 });
 
 // Start server
 server.listen(port, '0.0.0.0', () => {
-  console.log(`🚀 Server running on port ${port}`);
+  console.log(`🚀 Tahanap API Server running on port ${port}`);
   console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🔗 Server URL: http://localhost:${port}`);
   console.log(`📡 Socket.IO ready for connections`);
-  console.log(`✅ CORS enabled for: localhost:5173, localhost:5174, localhost:5176`);
+  console.log(`✅ CORS enabled for:`);
+  console.log(`   - https://tahanap-admin-o398.onrender.com (Admin)`);
+  console.log(`   - https://tahanap-frontend-joyb.onrender.com (Frontend)`);
+  console.log(`   - https://tahanap.xyz (Production)`);
+  console.log(`   - http://localhost:5173 (Development)`);
 });
 
 // Make io available via the express app
