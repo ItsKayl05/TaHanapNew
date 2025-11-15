@@ -24,17 +24,25 @@ if (!base) {
         console.info('[admin apiConfig] Using backend API at http://localhost:4000');
       }
     } else {
-      // Production (or hosted) builds: use the same origin unless user provided VITE_API_BASE_URL
-      // ⚠️ WARNING: If on a hosted domain (like onrender.com), this will use the frontend origin as the API base.
-      // This is likely WRONG for most setups. Make sure VITE_API_BASE_URL is set in your Render environment!
-      if (typeof window !== 'undefined' && window.location.hostname.includes('.')) {
-        console.warn(
-          '[admin apiConfig] ⚠️  VITE_API_BASE_URL not set on hosted domain (' + window.location.hostname + '). ' +
-          'Using window.location.origin as API base, which is likely WRONG. ' +
-          'Please set VITE_API_BASE_URL in your Render environment to your backend URL (e.g., https://api.tahanap.xyz).'
-        );
+      // Production (or hosted) builds: use a known backend, or fallback to same origin
+      // Hardcoded fallback for Render tahanap services
+      if (hostname.includes('tahanap-admin') || hostname.includes('tahanap-frontend')) {
+        base = 'https://api.tahanap.xyz';
+        // eslint-disable-next-line no-console
+        console.info('[admin apiConfig] Detected tahanap Render service, using hardcoded backend:', base);
+      } else {
+        // For other hosted domains: use the same origin
+        // ⚠️ WARNING: If on a hosted domain (like onrender.com), this will use the frontend origin as the API base.
+        // This is likely WRONG for most setups. Make sure VITE_API_BASE_URL is set in your Render environment!
+        if (typeof window !== 'undefined' && window.location.hostname.includes('.')) {
+          console.warn(
+            '[admin apiConfig] ⚠️  VITE_API_BASE_URL not set on hosted domain (' + window.location.hostname + '). ' +
+            'Using window.location.origin as API base, which is likely WRONG. ' +
+            'Please set VITE_API_BASE_URL in your Render environment to your backend URL (e.g., https://api.tahanap.xyz).'
+          );
+        }
+        base = window.location.origin.replace(/\/$/, '');
       }
-      base = window.location.origin.replace(/\/$/, '');
     }
   } else {
     base = 'http://localhost:4000';
