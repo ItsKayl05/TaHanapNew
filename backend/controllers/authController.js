@@ -55,7 +55,13 @@ try {
   console.warn('[mail] Failed to create SMTP transporter (will only use Resend if available):', e && e.message ? e.message : e);
 }
 
-// Initialize Resend client if API key is present
+// In-memory last mail status for debugging (not persisted)
+let lastMailStatus = {
+  provider: resendClient ? 'resend' : null,
+  lastSend: null,
+  lastError: null,
+};
+
 // Unified email sender: prefers Resend using the explicit Resend SDK format
 // (from is taken from process.env.RESEND_FROM to match the requested format).
 // Falls back to SMTP transporter only if Resend is not configured or fails and transporter exists.
@@ -82,7 +88,7 @@ const sendEmail = async ({ from, to, subject, html, text }) => {
       if ((err && err.name === 'validation_error') || /not verified/i.test(errMsg) || /domain is not verified/i.test(errMsg)) {
         try {
           console.log('[mail] Retrying with onboarding sender due to domain verification error');
-          const resp2 = await resendClient.emails.send({ from: DEFAULT_RESEND_FROM, to, subject, html, text });
+          const resp2 = await resendClient.emails.send({ from: DEFAULT_ONBOARDING_FROM, to, subject, html, text });
           lastMailStatus.provider = 'resend (onboarding)';
           lastMailStatus.lastSend = { ts: Date.now(), response: resp2 && (resp2.id || resp2.messageId) ? (resp2.id || resp2.messageId) : JSON.stringify(resp2) };
           console.log('[mail] Sent via Resend (onboarding):', lastMailStatus.lastSend.response);
@@ -100,7 +106,7 @@ const sendEmail = async ({ from, to, subject, html, text }) => {
   // SMTP fallback (if configured)
   if (transporter) {
     try {
-      const info = await transporter.sendMail({ from: from || process.env.RESEND_FROM || DEFAULT_RESEND_FROM, to, subject, html, text });
+      const info = await transporter.sendMail({ from: from || process.env.RESEND_FROM || DEFAULT_ONBOARDING_FROM, to, subject, html, text });
       lastMailStatus.provider = 'smtp';
       lastMailStatus.lastSend = { ts: Date.now(), response: info && (info.response || info.messageId) ? (info.response || info.messageId) : JSON.stringify(info) };
       console.log('[mail] Sent via SMTP:', lastMailStatus.lastSend.response);
@@ -118,17 +124,10 @@ const sendEmail = async ({ from, to, subject, html, text }) => {
   return { data: null, error: err };
 };
 
-// In-memory last mail status for debugging (not persisted)
-let lastMailStatus = {
-  provider: resendClient ? 'resend' : null,
-  lastSend: null,
-  lastError: null,
-};
-
 // Function to generate a random 6-digit OTP
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
-// Add this to your authController.js
+// **FIXED: Admin Login - Returns proper response format**
 export const adminLogin = async (req, res) => {
   const { username, password } = req.body;
 
@@ -169,10 +168,17 @@ export const adminLogin = async (req, res) => {
     );
 
     console.log('[adminLogin] Success: user=', user._id?.toString(), 'role=', user.role);
+    
+    // **FIXED: Return proper response format that frontend expects**
     res.status(200).json({ 
-      msg: 'Admin login successful', 
       token,
-      role: user.role
+      role: user.role,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email
+      }
+      // Removed the 'msg' field to match frontend expectation
     });
 
   } catch (err) {
@@ -223,7 +229,15 @@ export const adminLoginDebug = async (req, res) => {
     );
 
     console.log('[adminLoginDebug] success for user=', user._id?.toString());
-    return res.json({ msg: 'Admin debug login successful', role: user.role, token });
+    return res.json({ 
+      token,
+      role: user.role,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email
+      }
+    });
   } catch (err) {
     console.error('[adminLoginDebug] error:', err);
     res.status(500).json({ msg: 'Server error (debug)' });
@@ -287,12 +301,20 @@ export const loginUser = async (req, res) => {
       return res.status(401).json({ msg: 'Invalid credentials' });  // 401 = Unauthorized
     }
 
-  const token = jwt.sign({ id: user._id, role: user.role, tokenVersion: user.tokenVersion || 0 }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ 
+      id: user._id, 
+      role: user.role, 
+      tokenVersion: user.tokenVersion || 0 
+    }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
     res.status(200).json({ 
-      msg: 'Login successful', 
       token, 
-      role: user.role // ✅ FIXED: Sends role for frontend redirection 
+      role: user.role,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email
+      }
     });
 
   } catch (err) {
@@ -333,11 +355,10 @@ export const registerUser = async (req, res) => {
       return res.status(400).json({ msg: 'User already exists' });
     }
 
-    // Rest of the registration logic...
-  // Use configurable bcrypt cost to speed up registration when needed
-  const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS || '8', 10);
-  const salt = await bcrypt.genSalt(saltRounds);
-  const hashedPassword = await bcrypt.hash(password, salt);
+    // Use configurable bcrypt cost to speed up registration when needed
+    const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS || '8', 10);
+    const salt = await bcrypt.genSalt(saltRounds);
+    const hashedPassword = await bcrypt.hash(password, salt);
     const otp = generateOTP();
     const otpExpiration = Date.now() + 10 * 60 * 1000;
 
@@ -355,7 +376,7 @@ export const registerUser = async (req, res) => {
           <h2 style="margin:18px 0 10px;font-size:18px;font-weight:600;color:#f1f5f9;">Hello, ${username}!</h2>
           <p style="font-size:14px;line-height:1.5;color:#cbd5e1;margin:0 0 14px;">Use the One-Time Passcode below to verify your email address. For your security it expires in <strong>2 minutes</strong>.</p>
           <div style="font-size:30px;font-weight:700;letter-spacing:6px;text-align:center;padding:14px 10px;margin:0 0 14px;background:linear-gradient(135deg,#6366f1,#3b82f6);color:#fff;border-radius:14px;font-family:'Courier New',monospace;">${otp}</div>
-          <p style="font-size:12px;line-height:1.5;color:#94a3b8;text-align:center;margin:0 0 18px;">Didn’t request this? You can safely ignore this email.</p>
+          <p style="font-size:12px;line-height:1.5;color:#94a3b8;text-align:center;margin:0 0 18px;">Didn't request this? You can safely ignore this email.</p>
           <p style="font-size:11px;line-height:1.4;color:#64748b;text-align:center;margin:0;">&copy; ${new Date().getFullYear()} TaHanap. Building trusted rentals for Filipinos.</p>
         </div>
       `,
@@ -390,8 +411,7 @@ export const registerUser = async (req, res) => {
 
       // Send email asynchronously so registration returns immediately to the client.
       // Use unified sender (Resend or Nodemailer)
-  // Use unified sendEmail helper which prefers Resend and uses RESEND_FROM
-  sendEmail({ to: mailOptions.to, subject: mailOptions.subject, html: mailOptions.html })
+      sendEmail({ to: mailOptions.to, subject: mailOptions.subject, html: mailOptions.html })
         .then(info => {
           lastMailStatus.lastSend = { ts: Date.now(), response: info && (info.response || info.id || JSON.stringify(info)) };
           console.log('Email sent (async):', lastMailStatus.lastSend.response);
