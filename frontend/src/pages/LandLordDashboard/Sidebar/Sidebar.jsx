@@ -229,7 +229,7 @@ const Sidebar = ({ handleLogout }) => {
                                 <div className="review-time">Typical review time: <strong>within 1 hour</strong>.</div>
                             </form>
                         </div>
-                        <div className="modal-footer"><div style={{fontSize:'.65rem',color:'#6b7280'}}>False / altered IDs = suspension.</div></div>
+                        <div className="modal-footer"><div style={{fontSize:'.65rem',color:'#000'}}>False / altered IDs = suspension.</div></div>
                     </div>
                 </div>
             )}

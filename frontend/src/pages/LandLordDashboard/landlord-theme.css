@@ -30,9 +30,18 @@
 .ll-card { position:relative; background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-card); box-shadow:var(--elevation-md); padding:1.25rem 1.4rem 1.6rem; transition:box-shadow var(--transition-base), transform var(--transition-base), background .3s; }
 .ll-card:hover { box-shadow:var(--elevation-lg); transform:translateY(-2px); }
 
-.ll-field { width:100%; background:#fff; border:1px solid #d1d5db; border-radius:var(--radius-field); padding:.75rem .9rem; font-size:.92rem; font-family:inherit; color:var(--color-text-primary); transition:border-color var(--transition-base), box-shadow var(--transition-base); }
+.ll-field { width:100%; background:#fff; border:1px solid #d1d5db; border-radius:var(--radius-field); padding:.75rem .9rem; font-size:.92rem; font-family:inherit; color:#000 !important; transition:border-color var(--transition-base), box-shadow var(--transition-base); }
+.ll-field::placeholder { color:#6b7280; opacity:1; }
 .ll-field:focus { outline:none; border-color:var(--color-border-accent); box-shadow:0 0 0 3px rgba(37,99,235,0.25); }
 .ll-field[disabled] { opacity:.55; cursor:not-allowed; }
+textarea.ll-field, input.ll-field, select.ll-field { color:#000 !important; }
+
+/* Styling for select options */
+.ll-field option { color:#000; background:#fff; }
+.ll-field option:checked { background:#e0f2fe; color:#000; }
+
+/* Label styling */
+.ll-field ~ label, label { color:#000 !important; font-weight:600; }
 
 .ll-btn { --btn-bg:linear-gradient(135deg,#f3f4f6,#e5e7eb); --btn-border:#d1d5db; display:inline-flex; align-items:center; justify-content:center; gap:.5rem; min-height:42px; padding:.55rem 1.15rem .6rem; border-radius:12px; border:1px solid var(--btn-border); background:var(--btn-bg); color:#1f2937; font-weight:600; font-size:.72rem; letter-spacing:.5px; text-transform:uppercase; cursor:pointer; transition:background var(--transition-base), transform var(--transition-base), box-shadow var(--transition-base); box-shadow:0 1px 3px rgba(0,0,0,.12); }
 .ll-btn.primary { --btn-bg:linear-gradient(135deg,#2563eb,#1d4ed8); color:#fff; }

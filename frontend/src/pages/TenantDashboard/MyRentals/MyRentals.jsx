@@ -134,7 +134,7 @@ const MyRentals = () => {
                       </span>
                     </>
                   ) : (
-                    <span style={{fontStyle: 'italic', color: '#888'}}>Property removed</span>
+                    <span style={{fontStyle: 'italic', color: '#000'}}>Property removed</span>
                   )}
                 </h4>
               </div>

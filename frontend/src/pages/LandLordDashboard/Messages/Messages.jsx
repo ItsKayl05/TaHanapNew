@@ -86,13 +86,13 @@ const Messages = ({ currentUserId }) => {
         <div className="messages-layout" style={{display:'flex',height:'80vh'}}>
           <div className="messages-list" style={{width:320, borderRight:'1px solid #eee', overflowY:'auto', background:'#f7f7fa'}}>
   <h3 className="messages-title">Messages</h3>
-        {(!Array.isArray(users) || users.length === 0) && <div style={{color:'#888',padding:'1em'}}>No conversations yet.</div>}
+        {(!Array.isArray(users) || users.length === 0) && <div style={{color:'#000',padding:'1em'}}>No conversations yet.</div>}
         {Array.isArray(users) && users.map(u => (
           <div key={u._id} style={{padding:'0.75em 1em',cursor:'pointer',background:selectedUser&&selectedUser._id===u._id?'#e6eaff':'',display:'flex',alignItems:'center',borderRadius:8,margin:'0.25em 0'}} onClick={()=>setSelectedUser(u)}>
             <img src={avatarFor(u)} alt={u.fullName} style={{width:40,height:40,borderRadius:'50%',marginRight:12,objectFit:'cover',border:'2px solid #dbeafe'}} />
             <div style={{flex:1}}>
               <div className="messages-username">{u.fullName || u.username}</div>
-              {u.lastMessage && <div style={{fontSize:'0.95em',color:'#888',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{u.lastMessage}</div>}
+              {u.lastMessage && <div style={{fontSize:'0.95em',color:'#000',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{u.lastMessage}</div>}
             </div>
           </div>
         ))}
@@ -111,7 +111,7 @@ const Messages = ({ currentUserId }) => {
             propertyId={selectedUser.propertyInfo?._id || ''}
           />
         ) : (
-          <div style={{color:'#888',fontSize:'1.1em'}}>Select a conversation to start chatting</div>
+          <div style={{color:'#000',fontSize:'1.1em'}}>Select a conversation to start chatting</div>
         )}
           </div>
           </div>

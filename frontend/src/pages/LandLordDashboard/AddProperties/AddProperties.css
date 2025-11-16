@@ -341,7 +341,7 @@
 
 .caption-counter {
     font-size: 0.75rem;
-    color: #666;
+    color: #000;
     text-align: right;
 }
 .panorama-actions {
@@ -435,9 +435,16 @@
     border-radius:var(--radius-field); 
     font-size:.95rem; 
     background:#fff; 
-    color:var(--color-text-primary); 
+    color:#000 !important; 
     transition:border-color var(--transition-base), box-shadow var(--transition-base); 
     box-sizing: border-box;
+}
+
+.input-field::placeholder,
+.textarea-field::placeholder,
+.select-field::placeholder { 
+    color:#6b7280; 
+    opacity:1;
 }
 
 .input-field:focus,
@@ -452,6 +459,7 @@
     resize: vertical;
     min-height: 100px;
     line-height: 1.5;
+    color:#000 !important;
 }
 
 .select-field {
@@ -461,7 +469,11 @@
     background-position: right 12px center;
     background-size: 20px;
     cursor: pointer;
+    color:#000 !important;
 }
+
+.select-field option { color:#000; background:#fff; }
+.select-field option:checked { background:#e0f2fe; color:#000; }
 
 /* Checkbox Styles */
 .checkbox-group {
@@ -816,6 +828,12 @@
 .required::after {
     content: " *";
     color: #ef4444;
+}
+
+.form-group label {
+    color: #000 !important;
+    font-weight: 600;
+    font-size: 0.92rem;
 }
 
 /* ========== MOBILE RESPONSIVE STYLES ========== */

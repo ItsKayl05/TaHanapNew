@@ -375,7 +375,7 @@ const PropertyDetailPage = () => {
                                     {getPanoramaCount() > 0 && (
                                         <div className="panorama-section" style={{marginBottom:'2rem'}}>
                             <h3 className="section-title white">360° Panoramic Views</h3>
-                            <p className="panorama-hint" style={{color: '#ccc', fontSize: '0.9rem', marginBottom: '1rem'}}>
+                            <p className="panorama-hint" style={{color: '#000', fontSize: '0.9rem', marginBottom: '1rem'}}>
                                 Drag to explore the 360° view • Use arrows to switch between views
                             </p>
                             <div style={{ 

@@ -112,8 +112,8 @@
 }
 
 .property-search::placeholder { 
-    color:#94a3b8; 
-    opacity:.95; 
+    color:#fff; 
+    opacity:.85; 
 }
 
 .property-search:focus { 

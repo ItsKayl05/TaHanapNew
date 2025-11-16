@@ -304,7 +304,7 @@ const MapPage = () => {
             <div style={{ 
               textAlign: 'center', 
               marginTop: isMobile ? '12px' : '18px', 
-              color: '#666',
+              color: '#000',
               fontSize: isMobile ? '0.9rem' : '1rem'
             }}>
               <div>Loading properties...</div>
@@ -316,7 +316,7 @@ const MapPage = () => {
             <div style={{ 
               textAlign: 'center', 
               marginTop: isMobile ? '12px' : '18px', 
-              color: '#666',
+              color: '#000',
               fontSize: isMobile ? '0.9rem' : '1rem',
               padding: isMobile ? '16px' : '20px'
             }}>
@@ -326,7 +326,7 @@ const MapPage = () => {
               {properties.length > 0 && (
                 <div style={{ 
                   fontSize: isMobile ? '0.8rem' : '0.9rem', 
-                  color: '#718096'
+                  color: '#000'
                 }}>
                   ({properties.length} properties found but none have valid coordinates in SJDM)
                 </div>
@@ -339,7 +339,7 @@ const MapPage = () => {
             <div style={{ 
               textAlign: 'center', 
               marginTop: isMobile ? '12px' : '18px', 
-              color: '#666', 
+              color: '#000', 
               fontSize: isMobile ? '0.9rem' : '1rem' 
             }}>
               Showing {validProperties.length} properties in San Jose del Monte

@@ -22,7 +22,7 @@
 .input-wrapper { display:flex; align-items:center; gap:.55rem; background:#f1f5f9; border:1px solid #d8e2ec; border-radius:12px; padding:10px 14px; transition:border .25s, background .25s; position:relative; }
 .input-wrapper:focus-within { border-color:#6366f1; background:#fff; box-shadow:0 0 0 3px rgba(99,102,241,.25); }
 .input-wrapper input { flex:1; background:transparent; border:none; outline:none; font-size:.9rem; font-weight:500; color:#0f172a; letter-spacing:.3px; padding:2px 0; }
-.input-wrapper input::placeholder { color:#94a3b8; }
+.input-wrapper input::placeholder { color:#6b7280; }
 .input-wrapper svg { flex-shrink:0; opacity:.7; }
 .eye-icon { cursor:pointer; display:flex; align-items:center; justify-content:center; padding:2px; }
 .eye-icon:hover svg { opacity:1; }

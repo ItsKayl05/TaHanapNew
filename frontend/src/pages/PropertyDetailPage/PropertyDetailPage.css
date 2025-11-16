@@ -53,7 +53,7 @@
   margin:0 auto; 
   padding:clamp(2.4rem,3.8vw,4rem) clamp(1.15rem,2.2vw,2.25rem) 5rem; 
   font-family:'Inter',system-ui,sans-serif; 
-  color:#f1f5f9; 
+  color:#000;
 }
 
 .gradient-text { 
@@ -383,7 +383,7 @@
 .feature.floors-feature {
   background:linear-gradient(135deg,rgba(139,92,246,.15),rgba(139,92,246,.08));
   border-color:rgba(139,92,246,.3);
-  color:#c4b5fd;
+  color: #000;
 }
 
 /* Details */

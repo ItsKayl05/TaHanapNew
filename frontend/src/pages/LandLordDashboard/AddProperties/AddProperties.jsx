@@ -1016,7 +1016,7 @@ const AddProperties = () => {
                   <option value="">Select number</option>
                   {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n} {n === 1 ? 'Person' : 'People'}</option>)}
                 </select>
-                {propertyData.listingType === 'For Sale' && <div className="field-hint small" style={{ color: '#666' }}>Disabled for For Sale listings</div>}
+                {propertyData.listingType === 'For Sale' && <div className="field-hint small" style={{ color: '#000' }}>Disabled for For Sale listings</div>}
               </div>
 
               <div className="form-group toggle-field">
@@ -1069,7 +1069,7 @@ const AddProperties = () => {
                     ))}
                   </div>
                 )}
-                {propertyData.listingType === 'For Sale' && <div className="field-hint small" style={{ color: '#666' }}>Pets not applicable for sale listings</div>}
+                {propertyData.listingType === 'For Sale' && <div className="field-hint small" style={{ color: '#000' }}>Pets not applicable for sale listings</div>}
               </div>
 
               <div className="form-group full">
@@ -1117,7 +1117,7 @@ const AddProperties = () => {
               <div className="form-group full">
                 <label>House Rules</label>
                 <textarea className="ll-field" name="rules" value={propertyData.rules} onChange={handleInputChange} placeholder="No loud noises after 10 PM, No smoking inside" rows={isMobile ? 2 : 3} disabled={propertyData.listingType === 'For Sale'} />
-                {propertyData.listingType === 'For Sale' && <div className="field-hint small" style={{ color: '#666' }}>Not used for sale listings</div>}
+                {propertyData.listingType === 'For Sale' && <div className="field-hint small" style={{ color: '#000' }}>Not used for sale listings</div>}
               </div>
 
               <div className={`form-row ${isMobile ? 'mobile-column' : ''}`}>
@@ -1221,8 +1221,8 @@ const AddProperties = () => {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <h3 style={{ margin: 0 }}>Map Preview (SJDM only)</h3>
                     {isGeocoding && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9em', color: '#666' }}>
-                        <div style={{ width: '16px', height: '16px', border: '2px solid #666', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9em', color: '#000' }}>
+                        <div style={{ width: '16px', height: '16px', border: '2px solid #000', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
                         Finding location...
                       </div>
                     )}
@@ -1273,9 +1273,9 @@ const AddProperties = () => {
                         <Popup>
                           <div style={{ fontSize: '0.9em', padding: '4px' }}>
                             <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>{propertyData.propertyType || 'New Property'}</div>
-                            <div style={{ color: '#666', marginBottom: '4px' }}>{propertyData.address}</div>
+                            <div style={{ color: '#000', marginBottom: '4px' }}>{propertyData.address}</div>
                             {propertyData.price && <div style={{ color: '#2c5282', fontWeight: 'bold', marginBottom: '4px' }}>₱{propertyData.price}</div>}
-                            <div style={{ fontSize: '0.8em', color: '#666', marginTop: '8px' }}>
+                            <div style={{ fontSize: '0.8em', color: '#000', marginTop: '8px' }}>
                               {propertyData.manualPin ? '✏️ Manually placed' : '🎯 Auto-located'}<br />
                               Drag pin or click map to adjust
                             </div>

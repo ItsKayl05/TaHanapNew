@@ -333,7 +333,7 @@ const PropertyMap = () => {
             <div style={{ 
               textAlign: 'center', 
               marginTop: isMobile ? '12px' : '18px', 
-              color: '#666',
+              color: '#000',
               fontSize: isMobile ? '0.8rem' : '0.9rem'
             }}>
               <div>Loading properties...</div>
@@ -347,7 +347,7 @@ const PropertyMap = () => {
             <div style={{ 
               textAlign: 'center', 
               marginTop: isMobile ? '12px' : '18px', 
-              color: '#666',
+              color: '#000',
               fontSize: isMobile ? '0.8rem' : '0.9rem'
             }}>
               No properties found in San Jose del Monte area.
@@ -366,7 +366,7 @@ const PropertyMap = () => {
             <div style={{ 
               textAlign: 'center', 
               marginTop: isMobile ? '12px' : '18px', 
-              color: '#666', 
+              color: '#000', 
               fontSize: isMobile ? '0.8rem' : '0.9rem' 
             }}>
               Showing {validProperties.length} properties in San Jose del Monte
@@ -382,7 +382,7 @@ const PropertyMap = () => {
             background: '#f8f9fa',
             borderRadius: '8px',
             fontSize: '0.75rem',
-            color: '#666',
+            color: '#000',
             textAlign: 'center',
             border: '1px solid #e9ecef'
           }}>

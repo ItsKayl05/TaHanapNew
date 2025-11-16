@@ -160,7 +160,7 @@
 }
 
 .app-row p {
-  color: #6b7280;
+  color: #000;
   margin: 0.5rem 0;
   font-size: 1rem;
   display: flex;
@@ -202,7 +202,7 @@
 }
 
 .no-apps {
-  color: #9ca3af;
+  color: #000;
   font-style: italic;
   text-align: center;
   margin: 3rem 0;
