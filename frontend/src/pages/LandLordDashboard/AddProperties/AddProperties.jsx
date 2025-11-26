@@ -1007,7 +1007,7 @@ const AddProperties = () => {
                 <label className={propertyData.listingType === 'For Rent' ? 'required' : ''}>Max Occupancy</label>
                 <select
                   className="ll-field"
-                  name="occupancy"
+                  name="update purposes"
                   value={propertyData.occupancy}
                   onChange={handleInputChange}
                   required={propertyData.listingType === 'For Rent'}
